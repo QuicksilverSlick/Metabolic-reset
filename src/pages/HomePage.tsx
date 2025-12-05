@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, TrendingDown, Battery, Brain, Activity, Users, ShieldCheck } from 'lucide-react';
+import { TrendingDown, Battery, Brain, ShieldCheck, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
+import { LeadGenModal } from '@/components/lead-gen-modal';
 export function HomePage() {
   const navigate = useNavigate();
+  const [isLeadGenOpen, setIsLeadGenOpen] = useState(false);
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
     whileInView: { opacity: 1, y: 0 },
@@ -14,6 +16,7 @@ export function HomePage() {
   };
   return (
     <MarketingLayout>
+      <LeadGenModal open={isLeadGenOpen} onOpenChange={setIsLeadGenOpen} />
       {/* HERO SECTION */}
       <section className="relative bg-navy-900 text-white overflow-hidden">
         {/* Updated Hero Image */}
@@ -42,9 +45,10 @@ export function HomePage() {
                 <Button
                   variant="outline"
                   size="lg"
+                  onClick={() => setIsLeadGenOpen(true)}
                   className="border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white text-lg px-8 py-6 rounded-full"
                 >
-                  How It Works
+                  Get the Free Metabolic Checklist
                 </Button>
               </div>
               <p className="mt-4 text-sm text-slate-400">
@@ -153,7 +157,7 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      {/* GUIDE SECTION (Empathy & Authority) - NEW */}
+      {/* GUIDE SECTION (Empathy & Authority) - UPDATED WITH TESTIMONIALS */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -187,25 +191,19 @@ export function HomePage() {
               <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-6">
                 Guided by Science & Community.
               </h2>
-              <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
                 We’ve guided thousands of people through this reset. We understand that bodies change after 50. That's why we built a program that focuses on data, not deprivation.
               </p>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed font-medium border-l-4 border-orange-500 pl-4">
-                We provide the roadmap; you provide the effort.
-              </p>
-              <div className="flex items-center gap-4">
-                 <div className="flex -space-x-3">
-                    {[1,2,3,4].map(i => (
-                        <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
-                           <div className={`w-full h-full bg-navy-${i*100+300} flex items-center justify-center text-white text-xs`}>
-                              <Users className="w-5 h-5 opacity-50" />
-                           </div>
-                        </div>
-                    ))}
-                 </div>
-                 <div className="text-sm text-slate-500">
-                    Join <span className="font-bold text-navy-900">2,000+</span> Challengers
-                 </div>
+              {/* Specific Testimonials */}
+              <div className="space-y-6 border-l-4 border-orange-500 pl-6">
+                <blockquote className="text-slate-700 italic">
+                  "I lost 4 years of metabolic age in one month! I didn't realize how much inflammation I was carrying until I saw the data."
+                  <footer className="text-sm font-bold text-navy-900 mt-2 not-italic">— Sarah, 54</footer>
+                </blockquote>
+                <blockquote className="text-slate-700 italic">
+                  "Finally, a plan that explains WHY, not just HOW. The daily lessons changed my relationship with food forever."
+                  <footer className="text-sm font-bold text-navy-900 mt-2 not-italic">— Mark, 62</footer>
+                </blockquote>
               </div>
             </motion.div>
           </div>
@@ -262,41 +260,34 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      {/* SOCIAL PROOF */}
-      <section id="stories" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-display font-bold text-center text-navy-900 mb-16">
-            Real Results from the Study
+      {/* NEW SECTION: WHY $28? */}
+      <section className="py-20 bg-slate-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 mb-6">
+            <HelpCircle className="w-8 h-8 text-orange-500" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-6">
+            Why do we charge $28?
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {[
-              {
-                quote: "I lost 4 years of metabolic age in one month! I didn't realize how much inflammation I was carrying until I saw the data.",
-                author: "Sarah, 54",
-                role: "Challenger"
-              },
-              {
-                quote: "Finally, a plan that explains WHY, not just HOW. The daily lessons changed my relationship with food forever.",
-                author: "Mark, 62",
-                role: "Challenger"
-              }
-            ].map((testimonial, i) => (
-              <div key={i} className="bg-slate-50 p-8 rounded-2xl border border-slate-100">
-                <div className="flex gap-1 mb-4">
-                  {[1,2,3,4,5].map(s => <div key={s} className="w-5 h-5 text-orange-500 fill-current">★</div>)}
-                </div>
-                <p className="text-lg text-slate-700 italic mb-6">"{testimonial.quote}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-navy-200 flex items-center justify-center text-navy-700 font-bold">
-                    {testimonial.author[0]}
-                  </div>
-                  <div>
-                    <div className="font-bold text-navy-900">{testimonial.author}</div>
-                    <div className="text-sm text-slate-500">{testimonial.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+            We used to offer free challenges, but we found that people who don't pay, don't pay attention. We want you to succeed. By betting $28 on yourself, you are making a psychological commitment to show up.
+          </p>
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm inline-block text-left max-w-2xl">
+            <h3 className="font-bold text-navy-900 mb-2 flex items-center gap-2">
+              <span className="bg-navy-900 text-white text-xs px-2 py-1 rounded">COACH OPTION</span>
+              Are you an Optivia Coach?
+            </h3>
+            <p className="text-slate-600 text-sm mb-4">
+              Register as a Captain ($49) to lead a team and access advanced study data.
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/register')}
+              className="text-orange-600 border-orange-200 hover:bg-orange-50"
+            >
+              Register as Captain
+            </Button>
           </div>
         </div>
       </section>
