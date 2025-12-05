@@ -19,25 +19,8 @@ app.use('/api/*', cors({
 }));
 // Register User Routes
 userRoutes(app);
-// Health Check
-app.get('/api/health', (c) => c.json({
-  success: true,
-  data: {
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: 'v2.0.0'
-  }
-}));
-// Client Error Reporting Endpoint
-app.post('/api/client-errors', async (c) => {
-  try {
-    const body = await c.req.json();
-    console.error('[CLIENT_REPORT]', JSON.stringify(body, null, 2));
-    return c.json({ success: true });
-  } catch (e) {
-    return c.json({ success: false }, 400);
-  }
-});
+// Health Check Root
+app.get('/', (c) => c.text('Worker is running'));
 // Global Error Handling
 app.onError((err, c) => {
   console.error(`[Uncaught Exception] ${err}`);
