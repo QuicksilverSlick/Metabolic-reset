@@ -3,22 +3,73 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-
-// Minimal real-world chat example types (shared by frontend and worker)
+export type UserRole = 'challenger' | 'coach';
 export interface User {
   id: string;
+  phone: string;
+  email: string;
   name: string;
+  role: UserRole;
+  captainId: string | null;
+  referralCode: string;
+  timezone: string;
+  points: number;
+  createdAt: number; // Unix timestamp
+  isActive: boolean;
+  hasScale: boolean;
+  stripeCustomerId?: string;
 }
-
-export interface Chat {
-  id: string;
-  title: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  chatId: string;
+export interface DailyScore {
+  id: string; // Format: userId:YYYY-MM-DD
   userId: string;
-  text: string;
-  ts: number; // epoch millis
+  date: string; // YYYY-MM-DD
+  habits: {
+    water: boolean;
+    steps: boolean;
+    sleep: boolean;
+    lesson: boolean;
+  };
+  totalPoints: number;
+  updatedAt: number;
+}
+export interface WeeklyBiometric {
+  id: string; // Format: userId:weekN
+  userId: string;
+  weekNumber: number;
+  weight: number;
+  bodyFat: number;
+  visceralFat: number;
+  leanMass: number;
+  metabolicAge: number;
+  screenshotUrl: string;
+  pointsAwarded: number;
+  submittedAt: number;
+}
+// DTOs
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+  referralCodeUsed?: string; // The code they entered to join
+  isCaptain?: boolean; // If they want to be their own captain
+  timezone?: string;
+}
+export interface ScoreSubmitRequest {
+  date: string; // YYYY-MM-DD
+  habits: {
+    water?: boolean;
+    steps?: boolean;
+    sleep?: boolean;
+    lesson?: boolean;
+  };
+}
+export interface BiometricSubmitRequest {
+  weekNumber: number;
+  weight: number;
+  bodyFat: number;
+  visceralFat: number;
+  leanMass: number;
+  metabolicAge: number;
+  screenshotUrl: string;
 }
