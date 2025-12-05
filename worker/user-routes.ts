@@ -26,7 +26,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       captainId = userId; // They are their own captain
     } else if (body.referralCodeUsed) {
       // Lookup referrer
-      const refEntity = new ReferralCodeEntity(c.env, body.referralCodeUsed.toUpperCase());
+      const code = String(body.referralCodeUsed).toUpperCase();
+      const refEntity = new ReferralCodeEntity(c.env, code);
       if (await refEntity.exists()) {
         const { userId: referrerId } = await refEntity.getState();
         const referrer = new UserEntity(c.env, referrerId);

@@ -36,7 +36,8 @@ export function BiometricsPage() {
     setIsProcessing(true);
     try {
       // Compress image using native utility
-      const base64data = await compressImage(file, 1200, 0.7);
+      // Reduced to 800px and 0.5 quality to ensure it fits in DO storage (128KB limit)
+      const base64data = await compressImage(file, 800, 0.5);
       // Submit
       submitMutation.mutate({
         weekNumber: 1, // Hardcoded for Phase 1/2/3, dynamic later
