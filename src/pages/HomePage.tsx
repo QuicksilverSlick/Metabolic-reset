@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, TrendingDown, Battery, Brain, Activity } from 'lucide-react';
+import { ArrowRight, CheckCircle2, TrendingDown, Battery, Brain, Activity, Users, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
@@ -16,8 +16,9 @@ export function HomePage() {
     <MarketingLayout>
       {/* HERO SECTION */}
       <section className="relative bg-navy-900 text-white overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-10 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-navy-900/50 to-navy-900"></div>
+        {/* Updated Hero Image */}
+        <div className="absolute inset-0 bg-[url('https://app.getdreamforge.com/api/generated/3584470a-4ec7-4006-8eac-7c761bc87ece.jpeg')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-navy-900/80 via-navy-900/60 to-navy-900"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-40">
           <div className="max-w-3xl">
             <motion.div {...fadeIn}>
@@ -31,15 +32,15 @@ export function HomePage() {
                 Join the science-backed challenge that helps you lose visceral fat, sleep better, and reclaim your energy. Don't just diet—join the study.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   onClick={() => navigate('/register')}
                   className="bg-orange-500 hover:bg-orange-600 text-white text-lg px-8 py-6 rounded-full shadow-glow hover:shadow-lg hover:-translate-y-1 transition-all"
                 >
                   Join the Challenge - $28
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
                   className="border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white text-lg px-8 py-6 rounded-full"
                 >
@@ -57,7 +58,7 @@ export function HomePage() {
       <section id="problem" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -87,7 +88,7 @@ export function HomePage() {
                 ))}
               </div>
             </motion.div>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
@@ -95,9 +96,10 @@ export function HomePage() {
               className="relative"
             >
               <div className="absolute -inset-4 bg-orange-100 rounded-3xl transform rotate-3"></div>
-              <img 
-                src="https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=2070&auto=format&fit=crop" 
-                alt="Frustrated person looking at health data" 
+              {/* Updated Problem Image */}
+              <img
+                src="https://app.getdreamforge.com/api/generated/7ff632a3-dfdf-4b1b-b31d-ab4844fa1b02.jpeg"
+                alt="Frustrated person looking at health data"
                 className="relative rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
             </motion.div>
@@ -133,7 +135,7 @@ export function HomePage() {
                 desc: "Turn back the clock and prove that age is just a number."
               }
             ].map((card, i) => (
-              <motion.div 
+              <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -148,6 +150,64 @@ export function HomePage() {
                 <p className="text-slate-600 leading-relaxed">{card.desc}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+      {/* GUIDE SECTION (Empathy & Authority) - NEW */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+             {/* Image Side (Left on Desktop for alternation) */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="relative order-2 lg:order-1"
+            >
+               <div className="absolute -inset-4 bg-navy-100 rounded-3xl transform -rotate-3"></div>
+               <img
+                src="https://app.getdreamforge.com/api/generated/2175cc86-5368-47d1-a9c9-9e9cb950ac0b.jpeg"
+                alt="Coach guiding a participant"
+                className="relative rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </motion.div>
+            {/* Text Side (Right on Desktop) */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="order-1 lg:order-2"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <ShieldCheck className="w-6 h-6 text-orange-500" />
+                <span className="text-orange-500 font-bold tracking-wide uppercase text-sm">Trusted Guidance</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-6">
+                Guided by Science & Community.
+              </h2>
+              <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+                We’ve guided thousands of people through this reset. We understand that bodies change after 50. That's why we built a program that focuses on data, not deprivation.
+              </p>
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed font-medium border-l-4 border-orange-500 pl-4">
+                We provide the roadmap; you provide the effort.
+              </p>
+              <div className="flex items-center gap-4">
+                 <div className="flex -space-x-3">
+                    {[1,2,3,4].map(i => (
+                        <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
+                           <div className={`w-full h-full bg-navy-${i*100+300} flex items-center justify-center text-white text-xs`}>
+                              <Users className="w-5 h-5 opacity-50" />
+                           </div>
+                        </div>
+                    ))}
+                 </div>
+                 <div className="text-sm text-slate-500">
+                    Join <span className="font-bold text-navy-900">2,000+</span> Challengers
+                 </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -192,8 +252,8 @@ export function HomePage() {
             ))}
           </div>
           <div className="mt-16 text-center">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={() => navigate('/register')}
               className="bg-orange-500 hover:bg-orange-600 text-white text-lg px-12 py-6 rounded-full shadow-lg hover:scale-105 transition-transform"
             >
@@ -249,8 +309,8 @@ export function HomePage() {
           <p className="text-xl text-orange-100 mb-10 max-w-2xl mx-auto">
             The next 28 days are going to pass anyway. Do you want to be in the same place, or do you want to be metabolically younger?
           </p>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             onClick={() => navigate('/register')}
             className="bg-white text-orange-600 hover:bg-slate-100 text-xl px-12 py-8 rounded-full shadow-xl font-bold"
           >
