@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { errorReporter } from '@/lib/errorReporter';
 import { ErrorFallback } from './ErrorFallback';
 export function RouteErrorBoundary() {
-  // Unconditionally call the hook at the top level
+  // Hook called unconditionally at the top level
   const error = useRouteError();
   useEffect(() => {
     if (error) {

@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useSubmitBiometrics } from '@/hooks/use-queries';
-import imageCompression from 'browser-image-compression';
+import { compressImage } from '@/lib/image-utils';
 const biometricsSchema = z.object({
   weight: z.string().min(1, "Weight is required"),
   bodyFat: z.string().min(1, "Body Fat % is required"),
@@ -35,40 +35,30 @@ export function BiometricsPage() {
     }
     setIsProcessing(true);
     try {
-      // Compress image
-      const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1200,
-        useWebWorker: true
-      };
-      const compressedFile = await imageCompression(file, options);
-      // Convert to Base64
-      const reader = new FileReader();
-      reader.readAsDataURL(compressedFile);
-      reader.onloadend = () => {
-        const base64data = reader.result as string;
-        // Submit
-        submitMutation.mutate({
-          weekNumber: 1, // Hardcoded for Phase 1/2/3, dynamic later
-          weight: parseFloat(data.weight),
-          bodyFat: parseFloat(data.bodyFat),
-          visceralFat: parseFloat(data.visceralFat),
-          leanMass: parseFloat(data.leanMass),
-          metabolicAge: parseFloat(data.metabolicAge),
-          screenshotUrl: base64data // Sending base64 directly for now
-        }, {
-          onSuccess: () => {
-            setIsSuccess(true);
-            setIsProcessing(false);
-          },
-          onError: () => {
-            setIsProcessing(false);
-          }
-        });
-      };
+      // Compress image using native utility
+      const base64data = await compressImage(file, 1200, 0.7);
+      // Submit
+      submitMutation.mutate({
+        weekNumber: 1, // Hardcoded for Phase 1/2/3, dynamic later
+        weight: parseFloat(data.weight),
+        bodyFat: parseFloat(data.bodyFat),
+        visceralFat: parseFloat(data.visceralFat),
+        leanMass: parseFloat(data.leanMass),
+        metabolicAge: parseFloat(data.metabolicAge),
+        screenshotUrl: base64data
+      }, {
+        onSuccess: () => {
+          setIsSuccess(true);
+          setIsProcessing(false);
+        },
+        onError: () => {
+          setIsProcessing(false);
+        }
+      });
     } catch (error) {
-      console.error('Compression failed', error);
+      console.error('Compression or submission failed', error);
       setIsProcessing(false);
+      alert('Failed to process image. Please try again.');
     }
   };
   if (isSuccess) {

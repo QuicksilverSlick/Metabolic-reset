@@ -18,6 +18,8 @@ import { HomePage } from '@/pages/HomePage';
 import { RegistrationPage } from '@/pages/auth/RegistrationPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { BiometricsPage } from '@/pages/app/BiometricsPage';
+import { RosterPage } from '@/pages/app/RosterPage';
+import { ProfilePage } from '@/pages/app/ProfilePage';
 import { AppLayout } from '@/components/layout/AppLayout';
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
@@ -50,11 +52,11 @@ const router = createBrowserRouter([
       },
       {
         path: "profile",
-        element: <div className="p-8 text-center text-slate-500">Profile Settings (Coming Soon)</div>
+        element: <ProfilePage />
       },
       {
         path: "roster",
-        element: <div className="p-8 text-center text-slate-500">Team Roster (Coming Soon)</div>
+        element: <RosterPage />
       }
     ]
   }

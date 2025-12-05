@@ -1,16 +1,16 @@
 import { api } from './api-client';
-import { 
-  User, 
-  RegisterRequest, 
-  DailyScore, 
-  ScoreSubmitRequest, 
-  WeeklyBiometric, 
-  BiometricSubmitRequest 
+import {
+  User,
+  RegisterRequest,
+  DailyScore,
+  ScoreSubmitRequest,
+  WeeklyBiometric,
+  BiometricSubmitRequest
 } from '@shared/types';
 export const authApi = {
-  register: (data: RegisterRequest) => 
+  register: (data: RegisterRequest) =>
     api<User>('/api/register', { method: 'POST', body: JSON.stringify(data) }),
-  getMe: (userId: string) => 
+  getMe: (userId: string) =>
     api<User>('/api/me', { headers: { 'X-User-ID': userId } }),
   createPaymentIntent: (amount: number) =>
     api<{ clientSecret: string | null; mock: boolean }>('/api/create-payment-intent', {
@@ -35,4 +35,8 @@ export const biometricApi = {
       body: JSON.stringify(data),
       headers: { 'X-User-ID': userId }
     }),
+};
+export const rosterApi = {
+  getTeamRoster: (userId: string) =>
+    api<User[]>('/api/roster', { headers: { 'X-User-ID': userId } }),
 };

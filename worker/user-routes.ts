@@ -4,6 +4,10 @@ import { UserEntity, ReferralCodeEntity, DailyScoreEntity, WeeklyBiometricEntity
 import { ok, bad, notFound } from './core-utils';
 import type { RegisterRequest, ScoreSubmitRequest, BiometricSubmitRequest, User } from "@shared/types";
 import Stripe from 'stripe';
+// Extend Env to include Stripe key which might not be in the base Env type
+interface ExtendedEnv extends Env {
+  STRIPE_SECRET_KEY?: string;
+}
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // REGISTER
   app.post('/api/register', async (c) => {
@@ -153,15 +157,30 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     await userEntity.mutate(u => ({ ...u, points: u.points + 25 }));
     return ok(c, bioData);
   });
+  // GET ROSTER (Coach Only)
+  app.get('/api/roster', async (c) => {
+    const userId = c.req.header('X-User-ID');
+    if (!userId) return bad(c, 'User ID required');
+    const userEntity = new UserEntity(c.env, userId);
+    if (!await userEntity.exists()) return notFound(c, 'User not found');
+    const user = await userEntity.getState();
+    if (user.role !== 'coach') return bad(c, 'Access denied: Coaches only');
+    // Fetch all users and filter (MVP approach)
+    // In production, we'd use a secondary index or a dedicated RosterEntity
+    const { items: allUsers } = await UserEntity.list(c.env, null, 1000);
+    const recruits = allUsers.filter(u => u.captainId === userId);
+    return ok(c, recruits);
+  });
   // CREATE PAYMENT INTENT
   app.post('/api/create-payment-intent', async (c) => {
     const { amount, currency = 'usd' } = await c.req.json() as any;
+    const env = c.env as ExtendedEnv;
     // Mock mode if no key
-    if (!c.env.STRIPE_SECRET_KEY) {
+    if (!env.STRIPE_SECRET_KEY) {
       return ok(c, { clientSecret: null, mock: true });
     }
     try {
-      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+      const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency,
