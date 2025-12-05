@@ -1,10 +1,10 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Scale, 
-  User, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Scale,
+  User,
+  LogOut,
   Activity,
   Users
 } from "lucide-react";
@@ -19,12 +19,13 @@ import {
   SidebarMenuButton,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { useMockStore } from "@/lib/mock-store";
+import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 export function AppSidebar(): JSX.Element {
   const location = useLocation();
-  const logout = useMockStore(s => s.logout);
-  const role = useMockStore(s => s.user.role);
+  const logout = useAuthStore(s => s.logout);
+  const user = useAuthStore(s => s.user);
+  const role = user?.role;
   const isActive = (path: string) => location.pathname === path;
   return (
     <Sidebar className="border-r border-navy-800 bg-navy-900 text-white" variant="sidebar">
@@ -43,38 +44,38 @@ export function AppSidebar(): JSX.Element {
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton 
-                asChild 
+              <SidebarMenuButton
+                asChild
                 isActive={isActive('/app')}
                 className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
               >
                 <Link to="/app">
-                  <LayoutDashboard className="h-5 w-5" /> 
+                  <LayoutDashboard className="h-5 w-5" />
                   <span className="font-medium">Dashboard</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton 
-                asChild 
+              <SidebarMenuButton
+                asChild
                 isActive={isActive('/app/biometrics')}
                 className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
               >
                 <Link to="/app/biometrics">
-                  <Scale className="h-5 w-5" /> 
+                  <Scale className="h-5 w-5" />
                   <span className="font-medium">Weekly Study</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             {role === 'coach' && (
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
+                <SidebarMenuButton
+                  asChild
                   isActive={isActive('/app/roster')}
                   className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
                 >
                   <Link to="/app/roster">
-                    <Users className="h-5 w-5" /> 
+                    <Users className="h-5 w-5" />
                     <span className="font-medium">Team Roster</span>
                   </Link>
                 </SidebarMenuButton>
@@ -86,12 +87,12 @@ export function AppSidebar(): JSX.Element {
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton 
+              <SidebarMenuButton
                 asChild
                 className="text-slate-300 hover:text-white hover:bg-navy-800"
               >
                 <Link to="/app/profile">
-                  <User className="h-5 w-5" /> 
+                  <User className="h-5 w-5" />
                   <span className="font-medium">My Profile</span>
                 </Link>
               </SidebarMenuButton>
@@ -100,8 +101,8 @@ export function AppSidebar(): JSX.Element {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="bg-navy-950 p-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="w-full justify-start text-slate-400 hover:text-white hover:bg-navy-800"
           onClick={() => logout()}
         >

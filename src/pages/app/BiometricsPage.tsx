@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useMockStore } from '@/lib/mock-store';
 import { useNavigate } from 'react-router-dom';
+import { useSubmitBiometrics } from '@/hooks/use-queries';
+import imageCompression from 'browser-image-compression';
 const biometricsSchema = z.object({
   weight: z.string().min(1, "Weight is required"),
   bodyFat: z.string().min(1, "Body Fat % is required"),
@@ -20,10 +21,10 @@ const biometricsSchema = z.object({
 type BiometricsForm = z.infer<typeof biometricsSchema>;
 export function BiometricsPage() {
   const navigate = useNavigate();
-  const submitBiometrics = useMockStore(s => s.submitBiometrics);
-  const isSubmitted = useMockStore(s => s.biometrics.submittedThisWeek);
+  const submitMutation = useSubmitBiometrics();
   const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<BiometricsForm>({
     resolver: zodResolver(biometricsSchema)
   });
@@ -32,14 +33,45 @@ export function BiometricsPage() {
       alert("Please upload a screenshot of your scale app.");
       return;
     }
-    setIsUploading(true);
-    // Simulate upload
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    submitBiometrics();
-    setIsUploading(false);
-    navigate('/app');
+    setIsProcessing(true);
+    try {
+      // Compress image
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true
+      };
+      const compressedFile = await imageCompression(file, options);
+      // Convert to Base64
+      const reader = new FileReader();
+      reader.readAsDataURL(compressedFile);
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        // Submit
+        submitMutation.mutate({
+          weekNumber: 1, // Hardcoded for Phase 1/2/3, dynamic later
+          weight: parseFloat(data.weight),
+          bodyFat: parseFloat(data.bodyFat),
+          visceralFat: parseFloat(data.visceralFat),
+          leanMass: parseFloat(data.leanMass),
+          metabolicAge: parseFloat(data.metabolicAge),
+          screenshotUrl: base64data // Sending base64 directly for now
+        }, {
+          onSuccess: () => {
+            setIsSuccess(true);
+            setIsProcessing(false);
+          },
+          onError: () => {
+            setIsProcessing(false);
+          }
+        });
+      };
+    } catch (error) {
+      console.error('Compression failed', error);
+      setIsProcessing(false);
+    }
   };
-  if (isSubmitted) {
+  if (isSuccess) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
         <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -104,9 +136,9 @@ export function BiometricsPage() {
           </CardHeader>
           <CardContent>
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-              <input 
-                type="file" 
-                accept="image/*" 
+              <input
+                type="file"
+                accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
@@ -136,12 +168,12 @@ export function BiometricsPage() {
           </CardContent>
         </Card>
         <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            disabled={isUploading}
+          <Button
+            type="submit"
+            disabled={isProcessing}
             className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 text-lg rounded-full shadow-lg"
           >
-            {isUploading ? 'Uploading...' : 'Submit Data (+25 Pts)'}
+            {isProcessing ? <><Loader2 className="animate-spin mr-2" /> Uploading...</> : 'Submit Data (+25 Pts)'}
           </Button>
         </div>
       </form>

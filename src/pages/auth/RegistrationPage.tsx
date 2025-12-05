@@ -3,15 +3,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft } from 'lucide-react';
+import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useMockStore } from '@/lib/mock-store';
 import { useNavigate } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
+import { useRegister, usePaymentIntent } from '@/hooks/use-queries';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+// Initialize Stripe (will be null if key is missing, handled gracefully)
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 // Validation Schemas
 const personalInfoSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -19,13 +23,55 @@ const personalInfoSchema = z.object({
   phone: z.string().min(10, "Valid phone number required"),
 });
 type PersonalInfo = z.infer<typeof personalInfoSchema>;
+function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setProcessing(true);
+    const { error: submitError } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.origin + '/app', // We handle redirect manually in this flow usually, but Stripe redirects. 
+        // For this wizard, we might want to just authorize and not redirect? 
+        // Stripe Elements confirmPayment usually redirects. 
+        // To avoid redirect, we can use redirect: 'if_required'.
+      },
+      redirect: 'if_required'
+    });
+    if (submitError) {
+      setError(submitError.message || 'Payment failed');
+      setProcessing(false);
+    } else {
+      onSuccess();
+    }
+  };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <PaymentElement />
+      {error && <div className="text-red-500 text-sm">{error}</div>}
+      <Button 
+        type="submit" 
+        disabled={!stripe || processing} 
+        className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
+      >
+        {processing ? <Loader2 className="animate-spin mr-2" /> : 'Pay Now'}
+      </Button>
+    </form>
+  );
+}
 export function RegistrationPage() {
   const navigate = useNavigate();
-  const login = useMockStore(s => s.login);
+  const registerMutation = useRegister();
+  const paymentIntentMutation = usePaymentIntent();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<'challenger' | 'coach'>('challenger');
   const [formData, setFormData] = useState<PersonalInfo | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isMockPayment, setIsMockPayment] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<PersonalInfo>({
     resolver: zodResolver(personalInfoSchema)
   });
@@ -33,15 +79,34 @@ export function RegistrationPage() {
     setFormData(data);
     setStep(2);
   };
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsProcessing(false);
-    setStep(4);
-    // Update store
-    if (formData) {
-      login(formData.name, role);
+  const handleRoleSelection = async () => {
+    setStep(3);
+    // Initialize Payment Intent
+    const amount = role === 'coach' ? 4900 : 2800;
+    try {
+      const { clientSecret, mock } = await paymentIntentMutation.mutateAsync(amount);
+      if (mock) {
+        setIsMockPayment(true);
+      } else {
+        setClientSecret(clientSecret);
+      }
+    } catch (err) {
+      console.error('Payment init failed', err);
+      // Fallback to mock if API fails (dev resilience)
+      setIsMockPayment(true);
+    }
+  };
+  const handlePaymentSuccess = async () => {
+    if (!formData) return;
+    try {
+      await registerMutation.mutateAsync({
+        ...formData,
+        role,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
+      setStep(4);
+    } catch (err) {
+      // Error handled by mutation hook toast
     }
   };
   const variants = {
@@ -61,7 +126,7 @@ export function RegistrationPage() {
               <span>Payment</span>
             </div>
             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-orange-500 transition-all duration-500 ease-in-out"
                 style={{ width: `${(step / 4) * 100}%` }}
               ></div>
@@ -130,7 +195,6 @@ export function RegistrationPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <RadioGroup value={role} onValueChange={(v) => setRole(v as 'challenger' | 'coach')}>
-                      {/* Challenger Option */}
                       <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'challenger' ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-200 hover:border-orange-200'}`}>
                         <RadioGroupItem value="challenger" id="challenger" className="mt-1" />
                         <div className="flex-1" onClick={() => setRole('challenger')}>
@@ -144,7 +208,6 @@ export function RegistrationPage() {
                         </div>
                         <User className="h-6 w-6 text-slate-400" />
                       </div>
-                      {/* Coach Option */}
                       <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'coach' ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-200 hover:border-orange-200'}`}>
                         <RadioGroupItem value="coach" id="coach" className="mt-1" />
                         <div className="flex-1" onClick={() => setRole('coach')}>
@@ -161,7 +224,7 @@ export function RegistrationPage() {
                     </RadioGroup>
                   </CardContent>
                   <CardFooter>
-                    <Button onClick={() => setStep(3)} className="w-full bg-navy-900 hover:bg-navy-800 text-white">
+                    <Button onClick={handleRoleSelection} className="w-full bg-navy-900 hover:bg-navy-800 text-white">
                       Proceed to Payment <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </CardFooter>
@@ -190,28 +253,31 @@ export function RegistrationPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-center gap-3">
-                      <div className="bg-white p-2 rounded border border-slate-200">
-                        <CreditCard className="h-6 w-6 text-slate-600" />
+                    {isMockPayment ? (
+                      <div className="text-center py-8">
+                        <div className="bg-orange-50 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                          <CreditCard className="h-8 w-8 text-orange-500" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Demo Mode</h3>
+                        <p className="text-slate-500 mb-6">Stripe keys not configured. Proceeding with mock payment.</p>
+                        <Button 
+                          onClick={handlePaymentSuccess}
+                          disabled={registerMutation.isPending}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
+                        >
+                          {registerMutation.isPending ? <Loader2 className="animate-spin" /> : 'Complete Registration (Mock)'}
+                        </Button>
                       </div>
-                      <div className="flex-1">
-                        <div className="h-2.5 bg-slate-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-2.5 bg-slate-200 rounded w-1/2"></div>
+                    ) : clientSecret ? (
+                      <Elements stripe={stripePromise} options={{ clientSecret }}>
+                        <PaymentForm onSuccess={handlePaymentSuccess} />
+                      </Elements>
+                    ) : (
+                      <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
                       </div>
-                    </div>
-                    <p className="text-xs text-slate-500 text-center">
-                      This is a secure 256-bit SSL encrypted payment.
-                    </p>
+                    )}
                   </CardContent>
-                  <CardFooter>
-                    <Button 
-                      onClick={handlePayment} 
-                      disabled={isProcessing}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
-                    >
-                      {isProcessing ? 'Processing...' : `Pay $${role === 'coach' ? '49.00' : '28.00'}`}
-                    </Button>
-                  </CardFooter>
                 </Card>
               </motion.div>
             )}
@@ -234,7 +300,7 @@ export function RegistrationPage() {
                     <p className="text-slate-600 mb-8 max-w-xs mx-auto">
                       Welcome to the Metabolic Reset. Your journey starts now.
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => navigate('/app')}
                       className="w-full bg-navy-900 hover:bg-navy-800 text-white py-6 text-lg"
                     >

@@ -1,7 +1,7 @@
 import React from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { useMockStore } from "@/lib/mock-store";
+import { useAuthStore } from "@/lib/auth-store";
 import { Navigate } from "react-router-dom";
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -10,7 +10,7 @@ type AppLayoutProps = {
   contentClassName?: string;
 };
 export function AppLayout({ children, container = false, className, contentClassName }: AppLayoutProps): JSX.Element {
-  const isAuthenticated = useMockStore(s => s.user.isAuthenticated);
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }

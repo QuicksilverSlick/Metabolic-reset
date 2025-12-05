@@ -3,6 +3,7 @@ import type { Env } from './core-utils';
 import { UserEntity, ReferralCodeEntity, DailyScoreEntity, WeeklyBiometricEntity } from "./entities";
 import { ok, bad, notFound } from './core-utils';
 import type { RegisterRequest, ScoreSubmitRequest, BiometricSubmitRequest, User } from "@shared/types";
+import Stripe from 'stripe';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // REGISTER
   app.post('/api/register', async (c) => {
@@ -51,14 +52,34 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     await refMapping.save({ userId });
     return ok(c, newUser);
   });
-  // GET ME (Mock auth for now - passing userId in header or query for testing)
-  // In real app, this would use JWT/Session from headers
+  // GET ME
   app.get('/api/me', async (c) => {
     const userId = c.req.header('X-User-ID') || c.req.query('userId');
     if (!userId) return bad(c, 'User ID required (X-User-ID header)');
     const user = new UserEntity(c.env, userId);
     if (!await user.exists()) return notFound(c, 'User not found');
     return ok(c, await user.getState());
+  });
+  // GET DAILY SCORE
+  app.get('/api/scores', async (c) => {
+    const userId = c.req.header('X-User-ID');
+    const date = c.req.query('date');
+    if (!userId || !date) return bad(c, 'User ID and Date required');
+    const scoreId = `${userId}:${date}`;
+    const scoreEntity = new DailyScoreEntity(c.env, scoreId);
+    if (await scoreEntity.exists()) {
+      return ok(c, await scoreEntity.getState());
+    } else {
+      // Return default empty score structure if not found
+      return ok(c, {
+        id: scoreId,
+        userId,
+        date,
+        habits: { water: false, steps: false, sleep: false, lesson: false },
+        totalPoints: 0,
+        updatedAt: Date.now()
+      });
+    }
   });
   // SUBMIT DAILY SCORE
   app.post('/api/scores', async (c) => {
@@ -131,5 +152,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const userEntity = new UserEntity(c.env, userId);
     await userEntity.mutate(u => ({ ...u, points: u.points + 25 }));
     return ok(c, bioData);
+  });
+  // CREATE PAYMENT INTENT
+  app.post('/api/create-payment-intent', async (c) => {
+    const { amount, currency = 'usd' } = await c.req.json() as any;
+    // Mock mode if no key
+    if (!c.env.STRIPE_SECRET_KEY) {
+      return ok(c, { clientSecret: null, mock: true });
+    }
+    try {
+      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        automatic_payment_methods: { enabled: true },
+      });
+      return ok(c, { clientSecret: paymentIntent.client_secret, mock: false });
+    } catch (error) {
+      console.error('Stripe Error:', error);
+      return bad(c, 'Payment initialization failed');
+    }
   });
 }

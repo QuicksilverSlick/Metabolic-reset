@@ -1,26 +1,53 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Droplets, Footprints, Moon, PlayCircle, Scale, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Droplets, Footprints, Moon, PlayCircle, Scale, ChevronRight, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useMockStore } from '@/lib/mock-store';
 import { useNavigate } from 'react-router-dom';
+import { useUser, useDailyScore, useSubmitScore } from '@/hooks/use-queries';
+import { format } from 'date-fns';
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { user, habits, points, toggleHabit, biometrics } = useMockStore();
+  const { data: user, isLoading: userLoading } = useUser();
+  // Date logic: Get today's date in YYYY-MM-DD
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: score, isLoading: scoreLoading } = useDailyScore(today);
+  const submitScore = useSubmitScore();
   const habitItems = [
     { id: 'water', label: 'Water', icon: Droplets, color: 'text-blue-500', bg: 'bg-blue-50' },
     { id: 'steps', label: 'Steps', icon: Footprints, color: 'text-orange-500', bg: 'bg-orange-50' },
     { id: 'sleep', label: 'Sleep (7h+)', icon: Moon, color: 'text-indigo-500', bg: 'bg-indigo-50' },
     { id: 'lesson', label: 'Daily Lesson', icon: PlayCircle, color: 'text-green-500', bg: 'bg-green-50' },
   ] as const;
+  const handleToggle = (habitId: string) => {
+    if (!score) return;
+    const currentHabits = score.habits;
+    const newHabits = {
+      ...currentHabits,
+      [habitId]: !currentHabits[habitId as keyof typeof currentHabits]
+    };
+    submitScore.mutate({
+      date: today,
+      habits: newHabits
+    });
+  };
+  if (userLoading || scoreLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+  // Default empty state if no score yet (API returns null)
+  const habits = score?.habits || { water: false, steps: false, sleep: false, lesson: false };
+  const points = user?.points || 0;
   return (
     <div className="space-y-8">
       {/* Welcome & Points Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-navy-900">
-            Hello, {user.name || 'Challenger'}
+            Hello, {user?.name || 'Challenger'}
           </h1>
           <p className="text-slate-500">Let's crush your goals today.</p>
         </div>
@@ -45,19 +72,16 @@ export function DashboardPage() {
             <div>
               <h3 className="text-xl font-bold text-navy-900">Weekly Biometrics</h3>
               <p className="text-slate-600 max-w-md">
-                {biometrics.submittedThisWeek 
-                  ? "Great job! You've submitted your data for this week." 
-                  : "Log your weight and body composition to earn +25 points."}
+                Log your weight and body composition to earn +25 points.
               </p>
             </div>
           </div>
-          <Button 
+          <Button
             onClick={() => navigate('/app/biometrics')}
-            disabled={biometrics.submittedThisWeek}
-            className={`shrink-0 rounded-full px-8 py-6 text-lg ${biometrics.submittedThisWeek ? 'bg-green-500 hover:bg-green-600' : 'bg-navy-900 hover:bg-navy-800'}`}
+            className="shrink-0 rounded-full px-8 py-6 text-lg bg-navy-900 hover:bg-navy-800"
           >
-            {biometrics.submittedThisWeek ? 'Completed' : 'Log Data'}
-            {!biometrics.submittedThisWeek && <ChevronRight className="ml-2 h-5 w-5" />}
+            Log Data
+            <ChevronRight className="ml-2 h-5 w-5" />
           </Button>
         </CardContent>
       </Card>
@@ -66,16 +90,17 @@ export function DashboardPage() {
         <h2 className="text-xl font-bold text-navy-900 mb-4">Daily Habits</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {habitItems.map((habit) => {
-            const isDone = habits[habit.id];
+            const isDone = habits[habit.id as keyof typeof habits];
             const Icon = habit.icon;
             return (
               <motion.button
                 key={habit.id}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => toggleHabit(habit.id)}
+                onClick={() => handleToggle(habit.id)}
+                disabled={submitScore.isPending}
                 className={`relative p-6 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between h-40 ${
-                  isDone 
-                    ? 'bg-navy-900 border-navy-900 text-white shadow-lg' 
+                  isDone
+                    ? 'bg-navy-900 border-navy-900 text-white shadow-lg'
                     : 'bg-white border-slate-200 hover:border-orange-200 hover:shadow-md'
                 }`}
               >

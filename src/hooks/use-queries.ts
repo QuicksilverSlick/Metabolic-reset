@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest } from '@shared/types';
@@ -84,20 +84,5 @@ export function useRegister() {
 export function usePaymentIntent() {
   return useMutation({
     mutationFn: (amount: number) => authApi.createPaymentIntent(amount),
-  });
-}
-export function useTeamRoster() {
-  const userId = useAuthStore(s => s.userId);
-  return useQuery({
-    queryKey: ['roster', userId],
-    queryFn: () => userId ? rosterApi.getTeamRoster(userId) : [],
-    enabled: !!userId,
-  });
-}
-export function useSystemStats() {
-  return useQuery({
-    queryKey: ['system-stats'],
-    queryFn: statsApi.getSystemStats,
-    staleTime: 1000 * 60 * 15, // 15 minutes
   });
 }
