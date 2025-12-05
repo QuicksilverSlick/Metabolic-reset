@@ -1,82 +1,113 @@
-/* Edit this file to customize the sidebar */
 import React from "react";
-import { Home, Layers, Compass, Star, Settings, LifeBuoy } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  Scale, 
+  User, 
+  LogOut, 
+  Activity,
+  Users
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarHeader,
-  SidebarSeparator,
-  SidebarInput,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuAction,
-  SidebarMenuBadge,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
-
+import { useMockStore } from "@/lib/mock-store";
+import { Button } from "@/components/ui/button";
 export function AppSidebar(): JSX.Element {
+  const location = useLocation();
+  const logout = useMockStore(s => s.logout);
+  const role = useMockStore(s => s.user.role);
+  const isActive = (path: string) => location.pathname === path;
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="h-6 w-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-500" />
-          <span className="text-sm font-medium">Template</span>
+    <Sidebar className="border-r border-navy-800 bg-navy-900 text-white" variant="sidebar">
+      <SidebarHeader className="bg-navy-950 p-4">
+        <div className="flex items-center gap-2 px-2">
+          <div className="bg-orange-500 p-1.5 rounded-lg">
+            <Activity className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex flex-col leading-none">
+            <span className="font-display font-bold text-lg tracking-tight text-white">28 DAY</span>
+            <span className="font-display font-extrabold text-orange-500 tracking-wide text-xs">RESET</span>
+          </div>
         </div>
-        <SidebarInput placeholder="Search" />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-navy-900">
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive>
-                <a href="#"><Home /> <span>Home</span></a>
+              <SidebarMenuButton 
+                asChild 
+                isActive={isActive('/app')}
+                className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
+              >
+                <Link to="/app">
+                  <LayoutDashboard className="h-5 w-5" /> 
+                  <span className="font-medium">Dashboard</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Layers /> <span>Projects</span></a>
+              <SidebarMenuButton 
+                asChild 
+                isActive={isActive('/app/biometrics')}
+                className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
+              >
+                <Link to="/app/biometrics">
+                  <Scale className="h-5 w-5" /> 
+                  <span className="font-medium">Weekly Study</span>
+                </Link>
               </SidebarMenuButton>
-              <SidebarMenuAction>
-                <Star className="size-4" />
-              </SidebarMenuAction>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Compass /> <span>Explore</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {role === 'coach' && (
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive('/app/roster')}
+                  className="text-slate-300 hover:text-white hover:bg-navy-800 data-[active=true]:bg-navy-800 data-[active=true]:text-orange-500"
+                >
+                  <Link to="/app/roster">
+                    <Users className="h-5 w-5" /> 
+                    <span className="font-medium">Team Roster</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
-
-        <SidebarSeparator />
-
+        <SidebarSeparator className="bg-navy-800" />
         <SidebarGroup>
-          <SidebarGroupLabel>Quick Links</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Star /> <span>Starred</span></a>
-              </SidebarMenuButton>
-              <SidebarMenuBadge>5</SidebarMenuBadge>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><LifeBuoy /> <span>Support</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Settings /> <span>Settings</span></a>
+              <SidebarMenuButton 
+                asChild
+                className="text-slate-300 hover:text-white hover:bg-navy-800"
+              >
+                <Link to="/app/profile">
+                  <User className="h-5 w-5" /> 
+                  <span className="font-medium">My Profile</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <div className="px-2 text-xs text-muted-foreground">A simple shadcn sidebar</div>
+      <SidebarFooter className="bg-navy-950 p-4">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-slate-400 hover:text-white hover:bg-navy-800"
+          onClick={() => logout()}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

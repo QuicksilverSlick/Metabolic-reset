@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Activity } from 'lucide-react';
+import { Menu, X, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 interface MarketingLayoutProps {
@@ -24,21 +24,22 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
   };
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
-      {/* Header - Updated to be solid navy-900 with no border for seamless blend */}
-      <header className="sticky top-0 z-50 w-full bg-navy-900 text-white shadow-md">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-navy-900/95 backdrop-blur supports-[backdrop-filter]:bg-navy-900/80 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Updated container height and padding to accommodate larger logo */}
-          <div className="flex min-h-16 py-3 items-center justify-between">
-            {/* Logo - Increased size by 50% (h-10 -> h-[60px]) */}
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
-              <img
-                src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png"
-                alt="28 Day Reset"
-                className="h-[60px] w-auto rounded-md object-contain"
-              />
+              <div className="bg-orange-500 p-1.5 rounded-lg">
+                <Activity className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="font-display font-bold text-lg tracking-tight text-white">28 DAY</span>
+                <span className="font-display font-extrabold text-orange-500 tracking-wide text-sm">RESET</span>
+              </div>
             </Link>
-            {/* Desktop Nav - Increased gap from 8 to 12 for better spacing */}
-            <nav className="hidden md:flex items-center gap-12">
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex items-center gap-8">
               {navLinks.map((link) => (
                 <a
                   key={link.name}
@@ -48,7 +49,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                   {link.name}
                 </a>
               ))}
-              <Button
+              <Button 
                 onClick={() => navigate('/register')}
                 className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 font-semibold"
               >
@@ -76,7 +77,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                         {link.name}
                       </a>
                     ))}
-                    <Button
+                    <Button 
                       onClick={() => {
                         setIsOpen(false);
                         navigate('/register');
