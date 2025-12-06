@@ -54,7 +54,7 @@ export function HomePage() {
                   variant="outline"
                   size="lg"
                   onClick={() => setIsLeadGenOpen(true)}
-                  className="border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white text-lg px-8 py-6 rounded-full"
+                  className="border-slate-600 text-white hover:bg-white/10 hover:text-white text-lg px-8 py-6 rounded-full"
                 >
                   GET THE METABOLIC HEALTH CHECKLIST
                 </Button>
@@ -164,7 +164,7 @@ export function HomePage() {
       <section id="how-it-works" className="py-20 bg-navy-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4 text-white">
               Your Path to a Younger Metabolism is Simple.
             </h2>
           </div>
