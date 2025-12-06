@@ -24,8 +24,8 @@ export function HomePage() {
       <LeadGenModal open={isLeadGenOpen} onOpenChange={setIsLeadGenOpen} />
       {/* HERO SECTION */}
       <section className="relative bg-navy-900 text-white overflow-hidden">
-        {/* Background images */}
-        <div className="absolute inset-0 bg-[url('https://app.getdreamforge.com/api/generated/3584470a-4ec7-4006-8eac-7c761bc87ece.jpeg')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+        {/* Background images - Updated URL */}
+        <div className="absolute inset-0 bg-[url('https://app.getdreamforge.com/api/generated/71ad42fd-0082-4739-8418-65e29178b0b7.jpeg')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-navy-900/80 via-navy-900/60 to-navy-900"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-40">
           <div className="max-w-4xl">
@@ -103,9 +103,10 @@ export function HomePage() {
               className="relative"
             >
               <div className="absolute -inset-4 bg-orange-100 rounded-3xl transform rotate-3"></div>
+              {/* Updated Problem Image */}
               <img
-                src="https://app.getdreamforge.com/api/generated/7ff632a3-dfdf-4b1b-b31d-ab4844fa1b02.jpeg"
-                alt="Frustrated person looking at health data"
+                src="https://app.getdreamforge.com/api/generated/8bc7d2ff-f493-497f-96a7-d0b958d59224.jpeg"
+                alt="Woman looking concerned about health"
                 className="relative rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
             </motion.div>
@@ -211,7 +212,7 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      {/* TRANSFORMATION SECTION (New) */}
+      {/* TRANSFORMATION SECTION */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
@@ -237,48 +238,73 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      {/* GUIDE SECTION (Social Proof) */}
+      {/* GUIDE SECTION (Social Proof) - RESTRUCTURED */}
       <section id="stories" className="py-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-4">
-              Join Thousands Who Refused to 'Slow Down.'
-            </h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              We aren't influencers; we are researchers. We treat your health with clinical precision.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex gap-1 mb-4">
-                {[1,2,3,4,5].map(s => <div key={s} className="w-5 h-5 text-orange-500 fill-current">★</div>)}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column: New Guide Image */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <img
+                src="https://app.getdreamforge.com/api/generated/fe5264c6-500c-407f-ad23-308eef4253cc.jpeg"
+                alt="Empathetic guide helping a participant"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </motion.div>
+            {/* Right Column: Content & Testimonials */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <div className="mb-10">
+                <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-4">
+                  Join Thousands Who Refused to 'Slow Down.'
+                </h2>
+                <p className="text-lg text-slate-600">
+                  We aren't influencers; we are researchers. We treat your health with clinical precision.
+                </p>
               </div>
-              <blockquote className="text-lg text-slate-700 italic mb-6">
-                "I thought my metabolism was broken forever. My doctor told me it was just 'part of aging.' The 28 Day Reset proved them wrong. I haven't just lost weight; I've got my brain back."
-              </blockquote>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-navy-100 flex items-center justify-center text-navy-700 font-bold">S</div>
-                <div>
-                  <div className="font-bold text-navy-900">Sarah M.</div>
-                  <div className="text-sm text-slate-500">Age 62</div>
+              <div className="space-y-6">
+                {/* Testimonial 1 */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                  <div className="flex gap-1 mb-3">
+                    {[1,2,3,4,5].map(s => <div key={s} className="w-4 h-4 text-orange-500 fill-current">★</div>)}
+                  </div>
+                  <blockquote className="text-slate-700 italic mb-4">
+                    "I thought my metabolism was broken forever. My doctor told me it was just 'part of aging.' The 28 Day Reset proved them wrong. I haven't just lost weight; I've got my brain back."
+                  </blockquote>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-navy-100 flex items-center justify-center text-navy-700 font-bold">S</div>
+                    <div>
+                      <div className="font-bold text-navy-900">Sarah M.</div>
+                      <div className="text-xs text-slate-500">Age 62</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Testimonial 2 */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                  <div className="flex gap-1 mb-3">
+                    {[1,2,3,4,5].map(s => <div key={s} className="w-4 h-4 text-orange-500 fill-current">★</div>)}
+                  </div>
+                  <blockquote className="text-slate-700 italic mb-4">
+                    "The data doesn't lie. Seeing my numbers change kept me motivated when willpower failed. This is the most scientific approach I've ever seen."
+                  </blockquote>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-navy-100 flex items-center justify-center text-navy-700 font-bold">R</div>
+                    <div>
+                      <div className="font-bold text-navy-900">Robert T.</div>
+                      <div className="text-xs text-slate-500">Age 58</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-              <div className="flex gap-1 mb-4">
-                {[1,2,3,4,5].map(s => <div key={s} className="w-5 h-5 text-orange-500 fill-current">★</div>)}
-              </div>
-              <blockquote className="text-lg text-slate-700 italic mb-6">
-                "The data doesn't lie. Seeing my numbers change kept me motivated when willpower failed. This is the most scientific approach I've ever seen."
-              </blockquote>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-navy-100 flex items-center justify-center text-navy-700 font-bold">R</div>
-                <div>
-                  <div className="font-bold text-navy-900">Robert T.</div>
-                  <div className="text-sm text-slate-500">Age 58</div>
-                </div>
-              </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
