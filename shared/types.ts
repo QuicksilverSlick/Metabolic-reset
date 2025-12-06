@@ -45,6 +45,13 @@ export interface WeeklyBiometric {
   pointsAwarded: number;
   submittedAt: number;
 }
+export interface ReferralLedger {
+  id: string;
+  recruiterId: string;
+  newRecruitId: string;
+  pointsAmount: number;
+  createdAt: number;
+}
 // DTOs
 export interface RegisterRequest {
   name: string;
