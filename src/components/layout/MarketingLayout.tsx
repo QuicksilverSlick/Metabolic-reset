@@ -24,15 +24,15 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
   };
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-navy-900/95 backdrop-blur supports-[backdrop-filter]:bg-navy-900/80 text-white">
+      {/* Header - Updated to be solid navy-900 with no border for seamless blend */}
+      <header className="sticky top-0 z-50 w-full bg-navy-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
-              <img 
-                src="https://app.getdreamforge.com/api/generated/fa38b87a-74ea-4ea5-8adc-09fe6e85515b.jpeg" 
-                alt="28 Day Reset" 
+              <img
+                src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png"
+                alt="28 Day Reset"
                 className="h-10 w-auto rounded-md"
               />
             </Link>

@@ -67,7 +67,7 @@ export function HomePage() {
                   onClick={() => setIsLeadGenOpen(true)}
                   className="bg-white text-navy-900 hover:bg-slate-100 text-lg px-8 py-7 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
                 >
-                  GET THE METABOLIC CHECKLIST
+                  GET YOUR METABOLIC SCORE
                 </Button>
               </div>
               <div className="mt-12 flex items-center gap-4 text-sm text-slate-400 font-medium">
@@ -451,7 +451,7 @@ export function HomePage() {
               onClick={() => setIsLeadGenOpen(true)}
               className="bg-navy-900 text-white hover:bg-navy-800 text-lg px-10 py-8 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              GET THE METABOLIC HEALTH CHECKLIST
+              GET YOUR METABOLIC SCORE
             </Button>
           </div>
           <p className="mt-8 text-sm text-orange-200/80">
