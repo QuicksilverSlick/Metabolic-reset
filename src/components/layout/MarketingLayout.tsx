@@ -25,15 +25,16 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       {/* Header - Updated to be solid navy-900 with no border for seamless blend */}
-      <header className="sticky top-0 z-50 w-full bg-navy-900 text-white">
+      <header className="sticky top-0 z-50 w-full bg-navy-900 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo */}
+          {/* Updated container height and padding to accommodate larger logo */}
+          <div className="flex min-h-16 py-3 items-center justify-between">
+            {/* Logo - Increased size by 50% (h-10 -> h-[60px]) */}
             <Link to="/" className="flex items-center gap-2">
               <img
                 src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png"
                 alt="28 Day Reset"
-                className="h-10 w-auto rounded-md"
+                className="h-[60px] w-auto rounded-md object-contain"
               />
             </Link>
             {/* Desktop Nav */}
@@ -125,7 +126,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t border-navy-900 text-center text-xs">
-            <p>&copy; {new Date().getFullYear()} Reset Project. Built with ❤️ at Cloudflare.</p>
+            <p>&copy; {new Date().getFullYear()} Reset Project. Built with ❤�� at Cloudflare.</p>
           </div>
         </div>
       </footer>
