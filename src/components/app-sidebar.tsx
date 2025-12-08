@@ -5,7 +5,6 @@ import {
   Scale,
   User,
   LogOut,
-  Activity,
   Users
 } from "lucide-react";
 import {
@@ -31,13 +30,11 @@ export function AppSidebar(): JSX.Element {
     <Sidebar className="border-r border-navy-800 bg-navy-900 text-white" variant="sidebar">
       <SidebarHeader className="bg-navy-950 p-4">
         <div className="flex items-center gap-2 px-2">
-          <div className="bg-orange-500 p-1.5 rounded-lg">
-            <Activity className="h-5 w-5 text-white" />
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-display font-bold text-lg tracking-tight text-white">28 DAY</span>
-            <span className="font-display font-extrabold text-orange-500 tracking-wide text-xs">RESET</span>
-          </div>
+          <img 
+            src="https://app.getdreamforge.com/api/generated/fa38b87a-74ea-4ea5-8adc-09fe6e85515b.jpeg" 
+            alt="28 Day Reset" 
+            className="h-8 w-auto rounded-md"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-navy-900">

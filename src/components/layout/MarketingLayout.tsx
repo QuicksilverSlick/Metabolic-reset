@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, Activity } from 'lucide-react';
+import { Menu, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 interface MarketingLayoutProps {
@@ -30,13 +30,11 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
-              <div className="bg-orange-500 p-1.5 rounded-lg">
-                <Activity className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="font-display font-bold text-lg tracking-tight text-white">28 DAY</span>
-                <span className="font-display font-extrabold text-orange-500 tracking-wide text-sm">RESET</span>
-              </div>
+              <img 
+                src="https://app.getdreamforge.com/api/generated/fa38b87a-74ea-4ea5-8adc-09fe6e85515b.jpeg" 
+                alt="28 Day Reset" 
+                className="h-10 w-auto rounded-md"
+              />
             </Link>
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center gap-8">
@@ -49,7 +47,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                   {link.name}
                 </a>
               ))}
-              <Button 
+              <Button
                 onClick={() => navigate('/register')}
                 className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 font-semibold"
               >
@@ -77,7 +75,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                         {link.name}
                       </a>
                     ))}
-                    <Button 
+                    <Button
                       onClick={() => {
                         setIsOpen(false);
                         navigate('/register');

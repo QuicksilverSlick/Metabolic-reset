@@ -1,4 +1,4 @@
-import { IndexedEntity, Entity, Env } from "./core-utils";
+import { IndexedEntity, Entity, Env, Index } from "./core-utils";
 import type { User, DailyScore, WeeklyBiometric, ReferralLedger } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
@@ -43,6 +43,7 @@ export class UserEntity extends IndexedEntity<User> {
     }));
   }
   // Override create to handle referral code index
+  // Re-implementing logic to avoid generic type mismatch with super.create
   static async create(env: Env, state: User): Promise<User> {
     // 1. Check referral code uniqueness and lock it if provided
     if (state.referralCode) {
@@ -54,16 +55,12 @@ export class UserEntity extends IndexedEntity<User> {
       // Save the mapping first to reserve the code
       await mapping.save({ userId: state.id });
     }
-    // 2. Create the user normally
-    try {
-      const user = await super.create(env, state);
-      return user;
-    } catch (error) {
-      // If user creation fails, we technically leave a dangling referral code mapping.
-      // However, findByReferralCode handles this by checking if the user exists.
-      // In a more robust system, we might attempt to delete the mapping here.
-      throw error;
-    }
+    // 2. Create the user manually (bypassing super.create to fix TS mismatch)
+    const inst = new UserEntity(env, state.id);
+    await inst.save(state);
+    const idx = new Index<string>(env, UserEntity.indexName);
+    await idx.add(state.id);
+    return state;
   }
 }
 export class DailyScoreEntity extends IndexedEntity<DailyScore> {
