@@ -1,21 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useRegister, usePaymentIntent } from '@/hooks/use-queries';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-// Initialize Stripe (will be null if key is missing, handled gracefully)
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+// Initialize Stripe with error handling
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 // Validation Schemas
 const personalInfoSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -32,30 +34,40 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     if (!stripe || !elements) return;
     setProcessing(true);
-    const { error: submitError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin + '/app', // We handle redirect manually in this flow usually, but Stripe redirects. 
-        // For this wizard, we might want to just authorize and not redirect? 
-        // Stripe Elements confirmPayment usually redirects. 
-        // To avoid redirect, we can use redirect: 'if_required'.
-      },
-      redirect: 'if_required'
-    });
-    if (submitError) {
-      setError(submitError.message || 'Payment failed');
+    setError(null);
+    try {
+      const { error: submitError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin + '/app',
+        },
+        redirect: 'if_required'
+      });
+      if (submitError) {
+        setError(submitError.message || 'Payment failed');
+        setProcessing(false);
+      } else {
+        onSuccess();
+      }
+    } catch (err) {
+      console.error("Stripe confirm error:", err);
+      setError("An unexpected error occurred during payment processing.");
       setProcessing(false);
-    } else {
-      onSuccess();
     }
   };
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
-      {error && <div className="text-red-500 text-sm">{error}</div>}
-      <Button 
-        type="submit" 
-        disabled={!stripe || processing} 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Payment Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <Button
+        type="submit"
+        disabled={!stripe || processing}
         className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
       >
         {processing ? <Loader2 className="animate-spin mr-2" /> : 'Pay Now'}
@@ -72,6 +84,7 @@ export function RegistrationPage() {
   const [formData, setFormData] = useState<PersonalInfo | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isMockPayment, setIsMockPayment] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<PersonalInfo>({
     resolver: zodResolver(personalInfoSchema)
   });
@@ -81,19 +94,26 @@ export function RegistrationPage() {
   };
   const handleRoleSelection = async () => {
     setStep(3);
+    setStripeError(null);
     // Initialize Payment Intent
     const amount = role === 'coach' ? 4900 : 2800;
     try {
       const { clientSecret, mock } = await paymentIntentMutation.mutateAsync(amount);
       if (mock) {
         setIsMockPayment(true);
-      } else {
+      } else if (clientSecret) {
         setClientSecret(clientSecret);
+      } else {
+        throw new Error("Failed to initialize payment");
       }
     } catch (err) {
       console.error('Payment init failed', err);
-      // Fallback to mock if API fails (dev resilience)
-      setIsMockPayment(true);
+      // Fallback to mock if API fails (dev resilience) or show error
+      if (!stripeKey) {
+         setIsMockPayment(true);
+      } else {
+         setStripeError("Could not initialize payment system. Please try again.");
+      }
     }
   };
   const handlePaymentSuccess = async () => {
@@ -253,6 +273,13 @@ export function RegistrationPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {stripeError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>System Error</AlertTitle>
+                        <AlertDescription>{stripeError}</AlertDescription>
+                      </Alert>
+                    )}
                     {isMockPayment ? (
                       <div className="text-center py-8">
                         <div className="bg-orange-50 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
@@ -260,7 +287,7 @@ export function RegistrationPage() {
                         </div>
                         <h3 className="text-lg font-semibold mb-2">Demo Mode</h3>
                         <p className="text-slate-500 mb-6">Stripe keys not configured. Proceeding with mock payment.</p>
-                        <Button 
+                        <Button
                           onClick={handlePaymentSuccess}
                           disabled={registerMutation.isPending}
                           className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
@@ -268,7 +295,7 @@ export function RegistrationPage() {
                           {registerMutation.isPending ? <Loader2 className="animate-spin" /> : 'Complete Registration (Mock)'}
                         </Button>
                       </div>
-                    ) : clientSecret ? (
+                    ) : clientSecret && stripePromise ? (
                       <Elements stripe={stripePromise} options={{ clientSecret }}>
                         <PaymentForm onSuccess={handlePaymentSuccess} />
                       </Elements>
