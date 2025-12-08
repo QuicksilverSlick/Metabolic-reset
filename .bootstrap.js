@@ -87,7 +87,8 @@ function runSetupCommands() {
     "bun add browser-image-compression@^2.0.2",
     "bun add zustand@^5.0.6 @tanstack/react-query@^5.83.0",
     "bun add @stripe/stripe-js @stripe/react-stripe-js",
-    "bun add @stripe/react-stripe-js @stripe/stripe-js"
+    "bun add @stripe/react-stripe-js @stripe/stripe-js",
+    "bun add @stripe/stripe-js@^4.0.0 @stripe/react-stripe-js@^2.8.0"
 ];
     
     if (commands.length === 0) {
