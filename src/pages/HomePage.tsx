@@ -25,7 +25,7 @@ export function HomePage() {
       {/* HERO SECTION */}
       <section className="relative bg-navy-900 text-white overflow-hidden">
         {/* Background images - Updated URL */}
-        <div className="absolute inset-0 bg-[url('https://app.getdreamforge.com/api/generated/71ad42fd-0082-4739-8418-65e29178b0b7.jpeg')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-[url('https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-navy-900/80 via-navy-900/60 to-navy-900"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 lg:py-40">
           <div className="max-w-4xl">
@@ -33,7 +33,8 @@ export function HomePage() {
               <span className="inline-block py-1 px-3 rounded-full bg-orange-500/20 text-orange-400 text-sm font-semibold mb-6 border border-orange-500/30">
                 New Cohort Starting Soon
               </span>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight mb-6">
+              {/* Added text-white to override global h1 styles */}
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-tight mb-6 text-white">
                 Reverse Your <span className="text-orange-500">Metabolic Age</span> in Just 28 Days.
               </h1>
               <h2 className="text-xl md:text-2xl text-slate-200 font-medium mb-6 max-w-3xl">
