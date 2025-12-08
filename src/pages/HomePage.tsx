@@ -63,10 +63,9 @@ export function HomePage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
-                  variant="outline"
                   size="lg"
                   onClick={() => setIsLeadGenOpen(true)}
-                  className="bg-white text-navy-900 hover:bg-slate-100 border-2 border-white text-lg px-8 py-7 rounded-full transition-all duration-300 font-semibold"
+                  className="bg-white text-navy-900 hover:bg-slate-100 text-lg px-8 py-7 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
                 >
                   GET THE METABOLIC CHECKLIST
                 </Button>
@@ -448,10 +447,9 @@ export function HomePage() {
               JOIN THE CHALLENGE - $28
             </Button>
             <Button
-              variant="outline"
               size="lg"
               onClick={() => setIsLeadGenOpen(true)}
-              className="bg-navy-900 text-white hover:bg-navy-800 border-2 border-navy-900 text-lg px-10 py-8 rounded-full font-semibold transition-all duration-300"
+              className="bg-navy-900 text-white hover:bg-navy-800 text-lg px-10 py-8 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               GET THE METABOLIC HEALTH CHECKLIST
             </Button>
