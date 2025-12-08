@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  TrendingDown,
-  Activity,
-  Zap,
-  HelpCircle,
-  CheckCircle2,
+import { 
+  TrendingDown, 
+  Activity, 
+  Zap, 
+  HelpCircle, 
+  CheckCircle2, 
   ArrowRight,
   Star
 } from 'lucide-react';
@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
 import { LeadGenModal } from '@/components/lead-gen-modal';
+import { useSystemStats } from '@/hooks/use-queries';
 export function HomePage() {
   const navigate = useNavigate();
   const [isLeadGenOpen, setIsLeadGenOpen] = useState(false);
+  const { data: stats } = useSystemStats();
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
     whileInView: { opacity: 1, y: 0 },
@@ -54,31 +56,43 @@ export function HomePage() {
                 Most people accept fatigue and weight gain as a normal part of aging. We prove them wrong. By tracking 5 key biometric markers, you can turn back the clock on your metabolism and feel at home in your body again.
               </p>
               <div className="flex flex-col sm:flex-row gap-5">
-                <Button
-                  size="lg"
+                <Button 
+                  size="lg" 
                   onClick={() => navigate('/register')}
                   className="bg-orange-500 hover:bg-orange-600 text-white text-lg px-10 py-7 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
                 >
                   JOIN THE CHALLENGE
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-                <Button
-                  size="lg"
+                <Button 
+                  size="lg" 
                   onClick={() => setIsLeadGenOpen(true)}
                   className="bg-white text-navy-900 hover:bg-slate-100 text-lg px-8 py-7 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
                 >
                   GET YOUR METABOLIC SCORE
                 </Button>
               </div>
-              <div className="mt-12 flex items-center gap-4 text-sm text-slate-400 font-medium">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
-                       <div className="w-full h-full bg-slate-600 animate-pulse"></div>
-                    </div>
-                  ))}
+              <div className="mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 text-sm text-slate-400 font-medium">
+                <div className="flex items-center gap-4">
+                  <div className="flex -space-x-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="w-8 h-8 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
+                         <div className="w-full h-full bg-slate-600 animate-pulse"></div>
+                      </div>
+                    ))}
+                  </div>
+                  <p>
+                    Join <span className="text-white font-bold">{stats?.totalParticipants ? stats.totalParticipants.toLocaleString() + '+' : '2,000+'}</span> participants
+                  </p>
                 </div>
-                <p>Join 2,000+ participants in the study</p>
+                {stats?.totalBiometricSubmissions && stats.totalBiometricSubmissions > 100 && (
+                  <div className="hidden sm:block w-px h-4 bg-navy-700"></div>
+                )}
+                {stats?.totalBiometricSubmissions && stats.totalBiometricSubmissions > 100 && (
+                  <p>
+                    Over <span className="text-white font-bold">{stats.totalBiometricSubmissions.toLocaleString()}</span> data points logged
+                  </p>
+                )}
               </div>
             </motion.div>
           </div>
@@ -117,11 +131,11 @@ export function HomePage() {
               </div>
               <div className="pl-6 border-l-4 border-orange-500 py-2">
                 <p className="text-xl text-navy-900 font-medium italic font-display">
-                  "You shouldn't have to accept 'slowing down' just because you’re getting older. You deserve to live your prime years with vitality."
+                  "You shouldn't have to accept 'slowing down' just because you���re getting older. You deserve to live your prime years with vitality."
                 </p>
               </div>
             </motion.div>
-            <motion.div
+            <motion.div 
               initial={{ opacity: 0, scale: 0.95, rotate: 2 }}
               whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
               viewport={{ once: true }}
@@ -130,9 +144,9 @@ export function HomePage() {
             >
               <div className="absolute -inset-4 bg-orange-100 rounded-[2rem] transform rotate-3 z-0"></div>
               <div className="absolute -inset-4 bg-navy-50 rounded-[2rem] transform -rotate-2 z-0"></div>
-              <img
-                src="https://app.getdreamforge.com/api/generated/8bc7d2ff-f493-497f-96a7-d0b958d59224.jpeg"
-                alt="Woman looking concerned about health"
+              <img 
+                src="https://app.getdreamforge.com/api/generated/8bc7d2ff-f493-497f-96a7-d0b958d59224.jpeg" 
+                alt="Woman looking concerned about health" 
                 className="relative z-10 rounded-2xl shadow-2xl w-full object-cover aspect-[4/5]"
               />
             </motion.div>
@@ -151,30 +165,30 @@ export function HomePage() {
               We replace confusion with clinical data. By tracking what matters, you regain control.
             </p>
           </div>
-          <motion.div
+          <motion.div 
             variants={staggerChildren}
             initial="initial"
             whileInView="whileInView"
             className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12"
           >
             {[
-              {
-                icon: <Activity className="w-10 h-10 text-orange-500" />,
-                title: "Clarity Over Guesswork",
+              { 
+                icon: <Activity className="w-10 h-10 text-orange-500" />, 
+                title: "Clarity Over Guesswork", 
                 desc: "Stop wondering what works. We don't rely on trends. We use a 'Study' methodology to track your specific biometric data, so you know exactly how your body is responding in real-time."
               },
-              {
-                icon: <TrendingDown className="w-10 h-10 text-orange-500" />,
-                title: "Visceral Fat Reduction",
+              { 
+                icon: <TrendingDown className="w-10 h-10 text-orange-500" />, 
+                title: "Visceral Fat Reduction", 
                 desc: "Target the fat that matters. Metabolic decline stores fat around your organs. Our protocol is specifically engineered to target dangerous visceral fat, reducing your health risks."
               },
-              {
-                icon: <Zap className="w-10 h-10 text-orange-500" />,
-                title: "Sustainable Energy",
+              { 
+                icon: <Zap className="w-10 h-10 text-orange-500" />, 
+                title: "Sustainable Energy", 
                 desc: "Wake up ready for the day. By optimizing your metabolic markers, you eliminate the afternoon crash. Experience the steady, reliable energy you haven't felt in decades."
               }
             ].map((card, i) => (
-              <motion.div
+              <motion.div 
                 key={i}
                 variants={fadeIn}
                 className="bg-white p-10 rounded-[2rem] shadow-card hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 group"
@@ -237,8 +251,8 @@ export function HomePage() {
             ))}
           </div>
           <div className="text-center">
-             <Button
-                variant="outline"
+             <Button 
+                variant="outline" 
                 size="lg"
                 onClick={() => {
                     const el = document.getElementById('solution');
@@ -308,7 +322,7 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             {/* Left Column: Guide Image */}
-            <motion.div
+            <motion.div 
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -316,9 +330,9 @@ export function HomePage() {
               className="relative"
             >
               <div className="absolute -inset-4 bg-white rounded-[2rem] shadow-lg transform -rotate-2"></div>
-              <img
-                src="https://app.getdreamforge.com/api/generated/fe5264c6-500c-407f-ad23-308eef4253cc.jpeg"
-                alt="Empathetic guide helping a participant"
+              <img 
+                src="https://app.getdreamforge.com/api/generated/fe5264c6-500c-407f-ad23-308eef4253cc.jpeg" 
+                alt="Empathetic guide helping a participant" 
                 className="relative rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
               {/* Floating Stat Card */}
@@ -333,7 +347,7 @@ export function HomePage() {
               </div>
             </motion.div>
             {/* Right Column: Content & Testimonials */}
-            <motion.div
+            <motion.div 
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -412,8 +426,8 @@ export function HomePage() {
                     Register as a Captain ($49) to lead a team and access advanced study data.
                   </p>
                 </div>
-                <Button
-                  variant="outline"
+                <Button 
+                  variant="outline" 
                   onClick={() => navigate('/register')}
                   className="shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold"
                 >
@@ -439,15 +453,15 @@ export function HomePage() {
             Your metabolism doesn't pause—it's either getting better or getting worse. Take control today.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6">
-            <Button
-              size="lg"
+            <Button 
+              size="lg" 
               onClick={() => navigate('/register')}
               className="bg-white text-orange-600 hover:bg-slate-100 text-xl px-12 py-8 rounded-full shadow-2xl font-bold hover:-translate-y-1 transition-all duration-300"
             >
               JOIN THE CHALLENGE - $28
             </Button>
-            <Button
-              size="lg"
+            <Button 
+              size="lg" 
               onClick={() => setIsLeadGenOpen(true)}
               className="bg-navy-900 text-white hover:bg-navy-800 text-lg px-10 py-8 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
