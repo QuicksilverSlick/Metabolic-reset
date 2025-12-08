@@ -5,6 +5,12 @@ export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
   static readonly initialState = { userId: "" };
 }
+// Index for tracking all captains (coaches)
+export class CaptainIndex extends Index<string> {
+  constructor(env: Env) {
+    super(env, "all-captains");
+  }
+}
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";

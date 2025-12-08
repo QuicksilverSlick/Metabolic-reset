@@ -20,6 +20,7 @@ import { DashboardPage } from '@/pages/app/DashboardPage';
 import { BiometricsPage } from '@/pages/app/BiometricsPage';
 import { RosterPage } from '@/pages/app/RosterPage';
 import { ProfilePage } from '@/pages/app/ProfilePage';
+import { AssignCaptainPage } from '@/pages/app/AssignCaptainPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
       {
         path: "roster",
         element: <RosterPage />
+      },
+      {
+        path: "assign",
+        element: <AssignCaptainPage />
       }
     ]
   }

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
-import { ok } from './core-utils';
-import { UserEntity, ReferralLedgerEntity, ReferralCodeMapping } from './entities';
+import { ok, bad, notFound } from './core-utils';
+import { UserEntity, ReferralLedgerEntity, ReferralCodeMapping, CaptainIndex } from './entities';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -40,7 +40,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/register', async (c) => {
     try {
       const body = await c.req.json() as any;
-      const { name, email, phone, referralCodeUsed } = body;
+      const { name, email, phone, referralCodeUsed, role } = body;
       if (!name || !email || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
@@ -68,12 +68,16 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         }
         await mapping.save({ userId: userId });
       }
+      // If user is a coach, they are their own captain
+      if (role === 'coach') {
+        captainId = userId;
+      }
       await UserEntity.create(c.env, {
         id: userId,
         phone,
         name,
         email,
-        role: 'challenger',
+        role: role || 'challenger',
         captainId: captainId,
         referralCode: newReferralCode,
         timezone: 'America/New_York',
@@ -82,6 +86,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         createdAt: now,
         isActive: true
       });
+      // If user is a coach, add to CaptainIndex
+      if (role === 'coach') {
+        const captainIndex = new CaptainIndex(c.env);
+        await captainIndex.add(userId);
+      }
       if (recruiterId && referrerRole) {
         const points = referrerRole === 'challenger' ? 10 : 1;
         await ReferralLedgerEntity.create(c.env, {
@@ -102,6 +111,57 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         captainId,
         recruiterId
       });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+  // List all captains
+  app.get('/api/captains', async (c) => {
+    try {
+      const captainIndex = new CaptainIndex(c.env);
+      const captainIds = await captainIndex.list();
+      // Fetch details for each captain
+      // Limit to 20 for now to prevent massive fetches, though list() is paginated in Index
+      // For a real app we'd want pagination here too
+      const limitedIds = captainIds.slice(0, 50);
+      const captains = await Promise.all(limitedIds.map(async (id) => {
+        const user = await new UserEntity(c.env, id).getState();
+        // Only return necessary public info
+        return {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          referralCode: user.referralCode
+        };
+      }));
+      // Filter out any nulls or non-coaches (just in case index is stale)
+      const validCaptains = captains.filter(c => c.id && c.role === 'coach');
+      return ok(c, validCaptains);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+  // Assign captain to orphan
+  app.post('/api/orphan/assign', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+      const { captainId } = await c.req.json() as { captainId: string };
+      if (!captainId) return bad(c, 'Captain ID required');
+      // Verify captain exists and is a coach
+      const captainEntity = new UserEntity(c.env, captainId);
+      const captain = await captainEntity.getState();
+      if (!captain.id || captain.role !== 'coach') {
+        return bad(c, 'Invalid captain selected');
+      }
+      // Update user
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+      // If user already has a captain (and it's not themselves if they are a coach), maybe warn?
+      // For now, we allow reassignment as per "Orphan Management" flow
+      await userEntity.patch({ captainId });
+      return ok(c, await userEntity.getState());
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

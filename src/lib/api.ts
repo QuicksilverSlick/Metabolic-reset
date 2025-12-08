@@ -39,4 +39,12 @@ export const biometricApi = {
 export const rosterApi = {
   getTeamRoster: (userId: string) =>
     api<User[]>('/api/roster', { headers: { 'X-User-ID': userId } }),
+  searchCaptains: () => 
+    api<User[]>('/api/captains'),
+  assignCaptain: (userId: string, captainId: string) =>
+    api<User>('/api/orphan/assign', {
+      method: 'POST',
+      body: JSON.stringify({ captainId }),
+      headers: { 'X-User-ID': userId }
+    }),
 };
