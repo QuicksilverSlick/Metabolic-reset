@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { ok, bad, notFound, Index } from './core-utils';
-import { 
-  UserEntity, 
-  ReferralLedgerEntity, 
-  ReferralCodeMapping, 
+import {
+  UserEntity,
+  ReferralLedgerEntity,
+  ReferralCodeMapping,
   CaptainIndex,
   DailyScoreEntity,
   WeeklyBiometricEntity
@@ -23,14 +23,22 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     // Cast env to any to access STRIPE_SECRET_KEY which is injected at runtime but not in the core Env type
     const stripeKey = (c.env as any).STRIPE_SECRET_KEY;
     if (!stripeKey) {
+      console.log('No Stripe key found, using mock mode');
       return ok(c, { mock: true });
+    }
+    // Check for test mode
+    if (stripeKey.startsWith('sk_test_')) {
+      console.log('Stripe Test Mode Detected');
     }
     try {
       const body = await c.req.json() as { amount: number };
-      const amount = body.amount || 2800; // Default to $28.00
+      // Ensure amount is an integer (cents)
+      const amount = Math.floor(Number(body.amount) || 2800); 
       const params = new URLSearchParams();
       params.append('amount', amount.toString());
       params.append('currency', 'usd');
+      // Enable automatic payment methods for better compatibility (cards, wallets, etc.)
+      params.append('automatic_payment_methods[enabled]', 'true');
       const response = await fetch('https://api.stripe.com/v1/payment_intents', {
         method: 'POST',
         headers: {
@@ -41,10 +49,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       });
       const data: any = await response.json();
       if (!response.ok) {
+        console.error('Stripe API Error:', JSON.stringify(data));
         return c.json({ error: data.error?.message || 'Stripe error' }, 400);
       }
       return ok(c, { clientSecret: data.client_secret });
     } catch (e: any) {
+      console.error('Payment Intent Exception:', e);
       return c.json({ error: e.message }, 500);
     }
   });
