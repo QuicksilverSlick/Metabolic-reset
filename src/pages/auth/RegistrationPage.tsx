@@ -16,8 +16,15 @@ import { useRegister, usePaymentIntent } from '@/hooks/use-queries';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 // Initialize Stripe with error handling
+let stripePromise: Promise<any> | null = null;
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
+try {
+  if (stripeKey) {
+    stripePromise = loadStripe(stripeKey);
+  }
+} catch (error) {
+  console.error("Failed to initialize Stripe:", error);
+}
 // Validation Schemas
 const personalInfoSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -299,6 +306,12 @@ export function RegistrationPage() {
                       <Elements stripe={stripePromise} options={{ clientSecret }}>
                         <PaymentForm onSuccess={handlePaymentSuccess} />
                       </Elements>
+                    ) : clientSecret && !stripePromise && stripeKey ? (
+                       <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Configuration Error</AlertTitle>
+                        <AlertDescription>Stripe failed to initialize. Please check your configuration.</AlertDescription>
+                      </Alert>
                     ) : (
                       <div className="flex justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
