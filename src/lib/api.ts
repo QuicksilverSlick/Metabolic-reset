@@ -5,7 +5,8 @@ import {
   DailyScore,
   ScoreSubmitRequest,
   WeeklyBiometric,
-  BiometricSubmitRequest
+  BiometricSubmitRequest,
+  SystemStats
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -39,7 +40,7 @@ export const biometricApi = {
 export const rosterApi = {
   getTeamRoster: (userId: string) =>
     api<User[]>('/api/roster', { headers: { 'X-User-ID': userId } }),
-  searchCaptains: () => 
+  searchCaptains: () =>
     api<User[]>('/api/captains'),
   assignCaptain: (userId: string, captainId: string) =>
     api<User>('/api/orphan/assign', {
@@ -47,4 +48,8 @@ export const rosterApi = {
       body: JSON.stringify({ captainId }),
       headers: { 'X-User-ID': userId }
     }),
+};
+export const statsApi = {
+  getSystemStats: () =>
+    api<SystemStats>('/api/stats'),
 };

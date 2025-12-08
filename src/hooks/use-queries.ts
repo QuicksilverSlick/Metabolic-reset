@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest } from '@shared/types';
@@ -92,5 +92,12 @@ export function useTeamRoster() {
     queryKey: ['roster', userId],
     queryFn: () => userId ? rosterApi.getTeamRoster(userId) : [],
     enabled: !!userId,
+  });
+}
+export function useSystemStats() {
+  return useQuery({
+    queryKey: ['system-stats'],
+    queryFn: statsApi.getSystemStats,
+    staleTime: 1000 * 60 * 15, // 15 minutes
   });
 }

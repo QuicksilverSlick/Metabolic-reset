@@ -7,7 +7,8 @@ import {
   ReferralCodeMapping,
   CaptainIndex,
   DailyScoreEntity,
-  WeeklyBiometricEntity
+  WeeklyBiometricEntity,
+  SystemStatsEntity
 } from './entities';
 import type { User } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
@@ -33,7 +34,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     try {
       const body = await c.req.json() as { amount: number };
       // Ensure amount is an integer (cents)
-      const amount = Math.floor(Number(body.amount) || 2800); 
+      const amount = Math.floor(Number(body.amount) || 2800);
       const params = new URLSearchParams();
       params.append('amount', amount.toString());
       params.append('currency', 'usd');
@@ -62,7 +63,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/register', async (c) => {
     try {
       const body = await c.req.json() as any;
-      const { name, email, phone, referralCodeUsed, role } = body;
+      const { name, email, phone, referralCodeUsed, role, hasScale } = body;
       if (!name || !email || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
@@ -103,7 +104,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         captainId: captainId,
         referralCode: newReferralCode,
         timezone: 'America/New_York',
-        hasScale: false,
+        hasScale: !!hasScale,
         points: 0,
         createdAt: now,
         isActive: true
@@ -129,6 +130,28 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         // Index the recruit for the recruiter (for Roster view)
         const recruitIndex = new Index(c.env, `recruits:${recruiterId}`);
         await recruitIndex.add(userId);
+      }
+      // Update System Stats
+      await SystemStatsEntity.incrementUsers(c.env);
+      // Trigger GHL Webhook (Fire and Forget)
+      const ghlWebhookUrl = (c.env as any).GHL_WEBHOOK_URL;
+      if (ghlWebhookUrl) {
+        c.executionCtx.waitUntil(
+          fetch(ghlWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name,
+              email,
+              phone,
+              role,
+              referralCode: newReferralCode,
+              recruiterId,
+              hasScale: !!hasScale,
+              source: 'app-registration'
+            })
+          }).catch(err => console.error('GHL Webhook Failed', err))
+        );
       }
       return ok(c, {
         id: userId,
@@ -212,6 +235,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (pointDelta !== 0) {
         await UserEntity.addPoints(c.env, userId, pointDelta);
       }
+      // Update System Stats
+      await SystemStatsEntity.incrementHabits(c.env);
       return ok(c, await scoreEntity.getState());
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
@@ -246,6 +271,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Only award points if this is the first submission for this week
       if (isNewSubmission) {
         await UserEntity.addPoints(c.env, userId, 25);
+        // Update System Stats
+        await SystemStatsEntity.incrementSubmissions(c.env);
       }
       return ok(c, await bioEntity.getState());
     } catch (e: any) {
@@ -326,6 +353,16 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!user.id) return notFound(c, 'User not found');
       await userEntity.patch({ captainId });
       return ok(c, await userEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+  // --- System Stats ---
+  app.get('/api/stats', async (c) => {
+    try {
+      const statsEntity = new SystemStatsEntity(c.env, "global");
+      const stats = await statsEntity.getState();
+      return ok(c, stats);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

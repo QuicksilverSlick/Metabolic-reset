@@ -3,14 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { Check, ChevronRight, CreditCard, User, Users, ArrowLeft, Loader2, AlertCircle, Scale, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useNavigate } from 'react-router-dom';
+import { Switch } from '@/components/ui/switch';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useRegister, usePaymentIntent } from '@/hooks/use-queries';
 import { loadStripe } from '@stripe/stripe-js';
@@ -84,10 +85,13 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
 }
 export function RegistrationPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralCodeUsed = searchParams.get('ref') || undefined;
   const registerMutation = useRegister();
   const paymentIntentMutation = usePaymentIntent();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<'challenger' | 'coach'>('challenger');
+  const [hasScale, setHasScale] = useState(true);
   const [formData, setFormData] = useState<PersonalInfo | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isMockPayment, setIsMockPayment] = useState(false);
@@ -129,6 +133,8 @@ export function RegistrationPage() {
       await registerMutation.mutateAsync({
         ...formData,
         role,
+        referralCodeUsed,
+        hasScale,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       });
       setStep(4);
@@ -191,6 +197,12 @@ export function RegistrationPage() {
                         <Input id="phone" type="tel" placeholder="(555) 123-4567" {...register('phone')} />
                         {errors.phone && <p className="text-red-500 text-xs">{errors.phone.message}</p>}
                       </div>
+                      {referralCodeUsed && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 flex items-center gap-2">
+                          <Check className="h-4 w-4" />
+                          <span>Referral Code Applied: <strong>{referralCodeUsed}</strong></span>
+                        </div>
+                      )}
                     </CardContent>
                     <CardFooter>
                       <Button type="submit" className="w-full bg-navy-900 hover:bg-navy-800 text-white">
@@ -220,7 +232,7 @@ export function RegistrationPage() {
                     </div>
                     <CardDescription>Are you joining as a Challenger or a Coach?</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     <RadioGroup value={role} onValueChange={(v) => setRole(v as 'challenger' | 'coach')}>
                       <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'challenger' ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-200 hover:border-orange-200'}`}>
                         <RadioGroupItem value="challenger" id="challenger" className="mt-1" />
@@ -249,6 +261,38 @@ export function RegistrationPage() {
                         <Users className="h-6 w-6 text-slate-400" />
                       </div>
                     </RadioGroup>
+                    <div className="pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Scale className="h-5 w-5 text-navy-900" />
+                          <Label htmlFor="scale-toggle" className="font-medium text-navy-900">
+                            Do you have a Smart Scale?
+                          </Label>
+                        </div>
+                        <Switch
+                          id="scale-toggle"
+                          checked={hasScale}
+                          onCheckedChange={setHasScale}
+                        />
+                      </div>
+                      {!hasScale && (
+                        <Alert className="bg-orange-50 border-orange-200">
+                          <AlertCircle className="h-4 w-4 text-orange-600" />
+                          <AlertTitle className="text-orange-800">Smart Scale Required</AlertTitle>
+                          <AlertDescription className="text-orange-700 text-sm mt-1">
+                            You need a scale that measures Body Fat & Visceral Fat to participate.
+                            <a 
+                              href="https://amazon.com" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 font-bold underline mt-2 hover:text-orange-900"
+                            >
+                              Get the recommended scale <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
                   </CardContent>
                   <CardFooter>
                     <Button onClick={handleRoleSelection} className="w-full bg-navy-900 hover:bg-navy-800 text-white">

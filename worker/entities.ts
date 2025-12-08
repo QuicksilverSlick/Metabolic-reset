@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -88,4 +88,33 @@ export class ReferralLedgerEntity extends IndexedEntity<ReferralLedger> {
     pointsAmount: 0,
     createdAt: 0
   };
+}
+export class SystemStatsEntity extends Entity<SystemStats> {
+  static readonly entityName = "sys-stats";
+  static readonly initialState: SystemStats = {
+    totalParticipants: 0,
+    totalBiometricSubmissions: 0,
+    totalHabitsLogged: 0
+  };
+  static async incrementUsers(env: Env): Promise<void> {
+    const entity = new SystemStatsEntity(env, "global");
+    await entity.mutate(s => ({
+      ...s,
+      totalParticipants: (s.totalParticipants || 0) + 1
+    }));
+  }
+  static async incrementSubmissions(env: Env): Promise<void> {
+    const entity = new SystemStatsEntity(env, "global");
+    await entity.mutate(s => ({
+      ...s,
+      totalBiometricSubmissions: (s.totalBiometricSubmissions || 0) + 1
+    }));
+  }
+  static async incrementHabits(env: Env): Promise<void> {
+    const entity = new SystemStatsEntity(env, "global");
+    await entity.mutate(s => ({
+      ...s,
+      totalHabitsLogged: (s.totalHabitsLogged || 0) + 1
+    }));
+  }
 }

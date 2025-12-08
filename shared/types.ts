@@ -52,6 +52,11 @@ export interface ReferralLedger {
   pointsAmount: number;
   createdAt: number;
 }
+export interface SystemStats {
+  totalParticipants: number;
+  totalBiometricSubmissions: number;
+  totalHabitsLogged: number;
+}
 // DTOs
 export interface RegisterRequest {
   name: string;
@@ -61,6 +66,7 @@ export interface RegisterRequest {
   referralCodeUsed?: string; // The code they entered to join
   isCaptain?: boolean; // If they want to be their own captain
   timezone?: string;
+  hasScale?: boolean;
 }
 export interface ScoreSubmitRequest {
   date: string; // YYYY-MM-DD
