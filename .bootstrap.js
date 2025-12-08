@@ -86,7 +86,8 @@ function runSetupCommands() {
     "bun add libphonenumber-js@^1.10.58",
     "bun add browser-image-compression@^2.0.2",
     "bun add zustand@^5.0.6 @tanstack/react-query@^5.83.0",
-    "bun add @stripe/stripe-js @stripe/react-stripe-js"
+    "bun add @stripe/stripe-js @stripe/react-stripe-js",
+    "bun add @stripe/react-stripe-js @stripe/stripe-js"
 ];
     
     if (commands.length === 0) {
