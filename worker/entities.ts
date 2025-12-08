@@ -42,26 +42,6 @@ export class UserEntity extends IndexedEntity<User> {
       points: (state.points || 0) + points
     }));
   }
-  // Override create to handle referral code index
-  // Re-implementing logic to avoid generic type mismatch with super.create
-  static async create(env: Env, state: User): Promise<User> {
-    // 1. Check referral code uniqueness and lock it if provided
-    if (state.referralCode) {
-      const normalizedCode = state.referralCode.toUpperCase().trim();
-      const mapping = new ReferralCodeMapping(env, normalizedCode);
-      if (await mapping.exists()) {
-        throw new Error("Referral code already taken");
-      }
-      // Save the mapping first to reserve the code
-      await mapping.save({ userId: state.id });
-    }
-    // 2. Create the user manually (bypassing super.create to fix TS mismatch)
-    const inst = new UserEntity(env, state.id);
-    await inst.save(state);
-    const idx = new Index<string>(env, UserEntity.indexName);
-    await idx.add(state.id);
-    return state;
-  }
 }
 export class DailyScoreEntity extends IndexedEntity<DailyScore> {
   static readonly entityName = "score";

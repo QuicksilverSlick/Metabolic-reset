@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { ok } from './core-utils';
-import { UserEntity, ReferralLedgerEntity } from './entities';
+import { UserEntity, ReferralLedgerEntity, ReferralCodeMapping } from './entities';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -59,6 +59,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const codeBase = name.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase() || 'USR';
       const newReferralCode = `${codeBase}${Math.floor(1000 + Math.random() * 9000)}`;
       const now = Date.now();
+      // Handle Referral Code Mapping (Moved from UserEntity.create)
+      if (newReferralCode) {
+        const normalizedCode = newReferralCode.toUpperCase().trim();
+        const mapping = new ReferralCodeMapping(c.env, normalizedCode);
+        if (await mapping.exists()) {
+             throw new Error("Referral code collision. Please try again.");
+        }
+        await mapping.save({ userId: userId });
+      }
       await UserEntity.create(c.env, {
         id: userId,
         phone,
@@ -76,7 +85,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (recruiterId && referrerRole) {
         const points = referrerRole === 'challenger' ? 10 : 1;
         await ReferralLedgerEntity.create(c.env, {
-          id: crypto.randomUUID(), // Fix: Generate ID for ledger entry
+          id: crypto.randomUUID(),
           recruiterId: recruiterId,
           newRecruitId: userId,
           pointsAmount: points,
