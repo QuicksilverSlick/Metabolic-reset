@@ -1,17 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Droplets, 
-  Footprints, 
-  Moon, 
-  PlayCircle, 
-  Scale, 
-  ChevronRight, 
+import {
+  Droplets,
+  Footprints,
+  Moon,
+  PlayCircle,
+  Scale,
+  ChevronRight,
   Loader2,
   AlertCircle,
   Copy,
   Share2,
-  Users,
   ArrowRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,8 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useUser, useDailyScore, useSubmitScore } from '@/hooks/use-queries';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
+import { CircularProgress } from '@/components/ui/circular-progress';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { data: user, isLoading: userLoading } = useUser();
@@ -63,6 +63,11 @@ export function DashboardPage() {
   const habits = score?.habits || { water: false, steps: false, sleep: false, lesson: false };
   const points = user?.points || 0;
   const isOrphan = !user?.captainId;
+  // Calculate Progress
+  const startDate = user?.createdAt ? new Date(user.createdAt) : new Date();
+  const daysPassed = Math.max(1, differenceInDays(new Date(), startDate) + 1);
+  const progressPercentage = Math.min(100, (daysPassed / 28) * 100);
+  const dayDisplay = daysPassed > 28 ? 28 : daysPassed;
   return (
     <div className="space-y-8">
       {/* Orphan Alert */}
@@ -72,9 +77,9 @@ export function DashboardPage() {
           <AlertTitle className="text-red-800 font-bold">You need a Team!</AlertTitle>
           <AlertDescription className="text-red-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
             <span>You are currently not assigned to a Captain. Join a team to be eligible for prizes.</span>
-            <Button 
-              size="sm" 
-              variant="outline" 
+            <Button
+              size="sm"
+              variant="outline"
               className="bg-white border-red-200 text-red-700 hover:bg-red-100 hover:text-red-800 shrink-0"
               onClick={() => navigate('/app/assign')}
             >
@@ -83,22 +88,35 @@ export function DashboardPage() {
           </AlertDescription>
         </Alert>
       )}
-      {/* Welcome & Points Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Welcome & Stats Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-display font-bold text-navy-900">
             Hello, {user?.name || 'Challenger'}
           </h1>
           <p className="text-slate-500">Let's crush your goals today.</p>
         </div>
-        <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-          <div className="text-right">
-            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Points</div>
-            <div className="text-2xl font-bold text-orange-500">{points}</div>
-          </div>
-          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
-            P
-          </div>
+        <div className="flex flex-col sm:flex-row gap-4">
+            {/* Progress Card */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4 min-w-[200px]">
+                <CircularProgress value={progressPercentage} size={50} strokeWidth={5}>
+                    <span className="text-[10px] font-bold text-navy-900">{Math.round(progressPercentage)}%</span>
+                </CircularProgress>
+                <div>
+                    <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Day {dayDisplay} of 28</div>
+                    <div className="text-sm font-medium text-navy-900">Keep going!</div>
+                </div>
+            </div>
+            {/* Points Card */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4 min-w-[180px]">
+                 <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold shrink-0">
+                    P
+                 </div>
+                 <div>
+                    <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Points</div>
+                    <div className="text-2xl font-bold text-orange-500">{points}</div>
+                 </div>
+            </div>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -117,7 +135,7 @@ export function DashboardPage() {
                 </p>
               </div>
             </div>
-            <Button 
+            <Button
               onClick={() => navigate('/app/biometrics')}
               className="shrink-0 rounded-full px-8 py-6 text-lg bg-navy-900 hover:bg-navy-800"
             >
@@ -140,24 +158,24 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="relative z-10 space-y-4">
             <div className="text-sm font-medium text-orange-300">
-              {user?.role === 'challenger' 
-                ? 'Earn 10 Points for every friend you recruit!' 
+              {user?.role === 'challenger'
+                ? 'Earn 10 Points for every friend you recruit!'
                 : 'Earn 1 Point per recruit. Build your roster.'}
             </div>
             <div className="bg-navy-800/50 p-3 rounded-lg border border-navy-700 flex items-center justify-between gap-2">
               <code className="text-xs sm:text-sm font-mono text-slate-300 truncate">
                 {user?.referralCode}
               </code>
-              <Button 
-                size="icon" 
-                variant="ghost" 
+              <Button
+                size="icon"
+                variant="ghost"
                 className="h-8 w-8 text-white hover:bg-white/10 hover:text-orange-500"
                 onClick={copyReferralLink}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <Button 
+            <Button
               onClick={copyReferralLink}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
             >
@@ -180,8 +198,8 @@ export function DashboardPage() {
                 onClick={() => handleToggle(habit.id)}
                 disabled={submitScore.isPending}
                 className={`relative p-6 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between h-40 ${
-                  isDone 
-                    ? 'bg-navy-900 border-navy-900 text-white shadow-lg' 
+                  isDone
+                    ? 'bg-navy-900 border-navy-900 text-white shadow-lg'
                     : 'bg-white border-slate-200 hover:border-orange-200 hover:shadow-md'
                 }`}
               >
