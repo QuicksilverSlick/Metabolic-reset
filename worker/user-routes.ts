@@ -28,8 +28,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return ok(c, { mock: true });
     }
     // Check for test mode
+    let isTestMode = false;
     if (stripeKey.startsWith('sk_test_')) {
       console.log('Stripe Test Mode Detected');
+      isTestMode = true;
     }
     try {
       const body = await c.req.json() as { amount: number };
@@ -38,8 +40,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const params = new URLSearchParams();
       params.append('amount', amount.toString());
       params.append('currency', 'usd');
-      // Enable automatic payment methods for better compatibility (cards, wallets, etc.)
-      params.append('automatic_payment_methods[enabled]', 'true');
+      
+      if (isTestMode) {
+        // In test mode, force card type to allow test cards to work reliably without complex setup
+        params.append('payment_method_types[]', 'card');
+      } else {
+        // Enable automatic payment methods for better compatibility (cards, wallets, etc.) in production
+        params.append('automatic_payment_methods[enabled]', 'true');
+      }
+
       const response = await fetch('https://api.stripe.com/v1/payment_intents', {
         method: 'POST',
         headers: {
