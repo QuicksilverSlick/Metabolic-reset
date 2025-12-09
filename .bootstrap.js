@@ -89,7 +89,8 @@ function runSetupCommands() {
     "bun add @stripe/stripe-js @stripe/react-stripe-js",
     "bun add @stripe/react-stripe-js @stripe/stripe-js",
     "bun add @stripe/stripe-js@^4.0.0 @stripe/react-stripe-js@^2.8.0",
-    "bun add stripe @stripe/stripe-js @stripe/react-stripe-js"
+    "bun add stripe @stripe/stripe-js @stripe/react-stripe-js",
+    "bun install --force"
 ];
     
     if (commands.length === 0) {
