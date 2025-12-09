@@ -84,7 +84,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       <Button
         type="submit"
         disabled={!stripe || processing}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
+        className="w-full bg-orange-500 hover:bg-orange-600 text-navy-900 py-6 text-lg font-bold"
       >
         {processing ? <Loader2 className="animate-spin mr-2" /> : 'Pay Now'}
       </Button>
@@ -354,7 +354,7 @@ export function RegistrationPage() {
                         <Button
                           onClick={handlePaymentSuccess}
                           disabled={registerMutation.isPending}
-                          className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg"
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-navy-900 py-6 text-lg font-bold"
                         >
                           {registerMutation.isPending ? <Loader2 className="animate-spin" /> : 'Complete Registration (Mock)'}
                         </Button>

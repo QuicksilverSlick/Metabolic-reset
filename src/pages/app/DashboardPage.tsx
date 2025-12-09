@@ -160,7 +160,7 @@ export function DashboardPage() {
             </div>
             <Button
               onClick={() => navigate('/app/biometrics')}
-              className="shrink-0 rounded-full px-8 py-6 text-lg bg-navy-900 hover:bg-navy-800 dark:bg-orange-500 dark:hover:bg-orange-600 dark:text-white"
+              className="shrink-0 rounded-full px-8 py-6 text-lg bg-navy-900 hover:bg-navy-800 dark:bg-orange-500 dark:hover:bg-orange-600 dark:text-navy-900 font-bold"
             >
               Log Data
               <ChevronRight className="ml-2 h-5 w-5" />
@@ -200,7 +200,7 @@ export function DashboardPage() {
             </div>
             <Button
               onClick={copyReferralLink}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-navy-900 font-bold"
             >
               Copy Invite Link
             </Button>
