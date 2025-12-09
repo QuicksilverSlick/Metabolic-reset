@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useSubmitBiometrics } from '@/hooks/use-queries';
+import { useSubmitBiometrics, useUser } from '@/hooks/use-queries';
 import { compressImage } from '@/lib/image-utils';
+import { getChallengeProgress } from '@/lib/utils';
 const biometricsSchema = z.object({
   weight: z.string().min(1, "Weight is required"),
   bodyFat: z.string().min(1, "Body Fat % is required"),
@@ -21,6 +22,7 @@ const biometricsSchema = z.object({
 type BiometricsForm = z.infer<typeof biometricsSchema>;
 export function BiometricsPage() {
   const navigate = useNavigate();
+  const { data: user, isLoading: userLoading } = useUser();
   const submitMutation = useSubmitBiometrics();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -28,6 +30,9 @@ export function BiometricsPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<BiometricsForm>({
     resolver: zodResolver(biometricsSchema)
   });
+  // Calculate current week
+  const progress = user?.createdAt ? getChallengeProgress(user.createdAt) : { week: 1 };
+  const currentWeek = progress.week;
   const onSubmit = async (data: BiometricsForm) => {
     if (!file) {
       alert("Please upload a screenshot of your scale app.");
@@ -40,7 +45,7 @@ export function BiometricsPage() {
       const base64data = await compressImage(file, 800, 0.5);
       // Submit
       submitMutation.mutate({
-        weekNumber: 1, // Hardcoded for Phase 1/2/3, dynamic later
+        weekNumber: currentWeek,
         weight: parseFloat(data.weight),
         bodyFat: parseFloat(data.bodyFat),
         visceralFat: parseFloat(data.visceralFat),
@@ -62,6 +67,13 @@ export function BiometricsPage() {
       alert('Failed to process image. Please try again.');
     }
   };
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
   if (isSuccess) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
@@ -70,7 +82,7 @@ export function BiometricsPage() {
         </div>
         <h2 className="text-3xl font-bold text-navy-900 mb-4">Submission Received!</h2>
         <p className="text-slate-600 mb-8">
-          You have successfully logged your biometrics for this week. Come back next week to track your progress.
+          You have successfully logged your biometrics for Week {currentWeek}. Come back next week to track your progress.
         </p>
         <Button onClick={() => navigate('/app')} className="bg-navy-900 text-white">
           Return to Dashboard
@@ -81,7 +93,12 @@ export function BiometricsPage() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-navy-900 mb-2">Weekly Weigh-In</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-3xl font-display font-bold text-navy-900">Week {currentWeek} Weigh-In</h1>
+          <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-bold">
+            +25 Points
+          </span>
+        </div>
         <p className="text-slate-500">
           Step on your smart scale, take a screenshot of the app, and enter the 5 key numbers below.
         </p>

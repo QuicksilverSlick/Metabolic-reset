@@ -18,9 +18,10 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useUser, useDailyScore, useSubmitScore } from '@/hooks/use-queries';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
+import { getChallengeProgress } from '@/lib/utils';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { data: user, isLoading: userLoading } = useUser();
@@ -63,11 +64,11 @@ export function DashboardPage() {
   const habits = score?.habits || { water: false, steps: false, sleep: false, lesson: false };
   const points = user?.points || 0;
   const isOrphan = !user?.captainId;
-  // Calculate Progress
-  const startDate = user?.createdAt ? new Date(user.createdAt) : new Date();
-  const daysPassed = Math.max(1, differenceInDays(new Date(), startDate) + 1);
-  const progressPercentage = Math.min(100, (daysPassed / 28) * 100);
-  const dayDisplay = daysPassed > 28 ? 28 : daysPassed;
+  // Calculate Progress using shared utility
+  const { day, progressPercentage } = user?.createdAt 
+    ? getChallengeProgress(user.createdAt) 
+    : { day: 1, progressPercentage: 0 };
+  const dayDisplay = day > 28 ? 28 : day;
   return (
     <div className="space-y-8">
       {/* Orphan Alert */}
