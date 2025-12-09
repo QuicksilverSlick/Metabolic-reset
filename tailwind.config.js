@@ -29,36 +29,36 @@ export default {
   			]
   		},
   		colors: {
-            // Brand Colors
+            // Brand Colors - Updated to Navy & Gold Theme
             navy: {
-                DEFAULT: '#0F2C59',
-                50: '#E6EAF0',
-                100: '#C0C9D6',
-                200: '#99A9BD',
-                300: '#7388A3',
-                400: '#4C688A',
-                500: '#0F2C59', // Primary Brand
-                600: '#0C2347',
-                700: '#091A36',
-                800: '#061224',
-                900: '#030912',
-                950: '#020617' // Added for Dark Mode Background
+                DEFAULT: '#0F172A', // Slate 900
+                50: '#F8FAFC',
+                100: '#F1F5F9',
+                200: '#E2E8F0',
+                300: '#CBD5E1',
+                400: '#94A3B8',
+                500: '#64748B',
+                600: '#475569',
+                700: '#334155',
+                800: '#1E293B',
+                900: '#0F172A',
+                950: '#020617'
             },
             orange: {
-                DEFAULT: '#FF6B35',
-                50: '#FFF0EA',
-                100: '#FFDBC9',
-                200: '#FFBFA9',
-                300: '#FFA388',
-                400: '#FF8768',
-                500: '#FF6B35', // Primary Accent
-                600: '#CC562A',
-                700: '#994020',
-                800: '#662B15',
-                900: '#33150B'
+                DEFAULT: '#F59E0B', // Amber 500 (Gold)
+                50: '#FFFBEB',
+                100: '#FEF3C7',
+                200: '#FDE68A',
+                300: '#FCD34D',
+                400: '#FBBF24',
+                500: '#F59E0B',
+                600: '#D97706',
+                700: '#B45309',
+                800: '#92400E',
+                900: '#78350F'
             },
             slate: {
-                DEFAULT: '#F1F5F9', // Data Slate
+                DEFAULT: '#1E293B', // Slate 800
                 50: '#F8FAFC',
                 100: '#F1F5F9',
                 200: '#E2E8F0',
@@ -78,11 +78,11 @@ export default {
   				foreground: 'hsl(var(--muted-foreground))'
   			},
   			primary: {
-  				DEFAULT: '#0F2C59', // Medical Navy
-  				foreground: '#FFFFFF'
+  				DEFAULT: 'hsl(var(--primary))',
+  				foreground: 'hsl(var(--primary-foreground))'
   			},
   			border: 'hsl(var(--border))',
-  			ring: '#FF6B35', // Metabolic Orange for focus rings
+  			ring: 'hsl(var(--ring))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -92,12 +92,12 @@ export default {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			secondary: {
-  				DEFAULT: '#F1F5F9', // Data Slate
-  				foreground: '#0F2C59'
+  				DEFAULT: 'hsl(var(--secondary))',
+  				foreground: 'hsl(var(--secondary-foreground))'
   			},
   			accent: {
-  				DEFAULT: '#FF6B35', // Metabolic Orange
-  				foreground: '#FFFFFF'
+  				DEFAULT: 'hsl(var(--accent))',
+  				foreground: 'hsl(var(--accent-foreground))'
   			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
@@ -112,14 +112,14 @@ export default {
   				'5': 'hsl(var(--chart-5))'
   			},
   			sidebar: {
-  				DEFAULT: '#0F2C59', // Navy Sidebar
-  				foreground: '#FFFFFF',
-  				primary: '#FF6B35',
-  				'primary-foreground': '#FFFFFF',
-  				accent: '#1a3b6e',
-  				'accent-foreground': '#FFFFFF',
-  				border: '#1a3b6e',
-  				ring: '#FF6B35'
+  				DEFAULT: 'hsl(var(--sidebar-background))',
+  				foreground: 'hsl(var(--sidebar-foreground))',
+  				primary: 'hsl(var(--sidebar-primary))',
+  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+  				accent: 'hsl(var(--sidebar-accent))',
+  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+  				border: 'hsl(var(--sidebar-border))',
+  				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
   		borderRadius: {
@@ -128,9 +128,9 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
         boxShadow: {
-            'soft': '0 4px 20px -2px rgba(15, 44, 89, 0.1)',
-            'card': '0 2px 8px -1px rgba(15, 44, 89, 0.05)',
-            'glow': '0 0 15px rgba(255, 107, 53, 0.3)'
+            'soft': '0 4px 20px -2px rgba(15, 23, 42, 0.5)', // Adjusted for dark theme
+            'card': '0 2px 8px -1px rgba(15, 23, 42, 0.3)',
+            'glow': '0 0 15px rgba(245, 158, 11, 0.3)' // Gold glow
         }
   	}
   },
