@@ -23,19 +23,24 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/create-payment-intent', async (c) => {
     // Cast env to any to access STRIPE_SECRET_KEY which is injected at runtime but not in the core Env type
     const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
-    if (!rawStripeKey) {
-      console.log('No Stripe key found, using mock mode');
-      return ok(c, { mock: true });
-    }
-    // Robustly handle key: trim whitespace which is a common copy-paste error
-    const stripeKey = rawStripeKey.trim();
-    // Detect Test Mode: Check for '_test_' to support both sk_test_... and rk_test_... (Restricted Keys)
-    const isTestMode = stripeKey.includes('_test_');
-    console.log(`Stripe Mode: ${isTestMode ? 'TEST' : 'LIVE'} (Key prefix: ${stripeKey.substring(0, 8)}...)`);
     try {
       const body = await c.req.json() as { amount: number };
       // Ensure amount is an integer (cents)
-      const amount = Math.floor(Number(body.amount) || 2800);
+      const amount = Math.floor(Number(body.amount) || 0);
+      // ZERO AMOUNT CHECK: Bypass Stripe for free/test transactions
+      if (amount === 0) {
+        console.log('Zero amount detected, bypassing Stripe');
+        return ok(c, { clientSecret: "mock_secret_zero_amount", mock: true });
+      }
+      if (!rawStripeKey) {
+        console.log('No Stripe key found, using mock mode');
+        return ok(c, { mock: true });
+      }
+      // Robustly handle key: trim whitespace which is a common copy-paste error
+      const stripeKey = rawStripeKey.trim();
+      // Detect Test Mode: Check for '_test_' to support both sk_test_... and rk_test_... (Restricted Keys)
+      const isTestMode = stripeKey.includes('_test_');
+      console.log(`Stripe Mode: ${isTestMode ? 'TEST' : 'LIVE'} (Key prefix: ${stripeKey.substring(0, 8)}...)`);
       const params = new URLSearchParams();
       params.append('amount', amount.toString());
       params.append('currency', 'usd');

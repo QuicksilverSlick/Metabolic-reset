@@ -350,7 +350,7 @@ export function RegistrationPage() {
                           <CreditCard className="h-8 w-8 text-orange-500" />
                         </div>
                         <h3 className="text-lg font-semibold mb-2">Demo Mode</h3>
-                        <p className="text-slate-500 mb-6">Stripe keys not configured. Proceeding with mock payment.</p>
+                        <p className="text-slate-500 mb-6">Payment bypassed (Demo Mode or Free Entry). Proceeding with registration.</p>
                         <Button
                           onClick={handlePaymentSuccess}
                           disabled={registerMutation.isPending}
