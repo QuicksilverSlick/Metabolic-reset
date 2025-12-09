@@ -3,7 +3,8 @@ import { useTeamRoster, useUser } from '@/hooks/use-queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, AlertCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Users, AlertCircle, Trophy, CheckCircle2, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export function RosterPage() {
   const { data: user, isLoading: userLoading } = useUser();
@@ -28,6 +29,11 @@ export function RosterPage() {
       </div>
     );
   }
+  const recruitCount = roster?.length || 0;
+  const qualificationThreshold = 10;
+  const isQualified = recruitCount >= qualificationThreshold;
+  const progressPercent = Math.min(100, (recruitCount / qualificationThreshold) * 100);
+  const remaining = Math.max(0, qualificationThreshold - recruitCount);
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -37,10 +43,53 @@ export function RosterPage() {
         </div>
         <div className="bg-white dark:bg-navy-900 px-4 py-2 rounded-lg border border-slate-200 dark:border-navy-800 shadow-sm flex items-center gap-2 transition-colors">
           <Users className="h-5 w-5 text-orange-500" />
-          <span className="font-bold text-navy-900 dark:text-white">{roster?.length || 0}</span>
+          <span className="font-bold text-navy-900 dark:text-white">{recruitCount}</span>
           <span className="text-slate-500 dark:text-slate-400 text-sm">Recruits</span>
         </div>
       </div>
+      {/* Prize Qualification Card */}
+      <Card className={`border-0 shadow-md transition-all ${
+        isQualified
+          ? 'bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-900/20 dark:to-navy-900 border-l-4 border-l-yellow-500'
+          : 'bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800'
+      }`}>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 ${
+              isQualified ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400' : 'bg-slate-100 dark:bg-navy-800 text-slate-400'
+            }`}>
+              {isQualified ? <Trophy className="h-8 w-8" /> : <Star className="h-8 w-8" />}
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-xl font-bold text-navy-900 dark:text-white mb-2">
+                {isQualified ? 'Prize Qualified!' : 'Prize Qualification Progress'}
+              </h3>
+              <p className="text-slate-600 dark:text-slate-300 mb-4">
+                {isQualified
+                  ? 'Congratulations! You have recruited 10+ members and are now eligible for the Captain\'s Prize Pool.'
+                  : `Recruit ${remaining} more people to qualify for the Captain's Prize Pool.`}
+              </p>
+              {!isQualified && (
+                <div className="w-full max-w-md">
+                  <div className="flex justify-between text-xs mb-1 font-medium text-slate-500 dark:text-slate-400">
+                    <span>{recruitCount} Recruits</span>
+                    <span>Goal: {qualificationThreshold}</span>
+                  </div>
+                  <Progress value={progressPercent} className="h-2" />
+                </div>
+              )}
+            </div>
+            {isQualified && (
+              <div className="shrink-0">
+                <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 text-sm font-bold shadow-lg">
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  QUALIFIED
+                </Badge>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
         <CardHeader>
           <CardTitle className="text-navy-900 dark:text-white">Your Team</CardTitle>
@@ -82,10 +131,10 @@ export function RosterPage() {
                       </TableCell>
                       <TableCell className="font-bold text-orange-600 dark:text-orange-400">{recruit.points}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={recruit.isActive ? 'default' : 'secondary'} 
-                          className={recruit.isActive 
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 border-green-200 dark:border-green-900' 
+                        <Badge
+                          variant={recruit.isActive ? 'default' : 'secondary'}
+                          className={recruit.isActive
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 border-green-200 dark:border-green-900'
                             : 'bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-400'}
                         >
                           {recruit.isActive ? 'Active' : 'Inactive'}

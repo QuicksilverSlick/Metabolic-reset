@@ -11,13 +11,15 @@ import {
   AlertCircle,
   Copy,
   Share2,
-  ArrowRight
+  ArrowRight,
+  Users,
+  Trophy
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useUser, useDailyScore, useSubmitScore } from '@/hooks/use-queries';
+import { useUser, useDailyScore, useSubmitScore, useTeamRoster } from '@/hooks/use-queries';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
@@ -25,6 +27,8 @@ import { getChallengeProgress } from '@/lib/utils';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { data: user, isLoading: userLoading } = useUser();
+  // Fetch roster if coach (will return empty if not coach or not enabled)
+  const { data: roster } = useTeamRoster();
   // Date logic: Get today's date in YYYY-MM-DD
   const today = format(new Date(), 'yyyy-MM-dd');
   const { data: score, isLoading: scoreLoading } = useDailyScore(today);
@@ -64,6 +68,9 @@ export function DashboardPage() {
   const habits = score?.habits || { water: false, steps: false, sleep: false, lesson: false };
   const points = user?.points || 0;
   const isOrphan = !user?.captainId;
+  const isCoach = user?.role === 'coach';
+  const recruitCount = roster?.length || 0;
+  const isQualified = recruitCount >= 10;
   // Calculate Progress using shared utility
   const { day, progressPercentage } = user?.createdAt
     ? getChallengeProgress(user.createdAt)
@@ -97,7 +104,7 @@ export function DashboardPage() {
           </h1>
           <p className="text-slate-500 dark:text-slate-400">Let's crush your goals today.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-wrap gap-4">
             {/* Progress Card */}
             <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-navy-800 flex items-center gap-4 min-w-[200px] transition-colors">
                 <CircularProgress value={progressPercentage} size={50} strokeWidth={5}>
@@ -118,6 +125,21 @@ export function DashboardPage() {
                     <div className="text-2xl font-bold text-orange-500">{points}</div>
                  </div>
             </div>
+            {/* Coach Team Summary Card */}
+            {isCoach && (
+              <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors cursor-pointer hover:border-orange-200 dark:hover:border-orange-500/50" onClick={() => navigate('/app/roster')}>
+                 <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold shrink-0 ${isQualified ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
+                    {isQualified ? <Trophy className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+                 </div>
+                 <div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Team Size</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold text-navy-900 dark:text-white">{recruitCount}</div>
+                      {isQualified && <span className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded font-bold">QUALIFIED</span>}
+                    </div>
+                 </div>
+              </div>
+            )}
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
