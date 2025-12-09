@@ -112,59 +112,59 @@ export function BiometricsPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="weight" className="text-navy-900 dark:text-slate-200">Weight (lbs)</Label>
-              <Input 
-                id="weight" 
-                type="number" 
-                step="0.1" 
-                placeholder="0.0" 
-                {...register('weight')} 
+              <Input
+                id="weight"
+                type="number"
+                step="0.1"
+                placeholder="0.0"
+                {...register('weight')}
                 className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
               {errors.weight && <p className="text-red-500 text-xs">{errors.weight.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="bodyFat" className="text-navy-900 dark:text-slate-200">Body Fat (%)</Label>
-              <Input 
-                id="bodyFat" 
-                type="number" 
-                step="0.1" 
-                placeholder="0.0" 
-                {...register('bodyFat')} 
+              <Input
+                id="bodyFat"
+                type="number"
+                step="0.1"
+                placeholder="0.0"
+                {...register('bodyFat')}
                 className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
               {errors.bodyFat && <p className="text-red-500 text-xs">{errors.bodyFat.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="visceralFat" className="text-navy-900 dark:text-slate-200">Visceral Fat</Label>
-              <Input 
-                id="visceralFat" 
-                type="number" 
-                step="0.5" 
-                placeholder="0" 
-                {...register('visceralFat')} 
+              <Input
+                id="visceralFat"
+                type="number"
+                step="0.5"
+                placeholder="0"
+                {...register('visceralFat')}
                 className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
               {errors.visceralFat && <p className="text-red-500 text-xs">{errors.visceralFat.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="leanMass" className="text-navy-900 dark:text-slate-200">Muscle Mass (lbs)</Label>
-              <Input 
-                id="leanMass" 
-                type="number" 
-                step="0.1" 
-                placeholder="0.0" 
-                {...register('leanMass')} 
+              <Input
+                id="leanMass"
+                type="number"
+                step="0.1"
+                placeholder="0.0"
+                {...register('leanMass')}
                 className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
               {errors.leanMass && <p className="text-red-500 text-xs">{errors.leanMass.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="metabolicAge" className="text-navy-900 dark:text-slate-200">Metabolic Age</Label>
-              <Input 
-                id="metabolicAge" 
-                type="number" 
-                placeholder="0" 
-                {...register('metabolicAge')} 
+              <Input
+                id="metabolicAge"
+                type="number"
+                placeholder="0"
+                {...register('metabolicAge')}
                 className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
               />
               {errors.metabolicAge && <p className="text-red-500 text-xs">{errors.metabolicAge.message}</p>}

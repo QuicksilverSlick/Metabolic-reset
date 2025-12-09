@@ -106,7 +106,7 @@ export function DashboardPage() {
         </div>
         <div className="flex flex-wrap gap-4">
             {/* Progress Card */}
-            <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-navy-800 flex items-center gap-4 min-w-[200px] transition-colors">
+            <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-navy-800 flex items-center gap-4 min-w-[200px] transition-colors">
                 <CircularProgress value={progressPercentage} size={50} strokeWidth={5}>
                     <span className="text-[10px] font-bold text-navy-900 dark:text-white">{Math.round(progressPercentage)}%</span>
                 </CircularProgress>
@@ -116,7 +116,7 @@ export function DashboardPage() {
                 </div>
             </div>
             {/* Points Card */}
-            <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors">
+            <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors">
                  <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold shrink-0">
                     P
                  </div>
@@ -127,7 +127,7 @@ export function DashboardPage() {
             </div>
             {/* Coach Team Summary Card */}
             {isCoach && (
-              <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors cursor-pointer hover:border-orange-200 dark:hover:border-orange-500/50" onClick={() => navigate('/app/roster')}>
+              <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors cursor-pointer hover:border-orange-200 dark:hover:border-orange-500/50" onClick={() => navigate('/app/roster')}>
                  <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold shrink-0 ${isQualified ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
                     {isQualified ? <Trophy className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                  </div>

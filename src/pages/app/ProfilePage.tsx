@@ -36,34 +36,34 @@ export function ProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Full Name</Label>
-                <Input 
-                  value={user.name} 
-                  readOnly 
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white" 
+                <Input
+                  value={user.name}
+                  readOnly
+                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Email Address</Label>
-                <Input 
-                  value={user.email} 
-                  readOnly 
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white" 
+                <Input
+                  value={user.email}
+                  readOnly
+                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Phone Number</Label>
-                <Input 
-                  value={user.phone} 
-                  readOnly 
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white" 
+                <Input
+                  value={user.phone}
+                  readOnly
+                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Timezone</Label>
-                <Input 
-                  value={user.timezone} 
-                  readOnly 
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white" 
+                <Input
+                  value={user.timezone}
+                  readOnly
+                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
                 />
               </div>
             </div>

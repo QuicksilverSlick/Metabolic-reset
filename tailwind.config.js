@@ -41,7 +41,8 @@ export default {
                 600: '#0C2347',
                 700: '#091A36',
                 800: '#061224',
-                900: '#030912'
+                900: '#030912',
+                950: '#020617' // Added for Dark Mode Background
             },
             orange: {
                 DEFAULT: '#FF6B35',
