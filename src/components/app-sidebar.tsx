@@ -30,9 +30,9 @@ export function AppSidebar(): JSX.Element {
     <Sidebar className="border-r border-navy-800 bg-navy-900 text-white" variant="sidebar">
       <SidebarHeader className="bg-navy-950 p-4">
         <div className="flex items-center gap-2 px-2">
-          <img 
-            src="https://app.getdreamforge.com/api/generated/fa38b87a-74ea-4ea5-8adc-09fe6e85515b.jpeg" 
-            alt="28 Day Reset" 
+          <img
+            src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png"
+            alt="28 Day Reset"
             className="h-8 w-auto rounded-md"
           />
         </div>

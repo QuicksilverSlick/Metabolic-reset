@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuthStore } from "@/lib/auth-store";
 import { Navigate } from "react-router-dom";
 import { differenceInDays } from "date-fns";
+import { ThemeToggle } from "@/components/ThemeToggle";
 type AppLayoutProps = {
   children: React.ReactNode;
   container?: boolean;
@@ -30,16 +31,19 @@ export function AppLayout({ children, container = false, className, contentClass
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
-      <SidebarInset className={`bg-slate-50 ${className || ''}`}>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white px-4 shadow-sm">
-          <SidebarTrigger className="-ml-1" />
-          <div className="h-4 w-px bg-slate-200 mx-2" />
+      <SidebarInset className={`bg-slate-50 dark:bg-navy-950 transition-colors duration-300 ${className || ''}`}>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-navy-900 dark:border-navy-800 px-4 shadow-sm transition-colors duration-300">
+          <SidebarTrigger className="-ml-1 text-navy-900 dark:text-white" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-navy-700 mx-2" />
           <div className="flex-1 flex justify-between items-center">
-            <h1 className="font-display font-semibold text-navy-900 text-lg">
+            <h1 className="font-display font-semibold text-navy-900 dark:text-white text-lg">
               Metabolic Reset
             </h1>
-            <div className="text-sm text-slate-500 hidden sm:block font-medium">
-              {dayDisplay}
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block font-medium">
+                {dayDisplay}
+              </div>
+              <ThemeToggle className="relative top-0 right-0" />
             </div>
           </div>
         </header>

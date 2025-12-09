@@ -77,14 +77,14 @@ export function BiometricsPage() {
   if (isSuccess) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
-        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="h-12 w-12 text-green-600" />
+        <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
         </div>
-        <h2 className="text-3xl font-bold text-navy-900 mb-4">Submission Received!</h2>
-        <p className="text-slate-600 mb-8">
+        <h2 className="text-3xl font-bold text-navy-900 dark:text-white mb-4">Submission Received!</h2>
+        <p className="text-slate-600 dark:text-slate-300 mb-8">
           You have successfully logged your biometrics for Week {currentWeek}. Come back next week to track your progress.
         </p>
-        <Button onClick={() => navigate('/app')} className="bg-navy-900 text-white">
+        <Button onClick={() => navigate('/app')} className="bg-navy-900 hover:bg-navy-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white">
           Return to Dashboard
         </Button>
       </div>
@@ -94,78 +94,112 @@ export function BiometricsPage() {
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-3xl font-display font-bold text-navy-900">Week {currentWeek} Weigh-In</h1>
-          <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-bold">
+          <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Week {currentWeek} Weigh-In</h1>
+          <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-sm font-bold">
             +25 Points
           </span>
         </div>
-        <p className="text-slate-500">
+        <p className="text-slate-500 dark:text-slate-400">
           Step on your smart scale, take a screenshot of the app, and enter the 5 key numbers below.
         </p>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
           <CardHeader>
-            <CardTitle>Biometric Data</CardTitle>
-            <CardDescription>Enter values exactly as they appear on your scale.</CardDescription>
+            <CardTitle className="text-navy-900 dark:text-white">Biometric Data</CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">Enter values exactly as they appear on your scale.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="weight">Weight (lbs)</Label>
-              <Input id="weight" type="number" step="0.1" placeholder="0.0" {...register('weight')} />
+              <Label htmlFor="weight" className="text-navy-900 dark:text-slate-200">Weight (lbs)</Label>
+              <Input 
+                id="weight" 
+                type="number" 
+                step="0.1" 
+                placeholder="0.0" 
+                {...register('weight')} 
+                className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
               {errors.weight && <p className="text-red-500 text-xs">{errors.weight.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bodyFat">Body Fat (%)</Label>
-              <Input id="bodyFat" type="number" step="0.1" placeholder="0.0" {...register('bodyFat')} />
+              <Label htmlFor="bodyFat" className="text-navy-900 dark:text-slate-200">Body Fat (%)</Label>
+              <Input 
+                id="bodyFat" 
+                type="number" 
+                step="0.1" 
+                placeholder="0.0" 
+                {...register('bodyFat')} 
+                className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
               {errors.bodyFat && <p className="text-red-500 text-xs">{errors.bodyFat.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="visceralFat">Visceral Fat</Label>
-              <Input id="visceralFat" type="number" step="0.5" placeholder="0" {...register('visceralFat')} />
+              <Label htmlFor="visceralFat" className="text-navy-900 dark:text-slate-200">Visceral Fat</Label>
+              <Input 
+                id="visceralFat" 
+                type="number" 
+                step="0.5" 
+                placeholder="0" 
+                {...register('visceralFat')} 
+                className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
               {errors.visceralFat && <p className="text-red-500 text-xs">{errors.visceralFat.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="leanMass">Muscle Mass (lbs)</Label>
-              <Input id="leanMass" type="number" step="0.1" placeholder="0.0" {...register('leanMass')} />
+              <Label htmlFor="leanMass" className="text-navy-900 dark:text-slate-200">Muscle Mass (lbs)</Label>
+              <Input 
+                id="leanMass" 
+                type="number" 
+                step="0.1" 
+                placeholder="0.0" 
+                {...register('leanMass')} 
+                className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
               {errors.leanMass && <p className="text-red-500 text-xs">{errors.leanMass.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="metabolicAge">Metabolic Age</Label>
-              <Input id="metabolicAge" type="number" placeholder="0" {...register('metabolicAge')} />
+              <Label htmlFor="metabolicAge" className="text-navy-900 dark:text-slate-200">Metabolic Age</Label>
+              <Input 
+                id="metabolicAge" 
+                type="number" 
+                placeholder="0" 
+                {...register('metabolicAge')} 
+                className="bg-white dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600"
+              />
               {errors.metabolicAge && <p className="text-red-500 text-xs">{errors.metabolicAge.message}</p>}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
           <CardHeader>
-            <CardTitle>Proof of Weigh-In</CardTitle>
-            <CardDescription>Upload a screenshot from your smart scale app.</CardDescription>
+            <CardTitle className="text-navy-900 dark:text-white">Proof of Weigh-In</CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">Upload a screenshot from your smart scale app.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+            <div className="border-2 border-dashed border-slate-300 dark:border-navy-700 rounded-xl p-8 text-center hover:bg-slate-50 dark:hover:bg-navy-800 transition-colors cursor-pointer relative group">
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
               <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-orange-50 dark:bg-navy-800 rounded-full flex items-center justify-center group-hover:bg-orange-100 dark:group-hover:bg-navy-700 transition-colors">
                   <Upload className="h-6 w-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="font-medium text-navy-900">
+                  <p className="font-medium text-navy-900 dark:text-white">
                     {file ? file.name : "Click to upload screenshot"}
                   </p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     {file ? "File selected" : "JPG or PNG up to 5MB"}
                   </p>
                 </div>
               </div>
             </div>
             {!file && (
-              <Alert variant="destructive" className="mt-4 bg-red-50 border-red-200 text-red-800">
+              <Alert variant="destructive" className="mt-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900 text-red-800 dark:text-red-300">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Required</AlertTitle>
                 <AlertDescription>
