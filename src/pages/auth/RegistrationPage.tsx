@@ -21,7 +21,12 @@ let stripePromise: Promise<any> | null = null;
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 try {
   if (stripeKey) {
-    stripePromise = loadStripe(stripeKey);
+    stripePromise = loadStripe(stripeKey).catch(err => {
+        console.error("Failed to load Stripe:", err);
+        return null;
+    });
+  } else {
+    console.warn("Stripe publishable key is missing. Payments will be in mock mode if backend supports it.");
   }
 } catch (error) {
   console.error("Failed to initialize Stripe:", error);
@@ -40,7 +45,10 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
   const [processing, setProcessing] = useState(false);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements) {
+        // Fallback if hooks aren't ready
+        return;
+    }
     setProcessing(true);
     setError(null);
     try {
@@ -104,8 +112,13 @@ export function RegistrationPage() {
     setStep(2);
   };
   const handleRoleSelection = async () => {
-    setStep(3);
     setStripeError(null);
+    // Check if Stripe is properly initialized before proceeding, unless we expect mock mode
+    if (!stripePromise && stripeKey) {
+        setStripeError("Payment system failed to load. Please refresh the page or try again later.");
+        // We don't block moving to step 3, but step 3 will show the error
+    }
+    setStep(3);
     // Initialize Payment Intent
     const amount = role === 'coach' ? 4900 : 2800;
     try {
@@ -281,9 +294,9 @@ export function RegistrationPage() {
                           <AlertTitle className="text-orange-800">Smart Scale Required</AlertTitle>
                           <AlertDescription className="text-orange-700 text-sm mt-1">
                             You need a scale that measures Body Fat & Visceral Fat to participate.
-                            <a 
-                              href="https://amazon.com" 
-                              target="_blank" 
+                            <a
+                              href="https://amazon.com"
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 font-bold underline mt-2 hover:text-orange-900"
                             >

@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuthStore } from "@/lib/auth-store";
 import { Navigate } from "react-router-dom";
+import { differenceInDays } from "date-fns";
 type AppLayoutProps = {
   children: React.ReactNode;
   container?: boolean;
@@ -11,9 +12,21 @@ type AppLayoutProps = {
 };
 export function AppLayout({ children, container = false, className, contentClassName }: AppLayoutProps): JSX.Element {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const user = useAuthStore(s => s.user);
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
+  // Calculate current day of the challenge
+  const getDayNumber = () => {
+    if (!user?.createdAt) return 1;
+    const startDate = new Date(user.createdAt);
+    const today = new Date();
+    const dayDiff = differenceInDays(today, startDate) + 1;
+    // Clamp between 1 and 28 (or allow > 28 for post-challenge)
+    return Math.max(1, dayDiff);
+  };
+  const currentDay = getDayNumber();
+  const dayDisplay = currentDay > 28 ? `Day ${currentDay} (Post-Challenge)` : `Day ${currentDay} of 28`;
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
@@ -25,8 +38,8 @@ export function AppLayout({ children, container = false, className, contentClass
             <h1 className="font-display font-semibold text-navy-900 text-lg">
               Metabolic Reset
             </h1>
-            <div className="text-sm text-slate-500 hidden sm:block">
-              Day 4 of 28
+            <div className="text-sm text-slate-500 hidden sm:block font-medium">
+              {dayDisplay}
             </div>
           </div>
         </header>
