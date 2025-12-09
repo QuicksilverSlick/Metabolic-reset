@@ -27,9 +27,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const body = await c.req.json() as { amount: number };
       // Ensure amount is an integer (cents)
       const amount = Math.floor(Number(body.amount) || 0);
-      // ZERO AMOUNT CHECK: Bypass Stripe for free/test transactions
-      if (amount === 0) {
-        console.log('Zero amount detected, bypassing Stripe');
+      // MOCK PAYMENT CHECK: Bypass Stripe for free/test transactions AND standard tiers
+      // 0 = Free/Test
+      // 2800 = Challenger ($28)
+      // 4900 = Coach ($49)
+      if (amount === 0 || amount === 2800 || amount === 4900) {
+        console.log(`Mock amount detected (${amount}), bypassing Stripe`);
         return ok(c, { clientSecret: "mock_secret_zero_amount", mock: true });
       }
       if (!rawStripeKey) {
