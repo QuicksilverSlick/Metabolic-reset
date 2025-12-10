@@ -4,76 +4,79 @@
 @tailwind utilities;
 @layer base {
   :root {
-    /* Base Colors - Navy & Gold Theme */
-    --background: 222 47% 11%; /* #0F172A */
+    /* Base Colors - Deep Navy & Gold Theme */
+    /* Navy 900: #0F2C59 -> 218 71% 20% */
+    /* Navy 950: #091A35 -> 217 71% 12% */
+    /* Gold: #F59E0B -> 38 92% 50% */
+    --background: 218 71% 20%; /* #0F2C59 (Deep Navy) */
     --foreground: 210 40% 98%; /* #F8FAFC */
-    --card: 217 33% 17%; /* #1E293B */
+    --card: 217 71% 12%; /* #091A35 (Darker Navy) */
     --card-foreground: 210 40% 98%; /* #F8FAFC */
-    --popover: 222 47% 11%; /* #0F172A */
+    --popover: 218 71% 20%; /* #0F2C59 */
     --popover-foreground: 210 40% 98%; /* #F8FAFC */
     --primary: 38 92% 50%; /* #F59E0B (Gold) */
-    --primary-foreground: 222 47% 11%; /* #0F172A */
-    --secondary: 215 25% 27%; /* #334155 */
+    --primary-foreground: 218 71% 20%; /* #0F2C59 (Navy Text on Gold) */
+    --secondary: 216 67% 26%; /* #163A70 (Lighter Navy) */
     --secondary-foreground: 210 40% 98%; /* #F8FAFC */
-    --muted: 217 33% 17%; /* #1E293B */
+    --muted: 217 71% 12%; /* #091A35 */
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 38 92% 50%; /* #F59E0B */
-    --accent-foreground: 222 47% 11%; /* #0F172A */
+    --accent-foreground: 218 71% 20%; /* #0F2C59 */
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%; /* #F8FAFC */
-    --border: 217 33% 17%; /* #1E293B */
-    --input: 217 33% 17%; /* #1E293B */
+    --destructive-foreground: 210 40% 98%;
+    --border: 216 67% 26%; /* #163A70 */
+    --input: 216 67% 26%; /* #163A70 */
     --ring: 38 92% 50%; /* #F59E0B */
     --radius: 0.5rem;
-    /* Chart Colors (Adapted for dark theme) */
+    /* Chart Colors */
     --chart-1: 38 92% 50%; /* Gold */
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     /* Sidebar Colors */
-    --sidebar-background: 222 47% 11%; /* #0F172A */
+    --sidebar-background: 218 71% 20%; /* #0F2C59 */
     --sidebar-foreground: 210 40% 98%; /* #F8FAFC */
     --sidebar-primary: 38 92% 50%; /* #F59E0B */
-    --sidebar-primary-foreground: 222 47% 11%; /* #0F172A */
-    --sidebar-accent: 215 25% 27%; /* #334155 */
+    --sidebar-primary-foreground: 218 71% 20%; /* #0F2C59 */
+    --sidebar-accent: 216 67% 26%; /* #163A70 */
     --sidebar-accent-foreground: 210 40% 98%; /* #F8FAFC */
-    --sidebar-border: 217 33% 17%; /* #1E293B */
+    --sidebar-border: 217 71% 12%; /* #091A35 */
     --sidebar-ring: 38 92% 50%; /* #F59E0B */
   }
   /* Enforce same theme for .dark class to ensure consistency */
   .dark {
-    --background: 222 47% 11%;
+    --background: 218 71% 20%;
     --foreground: 210 40% 98%;
-    --card: 217 33% 17%;
+    --card: 217 71% 12%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 218 71% 20%;
     --popover-foreground: 210 40% 98%;
     --primary: 38 92% 50%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 215 25% 27%;
+    --primary-foreground: 218 71% 20%;
+    --secondary: 216 67% 26%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
+    --muted: 217 71% 12%;
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
+    --accent-foreground: 218 71% 20%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
+    --border: 216 67% 26%;
+    --input: 216 67% 26%;
     --ring: 38 92% 50%;
     --chart-1: 38 92% 50%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 218 71% 20%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 215 25% 27%;
+    --sidebar-primary-foreground: 218 71% 20%;
+    --sidebar-accent: 216 67% 26%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
+    --sidebar-border: 217 71% 12%;
     --sidebar-ring: 38 92% 50%;
   }
 }
@@ -85,7 +88,7 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold text-foreground; /* Updated to use foreground since it's dark theme now */
+    @apply font-display font-bold text-foreground;
   }
 }
 @layer components {

@@ -33,7 +33,7 @@ export function HomePage() {
       <section className="relative bg-navy-900 text-white overflow-hidden min-h-[90vh] flex items-center">
         {/* Background images */}
         <div className="absolute inset-0 bg-[url('https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-navy-900 via-navy-900/90 to-navy-900/40"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-navy-900 via-navy-900/95 to-navy-900/50"></div>
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="max-w-4xl">
             <motion.div {...fadeIn}>
@@ -47,7 +47,7 @@ export function HomePage() {
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-[1.1] mb-8 tracking-tight">
                 <span className="text-white">Reverse Your</span> <span className="text-orange-500">Metabolic Age</span> <span className="text-white">in 28 Days.</span>
               </h1>
-              <h2 className="text-xl md:text-2xl text-slate-200 font-medium mb-8 max-w-3xl leading-relaxed">
+              <h2 className="text-xl md:text-2xl lg:text-3xl text-slate-200 font-medium mb-8 max-w-3xl leading-relaxed">
                 Join the science-backed challenge that helps you lose visceral fat, sleep better, and reclaim your energy.
               </h2>
               <p className="text-lg md:text-xl text-slate-300 mb-12 leading-relaxed max-w-2xl font-sans">
@@ -57,15 +57,15 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-lg px-10 py-7 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
+                  className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
                 >
                   JOIN THE CHALLENGE - $28
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-6 w-6" />
                 </Button>
                 <Button
                   size="lg"
                   onClick={() => setIsLeadGenOpen(true)}
-                  className="bg-white text-navy-900 hover:bg-slate-100 text-lg px-8 py-7 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
+                  className="bg-white text-navy-900 hover:bg-slate-100 text-lg md:text-xl px-8 py-8 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl"
                 >
                   GET THE METABOLIC CHECKLIST
                 </Button>
@@ -74,12 +74,12 @@ export function HomePage() {
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-2">
                     {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="w-8 h-8 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
+                      <div key={i} className="w-10 h-10 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
                          <div className="w-full h-full bg-slate-600 animate-pulse"></div>
                       </div>
                     ))}
                   </div>
-                  <p>
+                  <p className="text-base">
                     Join <span className="text-white font-bold">{stats?.totalParticipants ? stats.totalParticipants.toLocaleString() + '+' : '2,000+'}</span> participants
                   </p>
                 </div>
@@ -96,10 +96,10 @@ export function HomePage() {
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-navy-900 mb-8 leading-tight">
                 The "Aging Myth" is Stealing Your Vitality.
               </h2>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed font-sans">
+              <p className="text-lg md:text-xl text-slate-600 mb-8 leading-relaxed font-sans">
                 You’ve tried eating less. You’ve tried exercising more. But the scale doesn't move, and you're tired by 2:00 PM.
               </p>
-              <p className="text-lg text-slate-600 mb-10 leading-relaxed font-sans">
+              <p className="text-lg md:text-xl text-slate-600 mb-10 leading-relaxed font-sans">
                 It’s not your fault. It’s your <strong className="text-navy-900 font-bold">Metabolic Health</strong>. And if you don't track it, you can't fix it.
               </p>
               <div className="space-y-6 mb-10">
@@ -113,14 +113,14 @@ export function HomePage() {
                       <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                     </div>
                     <div>
-                      <h4 className="text-navy-900 font-bold text-lg">{item.title}</h4>
-                      <p className="text-slate-600">{item.desc}</p>
+                      <h4 className="text-navy-900 font-bold text-xl">{item.title}</h4>
+                      <p className="text-slate-600 text-lg">{item.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="pl-6 border-l-4 border-orange-500 py-2">
-                <p className="text-xl text-navy-900 font-medium italic font-display">
+                <p className="text-xl md:text-2xl text-navy-900 font-medium italic font-display">
                   "You shouldn't have to accept physical decline just because you're getting older."
                 </p>
               </div>
@@ -151,7 +151,7 @@ export function HomePage() {
             <h2 className="text-4xl md:text-5xl font-display font-bold text-navy-900 mb-6">
               Stop Guessing. Start Tracking.
             </h2>
-            <p className="text-xl text-slate-600 leading-relaxed font-sans">
+            <p className="text-xl md:text-2xl text-slate-600 leading-relaxed font-sans">
               We don't just give you a diet plan. We invite you into a Biometric Study. By tracking 5 key health markers, you see exactly how your body responds to the right inputs.
             </p>
           </div>
@@ -221,20 +221,20 @@ export function HomePage() {
             >
               <div className="mb-12">
                 <span className="text-orange-600 font-bold tracking-wider uppercase text-sm mb-3 block">Guided by Science & Community</span>
-                <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-6">
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-navy-900 mb-6">
                   We Know That Diet Fads Stop Working After 50.
                 </h2>
                 <p className="text-xl text-slate-600 font-sans leading-relaxed mb-6">
                   We’ve guided thousands of people through this reset. We understand that bodies change after 50. That's why we built a program that focuses on data, not deprivation.
                 </p>
-                <p className="text-lg text-navy-900 font-medium italic">
+                <p className="text-xl text-navy-900 font-medium italic">
                   We provide the roadmap; you provide the effort.
                 </p>
               </div>
               <div className="space-y-6">
-                <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                  <p className="text-slate-700 italic mb-4">"I lost 4 years of metabolic age in one month! Finally, a plan that explains WHY, not just HOW."</p>
-                  <div className="font-bold text-navy-900">- Sarah, 54</div>
+                <div className="bg-slate-50 p-8 rounded-xl border border-slate-100">
+                  <p className="text-slate-700 italic mb-4 text-lg">"I lost 4 years of metabolic age in one month! Finally, a plan that explains WHY, not just HOW."</p>
+                  <div className="font-bold text-navy-900 text-lg">- Sarah, 54</div>
                 </div>
               </div>
             </motion.div>
@@ -285,7 +285,7 @@ export function HomePage() {
              <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-lg px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-orange-500/50"
+                className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-orange-500/50"
               >
                 I'M READY TO START
               </Button>
