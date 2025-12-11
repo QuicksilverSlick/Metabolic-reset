@@ -120,14 +120,24 @@ export default ({ mode }: { mode: string }) => {
       },
     },
     optimizeDeps: {
-      // This is still crucial for reducing the time from when `bun run dev`
-      // is executed to when the server is actually ready.
+      // Crucial for reducing the time from when `bun run dev` is executed
+      // and preventing "Could not resolve" errors for CommonJS dependencies
       include: [
         "react",
         "react-dom",
         "react-router-dom",
         "@stripe/stripe-js",
-        "@stripe/react-stripe-js"
+        "@stripe/react-stripe-js",
+        "lucide-react",
+        "date-fns",
+        "framer-motion",
+        "clsx",
+        "tailwind-merge",
+        "@tanstack/react-query",
+        "sonner",
+        "zod",
+        "react-hook-form",
+        "@hookform/resolvers/zod"
       ],
       exclude: ["agents"], // Exclude agents package from pre-bundling due to Node.js dependencies
       force: true,

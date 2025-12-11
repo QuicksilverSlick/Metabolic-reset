@@ -45,17 +45,17 @@ export default {
                 950: '#091A35'  // Darker Navy
             },
             orange: {
-                DEFAULT: '#F59E0B', // Brand Gold
-                50: '#FFFBEB',
-                100: '#FEF3C7',
-                200: '#FDE68A',
-                300: '#FCD34D',
-                400: '#FBBF24',
-                500: '#F59E0B', // Brand Gold Base
-                600: '#D97706',
-                700: '#B45309',
-                800: '#92400E',
-                900: '#78350F'
+                DEFAULT: '#FF6B35', // Brand Orange (Updated from #F59E0B)
+                50: '#FFF5F0',
+                100: '#FFE6DB',
+                200: '#FFC9B3',
+                300: '#FFAB8A',
+                400: '#FF8D61',
+                500: '#FF6B35', // Brand Orange Base
+                600: '#E65A2C', // Darker for hover
+                700: '#CC4920',
+                800: '#993314',
+                900: '#66220D'
             },
             slate: {
                 DEFAULT: '#1E293B',
@@ -130,7 +130,7 @@ export default {
         boxShadow: {
             'soft': '0 4px 20px -2px rgba(15, 44, 89, 0.5)', // Adjusted for Navy theme
             'card': '0 2px 8px -1px rgba(15, 44, 89, 0.3)',
-            'glow': '0 0 15px rgba(245, 158, 11, 0.3)' // Gold glow
+            'glow': '0 0 15px rgba(255, 107, 53, 0.3)' // Orange glow (updated RGB)
         }
   	}
   },

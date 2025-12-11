@@ -4,6 +4,7 @@ import { errorReporter } from '@/lib/errorReporter';
 import { ErrorFallback } from './ErrorFallback';
 export function RouteErrorBoundary() {
   // Hook called unconditionally at the top level to comply with Rules of Hooks
+  // We remove the try-catch block because hooks cannot be called inside try-catch blocks in React
   const error = useRouteError();
   useEffect(() => {
     if (error) {

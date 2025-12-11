@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
-import { LeadGenModal } from '@/components/lead-gen-modal';
+// import { LeadGenModal } from '@/components/lead-gen-modal';
 import { useSystemStats } from '@/hooks/use-queries';
 export function HomePage() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function HomePage() {
   };
   return (
     <MarketingLayout>
-      <LeadGenModal open={isLeadGenOpen} onOpenChange={setIsLeadGenOpen} />
+      {/* <LeadGenModal open={isLeadGenOpen} onOpenChange={setIsLeadGenOpen} /> */}
       {/* HERO SECTION */}
       <section className="relative bg-navy-900 text-white overflow-hidden min-h-[90vh] flex items-center">
         {/* Background images */}
@@ -57,7 +57,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
+                  className="bg-orange-500 hover:bg-orange-600 text-white text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
                 >
                   JOIN THE CHALLENGE - $28
                   <ArrowRight className="ml-2 h-6 w-6" />
@@ -285,7 +285,7 @@ export function HomePage() {
              <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-orange-500 hover:bg-orange-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-orange-500/50"
+                className="bg-orange-500 hover:bg-orange-600 text-white text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-orange-500/50"
               >
                 I'M READY TO START
               </Button>

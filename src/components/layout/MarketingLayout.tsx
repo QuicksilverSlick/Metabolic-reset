@@ -37,8 +37,8 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                 className="h-[60px] w-auto rounded-md object-contain"
               />
             </Link>
-            {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center gap-8">
+            {/* Desktop Nav - Increased gap from 8 to 12 for better spacing */}
+            <nav className="hidden md:flex items-center gap-12">
               {navLinks.map((link) => (
                 <a
                   key={link.name}
@@ -126,7 +126,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t border-navy-900 text-center text-xs">
-            <p>&copy; {new Date().getFullYear()} Reset Project. Built with ❤�� at Cloudflare.</p>
+            <p>&copy; {new Date().getFullYear()} Reset Project. Built with ❤️ at Cloudflare.</p>
           </div>
         </div>
       </footer>
