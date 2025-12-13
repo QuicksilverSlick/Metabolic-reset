@@ -1,6 +1,6 @@
 # 28 Day Reset (Metabolic Edition)
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/QuicksilverSlick/Metabolic-reset)
 
 A comprehensive, science-backed metabolic health challenge platform designed specifically for the 50-70 age demographic. This application facilitates a 28-day "study" where users track daily habits and submit weekly biometric data to reverse metabolic age.
 
@@ -88,7 +88,7 @@ The platform is engineered for high performance, accessibility, and scalability,
 
 This project is configured for seamless deployment to Cloudflare Workers.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/QuicksilverSlick/Metabolic-reset)
 
 ### Manual Deployment
 
