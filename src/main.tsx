@@ -23,7 +23,9 @@ import { ProfilePage } from '@/pages/app/ProfilePage';
 import { AssignCaptainPage } from '@/pages/app/AssignCaptainPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
+
 const queryClient = new QueryClient();
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -40,6 +42,7 @@ const router = createBrowserRouter([
     element: (
       <AppLayout container>
         <Outlet />
+        <Toaster richColors closeButton />
       </AppLayout>
     ),
     errorElement: <RouteErrorBoundary />,
@@ -69,16 +72,16 @@ const router = createBrowserRouter([
   {
     path: "*",
     element: <NotFoundPage />,
-    errorElement: <RouteErrorBoundary />
   }
 ]);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
-        <Toaster richColors closeButton />
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 )
+//
