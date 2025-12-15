@@ -13,7 +13,7 @@ export function ProfilePage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
       </div>
     );
   }
@@ -76,8 +76,8 @@ export function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
-                <Shield className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              <div className="bg-gold-100 dark:bg-gold-900/30 p-2 rounded-lg">
+                <Shield className="h-5 w-5 text-gold-600 dark:text-gold-400" />
               </div>
               <div>
                 <div className="text-sm text-slate-500 dark:text-slate-400">Role</div>

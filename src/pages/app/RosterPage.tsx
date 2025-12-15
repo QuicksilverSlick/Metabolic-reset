@@ -12,7 +12,7 @@ export function RosterPage() {
   if (userLoading || rosterLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
       </div>
     );
   }
@@ -42,7 +42,7 @@ export function RosterPage() {
           <p className="text-slate-500 dark:text-slate-400">Manage your recruits and track their progress.</p>
         </div>
         <div className="bg-white dark:bg-navy-900 px-4 py-2 rounded-lg border border-slate-200 dark:border-navy-800 shadow-sm flex items-center gap-2 transition-colors">
-          <Users className="h-5 w-5 text-orange-500" />
+          <Users className="h-5 w-5 text-gold-500" />
           <span className="font-bold text-navy-900 dark:text-white">{recruitCount}</span>
           <span className="text-slate-500 dark:text-slate-400 text-sm">Recruits</span>
         </div>
@@ -129,7 +129,7 @@ export function RosterPage() {
                           {recruit.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-bold text-orange-600 dark:text-orange-400">{recruit.points}</TableCell>
+                      <TableCell className="font-bold text-gold-600 dark:text-gold-400">{recruit.points}</TableCell>
                       <TableCell>
                         <Badge
                           variant={recruit.isActive ? 'default' : 'secondary'}

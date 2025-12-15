@@ -37,15 +37,15 @@ export function HomePage() {
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="max-w-4xl">
             <motion.div {...fadeIn}>
-              <div className="inline-flex items-center gap-2 py-2 px-4 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-sm font-bold mb-8 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 py-2 px-4 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-300 text-sm font-bold mb-8 backdrop-blur-sm">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-gold-500"></span>
                 </span>
                 New Cohort Starting Soon
               </div>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-[1.1] mb-8 tracking-tight">
-                <span className="text-white">Reverse Your</span> <span className="text-orange-500">Metabolic Age</span> <span className="text-white">in 28 Days.</span>
+                <span className="text-white">Reverse Your</span> <span className="text-gold-500">Metabolic Age</span> <span className="text-white">in 28 Days.</span>
               </h1>
               <h2 className="text-xl md:text-2xl lg:text-3xl text-slate-200 font-medium mb-8 max-w-3xl leading-relaxed">
                 Join the science-backed challenge that helps you lose visceral fat, sleep better, and reclaim your energy.
@@ -57,7 +57,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
+                  className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
                 >
                   JOIN THE CHALLENGE - $28
                   <ArrowRight className="ml-2 h-6 w-6" />
@@ -119,7 +119,7 @@ export function HomePage() {
                   </div>
                 ))}
               </div>
-              <div className="pl-6 border-l-4 border-orange-500 py-2">
+              <div className="pl-6 border-l-4 border-gold-500 py-2">
                 <p className="text-xl md:text-2xl text-navy-900 font-medium italic font-display">
                   "You shouldn't have to accept physical decline just because you're getting older."
                 </p>
@@ -132,7 +132,7 @@ export function HomePage() {
               transition={{ duration: 0.8 }}
               className="relative order-1 lg:order-2"
             >
-              <div className="absolute -inset-4 bg-orange-100 rounded-[2rem] transform rotate-3 z-0"></div>
+              <div className="absolute -inset-4 bg-gold-100 rounded-[2rem] transform rotate-3 z-0"></div>
               <div className="absolute -inset-4 bg-navy-50 rounded-[2rem] transform -rotate-2 z-0"></div>
               <img
                 src="https://app.getdreamforge.com/api/generated/8bc7d2ff-f493-497f-96a7-d0b958d59224.jpeg"
@@ -147,7 +147,7 @@ export function HomePage() {
       <section id="solution" className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-20">
-            <span className="text-orange-600 font-bold tracking-wider uppercase text-sm mb-3 block">The Solution</span>
+            <span className="text-gold-600 font-bold tracking-wider uppercase text-sm mb-3 block">The Solution</span>
             <h2 className="text-4xl md:text-5xl font-display font-bold text-navy-900 mb-6">
               Stop Guessing. Start Tracking.
             </h2>
@@ -163,17 +163,17 @@ export function HomePage() {
           >
             {[
               {
-                icon: <TrendingDown className="w-10 h-10 text-orange-500" />,
+                icon: <TrendingDown className="w-10 h-10 text-gold-500" />,
                 title: "Visceral Fat Reduction",
                 desc: "Protect your organs. Target the dangerous fat stored deep in the abdomen that drives metabolic disease."
               },
               {
-                icon: <Activity className="w-10 h-10 text-orange-500" />,
+                icon: <Activity className="w-10 h-10 text-gold-500" />,
                 title: "Lean Mass Retention",
                 desc: "Keep your strength. Most diets burn muscle. Our protocol is designed to preserve lean mass while burning fat."
               },
               {
-                icon: <Zap className="w-10 h-10 text-orange-500" />,
+                icon: <Zap className="w-10 h-10 text-gold-500" />,
                 title: "Metabolic Age",
                 desc: "Turn back the clock. Watch your metabolic age drop as your cellular health improves week by week."
               }
@@ -183,7 +183,7 @@ export function HomePage() {
                 variants={fadeIn}
                 className="bg-white p-10 rounded-[2rem] shadow-card hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 group"
               >
-                <div className="bg-orange-50 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-orange-500 transition-colors duration-300">
+                <div className="bg-gold-50 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-gold-500 transition-colors duration-300">
                   <div className="group-hover:text-white transition-colors duration-300">
                     {card.icon}
                   </div>
@@ -220,7 +220,7 @@ export function HomePage() {
               transition={{ duration: 0.8, delay: 0.2 }}
             >
               <div className="mb-12">
-                <span className="text-orange-600 font-bold tracking-wider uppercase text-sm mb-3 block">Guided by Science & Community</span>
+                <span className="text-gold-600 font-bold tracking-wider uppercase text-sm mb-3 block">Guided by Science & Community</span>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-navy-900 mb-6">
                   We Know That Diet Fads Stop Working After 50.
                 </h2>
@@ -244,7 +244,7 @@ export function HomePage() {
       {/* PLAN SECTION */}
       <section id="how-it-works" className="py-24 bg-navy-900 text-white relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10 pointer-events-none">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-orange-500 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gold-500 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
           <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2"></div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -273,8 +273,8 @@ export function HomePage() {
               }
             ].map((item, i) => (
               <div key={i} className="relative z-10 flex flex-col items-center text-center group">
-                <div className="w-32 h-32 rounded-full bg-navy-800 border-4 border-navy-700 flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(15,44,89,0.5)] group-hover:border-orange-500 group-hover:shadow-[0_0_30px_rgba(255,107,53,0.3)] transition-all duration-300">
-                  <span className="font-display font-bold text-4xl text-orange-500 group-hover:text-white transition-colors duration-300">{item.step}</span>
+                <div className="w-32 h-32 rounded-full bg-navy-800 border-4 border-navy-700 flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(15,44,89,0.5)] group-hover:border-gold-500 group-hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all duration-300">
+                  <span className="font-display font-bold text-4xl text-gold-500 group-hover:text-white transition-colors duration-300">{item.step}</span>
                 </div>
                 <h3 className="text-2xl font-bold mb-4 font-display">{item.title}</h3>
                 <p className="text-slate-300 text-lg leading-relaxed font-sans">{item.desc}</p>
@@ -285,7 +285,7 @@ export function HomePage() {
              <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-orange-500/50"
+                className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 I'M READY TO START
               </Button>
@@ -296,8 +296,8 @@ export function HomePage() {
       <section className="py-24 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-orange-50 mb-8">
-              <HelpCircle className="w-10 h-10 text-orange-500" />
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gold-50 mb-8">
+              <HelpCircle className="w-10 h-10 text-gold-500" />
             </div>
             <h2 className="text-3xl md:text-4xl font-display font-bold text-navy-900 mb-8">
               Why do we charge $28?
@@ -319,7 +319,7 @@ export function HomePage() {
                 <Button
                   variant="outline"
                   onClick={() => navigate('/register')}
-                  className="shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-bold"
+                  className="shrink-0 border-gold-200 text-gold-600 hover:bg-gold-50 hover:text-gold-700 font-bold"
                 >
                   Register as Captain
                 </Button>
@@ -329,20 +329,20 @@ export function HomePage() {
         </div>
       </section>
       {/* FINAL CTA */}
-      <section className="py-32 bg-orange-500 text-white text-center relative overflow-hidden">
+      <section className="py-32 bg-gold-500 text-white text-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
         <div className="max-w-5xl mx-auto px-4 relative z-10">
-          <h2 className="text-4xl md:text-6xl font-display font-bold mb-8 leading-tight">
+          <h2 className="text-4xl md:text-6xl font-display font-bold mb-8 leading-tight text-navy-900">
             Don't just diet. Join the study.
           </h2>
-          <p className="text-xl md:text-2xl text-orange-100 mb-6 max-w-3xl mx-auto font-medium">
+          <p className="text-xl md:text-2xl text-navy-800 mb-6 max-w-3xl mx-auto font-medium">
             Reverse your metabolic age and finally feel at home in your body again.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6 mt-12">
             <Button
               size="lg"
               onClick={() => navigate('/register')}
-              className="bg-white text-orange-600 hover:bg-slate-100 text-xl px-12 py-8 rounded-full shadow-2xl font-bold hover:-translate-y-1 transition-all duration-300"
+              className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full shadow-2xl font-bold hover:-translate-y-1 transition-all duration-300"
             >
               JOIN THE CHALLENGE
             </Button>

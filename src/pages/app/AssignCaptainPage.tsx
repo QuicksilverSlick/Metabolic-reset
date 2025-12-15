@@ -41,7 +41,7 @@ export function AssignCaptainPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
       </div>
     );
   }
@@ -65,17 +65,17 @@ export function AssignCaptainPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCaptains.length > 0 ? (
           filteredCaptains.map((captain) => (
-            <Card key={captain.id} className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 hover:border-orange-200 dark:hover:border-orange-500/50 hover:shadow-md transition-all">
+            <Card key={captain.id} className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 hover:border-gold-200 dark:hover:border-gold-500/50 hover:shadow-md transition-all">
               <CardHeader className="pb-4">
                 <div className="w-12 h-12 bg-navy-100 dark:bg-navy-800 rounded-full flex items-center justify-center mb-4 text-navy-700 dark:text-white font-bold text-xl">
                   {captain.name.charAt(0)}
                 </div>
                 <CardTitle className="text-lg text-navy-900 dark:text-white">{captain.name}</CardTitle>
-                <CardDescription className="text-slate-500 dark:text-slate-400">Code: <span className="font-mono font-bold text-orange-600 dark:text-orange-400">{captain.referralCode}</span></CardDescription>
+                <CardDescription className="text-slate-500 dark:text-slate-400">Code: <span className="font-mono font-bold text-gold-600 dark:text-gold-400">{captain.referralCode}</span></CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
-                  className="w-full bg-navy-900 hover:bg-navy-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white"
+                  className="w-full bg-navy-900 hover:bg-navy-800 dark:bg-gold-500 dark:hover:bg-gold-600 text-white"
                   onClick={() => assignMutation.mutate(captain.id)}
                   disabled={assignMutation.isPending}
                 >

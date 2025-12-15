@@ -17,6 +17,7 @@ export interface User {
   createdAt: number; // Unix timestamp
   isActive: boolean;
   hasScale: boolean;
+  isAdmin?: boolean; // Admin flag for system administrators
   stripeCustomerId?: string;
 }
 export interface DailyScore {
@@ -85,4 +86,21 @@ export interface BiometricSubmitRequest {
   leanMass: number;
   metabolicAge: number;
   screenshotUrl: string;
+}
+
+// Login request for returning users
+export interface LoginRequest {
+  email: string;
+  phone: string;
+}
+
+// Admin update request
+export interface AdminUpdateUserRequest {
+  userId: string;
+  updates: {
+    isAdmin?: boolean;
+    isActive?: boolean;
+    points?: number;
+    role?: UserRole;
+  };
 }

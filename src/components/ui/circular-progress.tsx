@@ -46,7 +46,7 @@ export function CircularProgress({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="text-orange-500 transition-all duration-1000 ease-out"
+          className="text-gold-500 transition-all duration-1000 ease-out"
         />
       </svg>
       {children && (

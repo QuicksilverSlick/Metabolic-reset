@@ -59,7 +59,7 @@ export function ErrorFallback({
             {/* Status indicator */}
             {statusMessage && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-gold-500 animate-pulse" />
                 <span>{statusMessage}</span>
               </div>
             )}

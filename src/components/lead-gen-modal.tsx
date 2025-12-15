@@ -93,7 +93,7 @@ export function LeadGenModal({ open, onOpenChange }: LeadGenModalProps) {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-6"
+              className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold py-6"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -16,11 +16,13 @@ import { Toaster } from '@/components/ui/sonner';
 // Pages
 import { HomePage } from '@/pages/HomePage';
 import { RegistrationPage } from '@/pages/auth/RegistrationPage';
+import { LoginPage } from '@/pages/auth/LoginPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { BiometricsPage } from '@/pages/app/BiometricsPage';
 import { RosterPage } from '@/pages/app/RosterPage';
 import { ProfilePage } from '@/pages/app/ProfilePage';
 import { AssignCaptainPage } from '@/pages/app/AssignCaptainPage';
+import { AdminPage } from '@/pages/app/AdminPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 
@@ -35,6 +37,11 @@ const router = createBrowserRouter([
   {
     path: "/register",
     element: <RegistrationPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/login",
+    element: <LoginPage />,
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -66,6 +73,10 @@ const router = createBrowserRouter([
       {
         path: "assign",
         element: <AssignCaptainPage />
+      },
+      {
+        path: "admin",
+        element: <AdminPage />
       }
     ]
   },

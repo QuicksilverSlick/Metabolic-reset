@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import confetti from 'canvas-confetti';
 import { Upload, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useSubmitBiometrics, useUser } from '@/hooks/use-queries';
+import { useSubmitBiometrics, useUser, useWeeklyBiometrics } from '@/hooks/use-queries';
 import { compressImage } from '@/lib/image-utils';
 import { getChallengeProgress } from '@/lib/utils';
 const biometricsSchema = z.object({
@@ -27,12 +28,57 @@ export function BiometricsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [pointsAwarded, setPointsAwarded] = useState(true); // Track if this was a new submission
   const { register, handleSubmit, formState: { errors } } = useForm<BiometricsForm>({
     resolver: zodResolver(biometricsSchema)
   });
   // Calculate current week
   const progress = user?.createdAt ? getChallengeProgress(user.createdAt) : { week: 1 };
   const currentWeek = progress.week;
+
+  // Check if user already submitted for this week
+  const { data: existingBiometrics, isLoading: biometricsLoading } = useWeeklyBiometrics(currentWeek);
+  const hasExistingSubmission = !!existingBiometrics;
+
+  // Trigger confetti celebration on success (only if points were awarded)
+  // NOTE: This hook must be before any conditional returns to follow Rules of Hooks
+  useEffect(() => {
+    if (isSuccess && pointsAwarded) {
+      // Big celebration for biometrics submission (+25 points!)
+      const duration = 3000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 80, zIndex: 9999 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval = setInterval(() => {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          return;
+        }
+
+        const particleCount = 60 * (timeLeft / duration);
+
+        confetti({
+          ...defaults,
+          particleCount,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+          colors: ['#F59E0B', '#FBBF24', '#FCD34D', '#10B981', '#34D399']
+        });
+        confetti({
+          ...defaults,
+          particleCount,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+          colors: ['#F59E0B', '#FBBF24', '#FCD34D', '#10B981', '#34D399']
+        });
+      }, 250);
+
+      return () => clearInterval(interval);
+    }
+  }, [isSuccess, pointsAwarded]);
+
   const onSubmit = async (data: BiometricsForm) => {
     if (!file) {
       alert("Please upload a screenshot of your scale app.");
@@ -53,7 +99,8 @@ export function BiometricsPage() {
         metabolicAge: parseFloat(data.metabolicAge),
         screenshotUrl: base64data
       }, {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          setPointsAwarded(result.isNewSubmission);
           setIsSuccess(true);
           setIsProcessing(false);
         },
@@ -67,24 +114,32 @@ export function BiometricsPage() {
       alert('Failed to process image. Please try again.');
     }
   };
-  if (userLoading) {
+  if (userLoading || biometricsLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
       </div>
     );
   }
+
   if (isSuccess) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
-        <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
           <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
         </div>
-        <h2 className="text-3xl font-bold text-navy-900 dark:text-white mb-4">Submission Received!</h2>
-        <p className="text-slate-600 dark:text-slate-300 mb-8">
-          You have successfully logged your biometrics for Week {currentWeek}. Come back next week to track your progress.
+        <h2 className="text-3xl font-bold text-navy-900 dark:text-white mb-4">
+          {pointsAwarded ? 'Submission Received!' : 'Data Updated!'}
+        </h2>
+        <p className="text-slate-600 dark:text-slate-300 mb-4">
+          {pointsAwarded
+            ? `You have successfully logged your biometrics for Week ${currentWeek}. Come back next week to track your progress.`
+            : `Your Week ${currentWeek} biometrics have been updated. You've already earned points for this week.`}
         </p>
-        <Button onClick={() => navigate('/app')} className="bg-navy-900 hover:bg-navy-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white">
+        {pointsAwarded && (
+          <p className="text-2xl font-bold text-gold-500 mb-8">+25 Points Earned!</p>
+        )}
+        <Button onClick={() => navigate('/app')} className="bg-navy-900 hover:bg-navy-800 dark:bg-gold-500 dark:hover:bg-gold-600 text-white">
           Return to Dashboard
         </Button>
       </div>
@@ -95,12 +150,20 @@ export function BiometricsPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Week {currentWeek} Weigh-In</h1>
-          <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-sm font-bold">
-            +25 Points
-          </span>
+          {hasExistingSubmission ? (
+            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
+              Already Submitted
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-gold-100 dark:bg-gold-900/30 text-gold-700 dark:text-gold-400 rounded-full text-sm font-bold">
+              +25 Points
+            </span>
+          )}
         </div>
         <p className="text-slate-500 dark:text-slate-400">
-          Step on your smart scale, take a screenshot of the app, and enter the 5 key numbers below.
+          {hasExistingSubmission
+            ? 'You can update your data if needed, but points have already been awarded for this week.'
+            : 'Step on your smart scale, take a screenshot of the app, and enter the 5 key numbers below.'}
         </p>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -185,8 +248,8 @@ export function BiometricsPage() {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
               <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 bg-orange-50 dark:bg-navy-800 rounded-full flex items-center justify-center group-hover:bg-orange-100 dark:group-hover:bg-navy-700 transition-colors">
-                  <Upload className="h-6 w-6 text-orange-500" />
+                <div className="w-12 h-12 bg-gold-50 dark:bg-navy-800 rounded-full flex items-center justify-center group-hover:bg-gold-100 dark:group-hover:bg-navy-700 transition-colors">
+                  <Upload className="h-6 w-6 text-gold-500" />
                 </div>
                 <div>
                   <p className="font-medium text-navy-900 dark:text-white">
@@ -213,9 +276,13 @@ export function BiometricsPage() {
           <Button
             type="submit"
             disabled={isProcessing}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 text-lg rounded-full shadow-lg"
+            className="bg-gold-500 hover:bg-gold-600 text-navy-900 px-8 py-6 text-lg rounded-full shadow-lg font-bold"
           >
-            {isProcessing ? <><Loader2 className="animate-spin mr-2" /> Uploading...</> : 'Submit Data (+25 Pts)'}
+            {isProcessing
+              ? <><Loader2 className="animate-spin mr-2" /> Uploading...</>
+              : hasExistingSubmission
+                ? 'Update Data'
+                : 'Submit Data (+25 Pts)'}
           </Button>
         </div>
       </form>

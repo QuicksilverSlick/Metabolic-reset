@@ -11,6 +11,19 @@ export class CaptainIndex extends Index<string> {
     super(env, "all-captains");
   }
 }
+
+// Index for tracking all admins
+export class AdminIndex extends Index<string> {
+  constructor(env: Env) {
+    super(env, "all-admins");
+  }
+}
+
+// Helper entity for email -> userId lookup
+export class EmailMapping extends Entity<{ userId: string }> {
+  static readonly entityName = "email-mapping";
+  static readonly initialState = { userId: "" };
+}
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
@@ -26,7 +39,8 @@ export class UserEntity extends IndexedEntity<User> {
     points: 0,
     createdAt: 0,
     isActive: true,
-    hasScale: false
+    hasScale: false,
+    isAdmin: false
   };
   static async findByReferralCode(env: Env, code: string): Promise<User | null> {
     // Normalize code to uppercase for case-insensitive lookup
@@ -47,6 +61,18 @@ export class UserEntity extends IndexedEntity<User> {
       ...state,
       points: (state.points || 0) + points
     }));
+  }
+
+  static async findByEmail(env: Env, email: string): Promise<User | null> {
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail) return null;
+    const mapping = new EmailMapping(env, normalizedEmail);
+    const state = await mapping.getState();
+    if (!state.userId) return null;
+    const userEntity = new UserEntity(env, state.userId);
+    const userState = await userEntity.getState();
+    if (!userState.id) return null;
+    return userState;
   }
 }
 export class DailyScoreEntity extends IndexedEntity<DailyScore> {

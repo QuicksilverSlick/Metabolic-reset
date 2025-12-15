@@ -2,6 +2,7 @@ import { api } from './api-client';
 import {
   User,
   RegisterRequest,
+  LoginRequest,
   DailyScore,
   ScoreSubmitRequest,
   WeeklyBiometric,
@@ -11,6 +12,8 @@ import {
 export const authApi = {
   register: (data: RegisterRequest) =>
     api<User>('/api/register', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data: LoginRequest) =>
+    api<User>('/api/login', { method: 'POST', body: JSON.stringify(data) }),
   getMe: (userId: string) =>
     api<User>('/api/me', { headers: { 'X-User-ID': userId } }),
   createPaymentIntent: (amount: number) =>
@@ -30,8 +33,12 @@ export const scoreApi = {
     }),
 };
 export const biometricApi = {
+  getBiometrics: (userId: string, weekNumber: number) =>
+    api<WeeklyBiometric | null>(`/api/biometrics/${weekNumber}`, {
+      headers: { 'X-User-ID': userId }
+    }),
   submitBiometrics: (userId: string, data: BiometricSubmitRequest) =>
-    api<WeeklyBiometric>('/api/biometrics', {
+    api<WeeklyBiometric & { isNewSubmission: boolean }>('/api/biometrics', {
       method: 'POST',
       body: JSON.stringify(data),
       headers: { 'X-User-ID': userId }
@@ -52,4 +59,31 @@ export const rosterApi = {
 export const statsApi = {
   getSystemStats: () =>
     api<SystemStats>('/api/stats'),
+};
+
+export const adminApi = {
+  getAllUsers: (adminUserId: string) =>
+    api<User[]>('/api/admin/users', { headers: { 'X-User-ID': adminUserId } }),
+  getUser: (adminUserId: string, targetUserId: string) =>
+    api<{ user: User; scores: any[]; biometrics: any[] }>(`/api/admin/users/${targetUserId}`, {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  updateUser: (adminUserId: string, targetUserId: string, updates: {
+    isAdmin?: boolean;
+    isActive?: boolean;
+    points?: number;
+    role?: 'challenger' | 'coach';
+  }) =>
+    api<User>(`/api/admin/users/${targetUserId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  getAdmins: (adminUserId: string) =>
+    api<User[]>('/api/admin/admins', { headers: { 'X-User-ID': adminUserId } }),
+  bootstrapAdmin: (email: string, secretKey: string) =>
+    api<{ message: string; userId: string }>('/api/admin/bootstrap', {
+      method: 'POST',
+      body: JSON.stringify({ email, secretKey })
+    }),
 };

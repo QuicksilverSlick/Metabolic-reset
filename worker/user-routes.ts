@@ -6,6 +6,8 @@ import {
   ReferralLedgerEntity,
   ReferralCodeMapping,
   CaptainIndex,
+  AdminIndex,
+  EmailMapping,
   DailyScoreEntity,
   WeeklyBiometricEntity,
   SystemStatsEntity
@@ -106,6 +108,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         }
         await mapping.save({ userId: userId });
       }
+
+      // Handle Email Mapping for login lookup
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailMapping = new EmailMapping(c.env, normalizedEmail);
+      await emailMapping.save({ userId: userId });
       // If user is a coach, they are their own captain
       if (role === 'coach') {
         captainId = userId;
@@ -258,6 +265,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
   // --- Biometrics ---
+  // Get biometrics for a specific week (to check if already submitted)
+  app.get('/api/biometrics/:weekNumber', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+      const weekNumber = parseInt(c.req.param('weekNumber'));
+      if (isNaN(weekNumber)) return bad(c, 'Invalid week number');
+      const biometricId = `${userId}:week${weekNumber}`;
+      const bioEntity = new WeeklyBiometricEntity(c.env, biometricId);
+      const existing = await bioEntity.getState();
+      if (!existing.id) {
+        return ok(c, null);
+      }
+      return ok(c, existing);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   app.post('/api/biometrics', async (c) => {
     try {
       const userId = c.req.header('X-User-ID');
@@ -267,8 +293,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!weekNumber || !screenshotUrl) return bad(c, 'Missing required fields');
       const biometricId = `${userId}:week${weekNumber}`;
       const bioEntity = new WeeklyBiometricEntity(c.env, biometricId);
+      const isNewSubmission = !(await bioEntity.exists());
       const existing = await bioEntity.getState();
-      const isNewSubmission = !existing.id;
       // Save Biometric Data
       await bioEntity.save({
         id: biometricId,
@@ -280,7 +306,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         leanMass: Number(leanMass),
         metabolicAge: Number(metabolicAge),
         screenshotUrl,
-        pointsAwarded: 25,
+        pointsAwarded: isNewSubmission ? 25 : 0,
         submittedAt: Date.now()
       });
       // Only award points if this is the first submission for this week
@@ -289,7 +315,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         // Update System Stats
         await SystemStatsEntity.incrementSubmissions(c.env);
       }
-      return ok(c, await bioEntity.getState());
+      // Return result with isNewSubmission flag so frontend knows if points were awarded
+      const result = await bioEntity.getState();
+      return ok(c, { ...result, isNewSubmission });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -378,6 +406,218 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const statsEntity = new SystemStatsEntity(c.env, "global");
       const stats = await statsEntity.getState();
       return ok(c, stats);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // --- Login (for returning users) ---
+  app.post('/api/login', async (c) => {
+    try {
+      const { email, phone } = await c.req.json() as { email: string; phone: string };
+      if (!email || !phone) {
+        return bad(c, 'Email and phone are required');
+      }
+
+      // Find user by email
+      const user = await UserEntity.findByEmail(c.env, email);
+      if (!user) {
+        return c.json({ error: 'User not found. Please register first.' }, 404);
+      }
+
+      // Verify phone matches (simple auth)
+      const normalizedInputPhone = phone.replace(/\D/g, '');
+      const normalizedStoredPhone = user.phone.replace(/\D/g, '');
+
+      // Check last 10 digits match (handles country code differences)
+      const inputLast10 = normalizedInputPhone.slice(-10);
+      const storedLast10 = normalizedStoredPhone.slice(-10);
+
+      if (inputLast10 !== storedLast10) {
+        return c.json({ error: 'Phone number does not match our records' }, 401);
+      }
+
+      return ok(c, user);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // --- Admin Routes ---
+
+  // Helper to check if user is admin
+  const requireAdmin = async (c: any): Promise<User | null> => {
+    const userId = c.req.header('X-User-ID');
+    if (!userId) return null;
+    const userEntity = new UserEntity(c.env, userId);
+    const user = await userEntity.getState();
+    if (!user.id || !user.isAdmin) return null;
+    return user;
+  };
+
+  // Get all users (admin only)
+  app.get('/api/admin/users', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      // Get all users from the index
+      const userIndex = new Index(c.env, 'users');
+      const userIds = await userIndex.list();
+
+      const users = await Promise.all(userIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        return userEntity.getState();
+      }));
+
+      // Filter out empty/invalid users and sort by createdAt desc
+      const validUsers = users
+        .filter(u => u.id)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      return ok(c, validUsers);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get single user details (admin only)
+  app.get('/api/admin/users/:userId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const userEntity = new UserEntity(c.env, targetUserId);
+      const user = await userEntity.getState();
+
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Get user's daily scores
+      const scores: any[] = [];
+      // We'd need to iterate scores, but for now just return user
+
+      // Get user's biometrics
+      const biometrics: any[] = [];
+
+      return ok(c, { user, scores, biometrics });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Update user (admin only)
+  app.patch('/api/admin/users/:userId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const updates = await c.req.json() as {
+        isAdmin?: boolean;
+        isActive?: boolean;
+        points?: number;
+        role?: 'challenger' | 'coach';
+      };
+
+      const userEntity = new UserEntity(c.env, targetUserId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Apply updates
+      const patch: Partial<User> = {};
+      if (typeof updates.isAdmin === 'boolean') patch.isAdmin = updates.isAdmin;
+      if (typeof updates.isActive === 'boolean') patch.isActive = updates.isActive;
+      if (typeof updates.points === 'number') patch.points = updates.points;
+      if (updates.role) patch.role = updates.role;
+
+      await userEntity.patch(patch);
+
+      // Update admin index if isAdmin changed
+      if (typeof updates.isAdmin === 'boolean') {
+        const adminIndex = new AdminIndex(c.env);
+        if (updates.isAdmin) {
+          await adminIndex.add(targetUserId);
+        } else {
+          await adminIndex.remove(targetUserId);
+        }
+      }
+
+      // Update captain index if role changed to/from coach
+      if (updates.role) {
+        const captainIndex = new CaptainIndex(c.env);
+        if (updates.role === 'coach') {
+          await captainIndex.add(targetUserId);
+          // Set captainId to self if becoming coach
+          await userEntity.patch({ captainId: targetUserId });
+        } else if (user.role === 'coach' && updates.role !== 'coach') {
+          await captainIndex.remove(targetUserId);
+        }
+      }
+
+      return ok(c, await userEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get all admins (admin only)
+  app.get('/api/admin/admins', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const adminIndex = new AdminIndex(c.env);
+      const adminIds = await adminIndex.list();
+
+      const admins = await Promise.all(adminIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        const user = await userEntity.getState();
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isAdmin: user.isAdmin
+        };
+      }));
+
+      return ok(c, admins.filter(a => a.id));
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Bootstrap first admin (special endpoint - only works if no admins exist)
+  app.post('/api/admin/bootstrap', async (c) => {
+    try {
+      const { email, secretKey } = await c.req.json() as { email: string; secretKey: string };
+
+      // Check for bootstrap secret key (should be set in environment)
+      const bootstrapKey = (c.env as any).ADMIN_BOOTSTRAP_KEY || 'metabolic-admin-2024';
+      if (secretKey !== bootstrapKey) {
+        return c.json({ error: 'Invalid bootstrap key' }, 403);
+      }
+
+      // Check if any admins exist
+      const adminIndex = new AdminIndex(c.env);
+      const existingAdmins = await adminIndex.list();
+      if (existingAdmins.length > 0) {
+        return c.json({ error: 'Admin already exists. Use admin panel to add more.' }, 400);
+      }
+
+      // Find user by email
+      const user = await UserEntity.findByEmail(c.env, email);
+      if (!user) {
+        return c.json({ error: 'User not found. Please register first.' }, 404);
+      }
+
+      // Make user an admin
+      const userEntity = new UserEntity(c.env, user.id);
+      await userEntity.patch({ isAdmin: true });
+      await adminIndex.add(user.id);
+
+      return ok(c, { message: 'Admin created successfully', userId: user.id });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

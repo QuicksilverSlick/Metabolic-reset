@@ -16,9 +16,9 @@ export function NotFoundPage() {
           <p className="text-slate-500 mb-10 text-lg leading-relaxed">
             The page you are looking for doesn't exist, has been moved, or is temporarily unavailable.
           </p>
-          <Button 
-            asChild 
-            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+          <Button
+            asChild
+            className="bg-gold-500 hover:bg-gold-600 text-navy-900 px-8 py-6 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
           >
             <Link to="/">
               <Home className="mr-2 h-5 w-5" />

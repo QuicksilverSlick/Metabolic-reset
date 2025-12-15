@@ -84,7 +84,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       <Button
         type="submit"
         disabled={!stripe || processing}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-navy-900 py-6 text-lg font-bold"
+        className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-6 text-lg font-bold"
       >
         {processing ? <Loader2 className="animate-spin mr-2" /> : 'Pay Now'}
       </Button>
@@ -162,18 +162,18 @@ export function RegistrationPage() {
   };
   return (
     <MarketingLayout>
-      <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
+      <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md">
           {/* Progress Bar */}
           <div className="mb-8">
-            <div className="flex justify-between text-xs font-medium text-slate-500 mb-2">
+            <div className="flex justify-between text-xs font-medium text-slate-400 mb-2">
               <span>Info</span>
               <span>Role</span>
               <span>Payment</span>
             </div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-orange-500 transition-all duration-500 ease-in-out"
+                className="h-full bg-gold-500 transition-all duration-500 ease-in-out"
                 style={{ width: `${(step / 4) * 100}%` }}
               ></div>
             </div>
@@ -188,37 +188,37 @@ export function RegistrationPage() {
                 exit="exit"
                 transition={{ duration: 0.3 }}
               >
-                <Card className="border-slate-200 shadow-lg">
+                <Card className="border-navy-700 bg-navy-800 shadow-xl">
                   <CardHeader>
-                    <CardTitle className="text-2xl text-navy-900">Let's Get Started</CardTitle>
-                    <CardDescription>Enter your details to join the study.</CardDescription>
+                    <CardTitle className="text-2xl text-white">Let's Get Started</CardTitle>
+                    <CardDescription className="text-slate-400">Enter your details to join the study.</CardDescription>
                   </CardHeader>
                   <form onSubmit={handleSubmit(onPersonalInfoSubmit)}>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" placeholder="Jane Doe" {...register('name')} />
-                        {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
+                        <Label htmlFor="name" className="text-slate-200">Full Name</Label>
+                        <Input id="name" placeholder="Jane Doe" {...register('name')} className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500" />
+                        {errors.name && <p className="text-red-400 text-xs">{errors.name.message}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" type="email" placeholder="jane@example.com" {...register('email')} />
-                        {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
+                        <Label htmlFor="email" className="text-slate-200">Email Address</Label>
+                        <Input id="email" type="email" placeholder="jane@example.com" {...register('email')} className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500" />
+                        {errors.email && <p className="text-red-400 text-xs">{errors.email.message}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Mobile Phone</Label>
-                        <Input id="phone" type="tel" placeholder="(555) 123-4567" {...register('phone')} />
-                        {errors.phone && <p className="text-red-500 text-xs">{errors.phone.message}</p>}
+                        <Label htmlFor="phone" className="text-slate-200">Mobile Phone</Label>
+                        <Input id="phone" type="tel" placeholder="(555) 123-4567" {...register('phone')} className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500" />
+                        {errors.phone && <p className="text-red-400 text-xs">{errors.phone.message}</p>}
                       </div>
                       {referralCodeUsed && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 flex items-center gap-2">
+                        <div className="bg-green-900/30 border border-green-700 rounded-lg p-3 text-sm text-green-400 flex items-center gap-2">
                           <Check className="h-4 w-4" />
                           <span>Referral Code Applied: <strong>{referralCodeUsed}</strong></span>
                         </div>
                       )}
                     </CardContent>
                     <CardFooter>
-                      <Button type="submit" className="w-full bg-navy-900 hover:bg-navy-800 text-white">
+                      <Button type="submit" className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-semibold">
                         Next Step <ChevronRight className="ml-2 h-4 w-4" />
                       </Button>
                     </CardFooter>
@@ -235,50 +235,50 @@ export function RegistrationPage() {
                 exit="exit"
                 transition={{ duration: 0.3 }}
               >
-                <Card className="border-slate-200 shadow-lg">
+                <Card className="border-navy-700 bg-navy-800 shadow-xl">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Button variant="ghost" size="sm" className="-ml-2 h-8 w-8 p-0" onClick={() => setStep(1)}>
+                      <Button variant="ghost" size="sm" className="-ml-2 h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-navy-700" onClick={() => setStep(1)}>
                         <ArrowLeft className="h-4 w-4" />
                       </Button>
-                      <CardTitle className="text-2xl text-navy-900">Choose Your Role</CardTitle>
+                      <CardTitle className="text-2xl text-white">Choose Your Role</CardTitle>
                     </div>
-                    <CardDescription>Are you joining as a Challenger or a Coach?</CardDescription>
+                    <CardDescription className="text-slate-400">Are you joining as a Challenger or a Coach?</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <RadioGroup value={role} onValueChange={(v) => setRole(v as 'challenger' | 'coach')}>
-                      <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'challenger' ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-200 hover:border-orange-200'}`}>
-                        <RadioGroupItem value="challenger" id="challenger" className="mt-1" />
+                      <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'challenger' ? 'border-gold-500 bg-gold-500/10 ring-1 ring-gold-500' : 'border-navy-600 bg-navy-900 hover:border-gold-500/50'}`}>
+                        <RadioGroupItem value="challenger" id="challenger" className="mt-1 border-slate-500 text-gold-500" />
                         <div className="flex-1" onClick={() => setRole('challenger')}>
-                          <Label htmlFor="challenger" className="font-bold text-navy-900 cursor-pointer">
+                          <Label htmlFor="challenger" className="font-bold text-white cursor-pointer">
                             I am a Challenger
                           </Label>
-                          <p className="text-sm text-slate-600 mt-1">
+                          <p className="text-sm text-slate-400 mt-1">
                             I want to track my health, lose weight, and improve my metabolic age.
                           </p>
-                          <div className="mt-2 font-bold text-orange-600">$28.00</div>
+                          <div className="mt-2 font-bold text-gold-500">$28.00</div>
                         </div>
-                        <User className="h-6 w-6 text-slate-400" />
+                        <User className="h-6 w-6 text-slate-500" />
                       </div>
-                      <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'coach' ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-500' : 'border-slate-200 hover:border-orange-200'}`}>
-                        <RadioGroupItem value="coach" id="coach" className="mt-1" />
+                      <div className={`relative flex items-start space-x-4 rounded-xl border p-4 cursor-pointer transition-all ${role === 'coach' ? 'border-gold-500 bg-gold-500/10 ring-1 ring-gold-500' : 'border-navy-600 bg-navy-900 hover:border-gold-500/50'}`}>
+                        <RadioGroupItem value="coach" id="coach" className="mt-1 border-slate-500 text-gold-500" />
                         <div className="flex-1" onClick={() => setRole('coach')}>
-                          <Label htmlFor="coach" className="font-bold text-navy-900 cursor-pointer">
+                          <Label htmlFor="coach" className="font-bold text-white cursor-pointer">
                             I am a Coach / Captain
                           </Label>
-                          <p className="text-sm text-slate-600 mt-1">
+                          <p className="text-sm text-slate-400 mt-1">
                             I want to lead a team, access roster data, and recruit others.
                           </p>
-                          <div className="mt-2 font-bold text-orange-600">$49.00</div>
+                          <div className="mt-2 font-bold text-gold-500">$49.00</div>
                         </div>
-                        <Users className="h-6 w-6 text-slate-400" />
+                        <Users className="h-6 w-6 text-slate-500" />
                       </div>
                     </RadioGroup>
-                    <div className="pt-4 border-t border-slate-100">
+                    <div className="pt-4 border-t border-navy-700">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <Scale className="h-5 w-5 text-navy-900" />
-                          <Label htmlFor="scale-toggle" className="font-medium text-navy-900">
+                          <Scale className="h-5 w-5 text-slate-300" />
+                          <Label htmlFor="scale-toggle" className="font-medium text-slate-200">
                             Do you have a Smart Scale?
                           </Label>
                         </div>
@@ -289,16 +289,16 @@ export function RegistrationPage() {
                         />
                       </div>
                       {!hasScale && (
-                        <Alert className="bg-orange-50 border-orange-200">
-                          <AlertCircle className="h-4 w-4 text-orange-600" />
-                          <AlertTitle className="text-orange-800">Smart Scale Required</AlertTitle>
-                          <AlertDescription className="text-orange-700 text-sm mt-1">
+                        <Alert className="bg-gold-500/10 border-gold-500/30">
+                          <AlertCircle className="h-4 w-4 text-gold-500" />
+                          <AlertTitle className="text-gold-400">Smart Scale Required</AlertTitle>
+                          <AlertDescription className="text-gold-300/80 text-sm mt-1">
                             You need a scale that measures Body Fat & Visceral Fat to participate.
                             <a
                               href="https://amazon.com"
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 font-bold underline mt-2 hover:text-orange-900"
+                              className="flex items-center gap-1 font-bold underline mt-2 text-gold-400 hover:text-gold-300"
                             >
                               Get the recommended scale <ExternalLink className="h-3 w-3" />
                             </a>
@@ -308,7 +308,7 @@ export function RegistrationPage() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button onClick={handleRoleSelection} className="w-full bg-navy-900 hover:bg-navy-800 text-white">
+                    <Button onClick={handleRoleSelection} className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-semibold">
                       Proceed to Payment <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </CardFooter>
@@ -324,21 +324,21 @@ export function RegistrationPage() {
                 exit="exit"
                 transition={{ duration: 0.3 }}
               >
-                <Card className="border-slate-200 shadow-lg">
+                <Card className="border-navy-700 bg-navy-800 shadow-xl">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Button variant="ghost" size="sm" className="-ml-2 h-8 w-8 p-0" onClick={() => setStep(2)}>
+                      <Button variant="ghost" size="sm" className="-ml-2 h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-navy-700" onClick={() => setStep(2)}>
                         <ArrowLeft className="h-4 w-4" />
                       </Button>
-                      <CardTitle className="text-2xl text-navy-900">Secure Payment</CardTitle>
+                      <CardTitle className="text-2xl text-white">Secure Payment</CardTitle>
                     </div>
-                    <CardDescription>
-                      You are paying <span className="font-bold text-navy-900">${role === 'coach' ? '49.00' : '28.00'}</span> to join the Reset.
+                    <CardDescription className="text-slate-400">
+                      You are paying <span className="font-bold text-gold-500">${role === 'coach' ? '49.00' : '28.00'}</span> to join the Reset.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {stripeError && (
-                      <Alert variant="destructive">
+                      <Alert variant="destructive" className="bg-red-900/20 border-red-800 text-red-300">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>System Error</AlertTitle>
                         <AlertDescription>{stripeError}</AlertDescription>
@@ -346,15 +346,15 @@ export function RegistrationPage() {
                     )}
                     {isMockPayment ? (
                       <div className="text-center py-8">
-                        <div className="bg-orange-50 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                          <CreditCard className="h-8 w-8 text-orange-500" />
+                        <div className="bg-gold-500/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                          <CreditCard className="h-8 w-8 text-gold-500" />
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Demo Mode</h3>
-                        <p className="text-slate-500 mb-6">Payment bypassed (Demo Mode or Free Entry). Proceeding with registration.</p>
+                        <h3 className="text-lg font-semibold mb-2 text-white">Demo Mode</h3>
+                        <p className="text-slate-400 mb-6">Payment bypassed (Demo Mode or Free Entry). Proceeding with registration.</p>
                         <Button
                           onClick={handlePaymentSuccess}
                           disabled={registerMutation.isPending}
-                          className="w-full bg-orange-500 hover:bg-orange-600 text-navy-900 py-6 text-lg font-bold"
+                          className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-6 text-lg font-bold"
                         >
                           {registerMutation.isPending ? <Loader2 className="animate-spin" /> : 'Complete Registration (Mock)'}
                         </Button>
@@ -364,14 +364,14 @@ export function RegistrationPage() {
                         <PaymentForm onSuccess={handlePaymentSuccess} />
                       </Elements>
                     ) : clientSecret && !stripePromise && stripeKey ? (
-                       <Alert variant="destructive">
+                       <Alert variant="destructive" className="bg-red-900/20 border-red-800 text-red-300">
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>Configuration Error</AlertTitle>
                         <AlertDescription>Stripe failed to initialize. Please check your configuration.</AlertDescription>
                       </Alert>
                     ) : (
                       <div className="flex justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
                       </div>
                     )}
                   </CardContent>
@@ -388,18 +388,18 @@ export function RegistrationPage() {
                 transition={{ duration: 0.3 }}
                 className="text-center"
               >
-                <Card className="border-slate-200 shadow-lg">
+                <Card className="border-navy-700 bg-navy-800 shadow-xl">
                   <CardContent className="pt-12 pb-8">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Check className="h-10 w-10 text-green-600" />
+                    <div className="w-20 h-20 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Check className="h-10 w-10 text-green-400" />
                     </div>
-                    <h2 className="text-3xl font-display font-bold text-navy-900 mb-4">You're In!</h2>
-                    <p className="text-slate-600 mb-8 max-w-xs mx-auto">
+                    <h2 className="text-3xl font-display font-bold text-white mb-4">You're In!</h2>
+                    <p className="text-slate-400 mb-8 max-w-xs mx-auto">
                       Welcome to the Metabolic Reset. Your journey starts now.
                     </p>
                     <Button
                       onClick={() => navigate('/app')}
-                      className="w-full bg-navy-900 hover:bg-navy-800 text-white py-6 text-lg"
+                      className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-6 text-lg font-semibold"
                     >
                       Go to Dashboard
                     </Button>
