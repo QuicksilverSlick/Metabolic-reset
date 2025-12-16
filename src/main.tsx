@@ -19,6 +19,7 @@ import { QuizPage } from '@/pages/QuizPage';
 import { RegistrationPage } from '@/pages/auth/RegistrationPage';
 import { CoachOnboardingPage } from '@/pages/auth/CoachOnboardingPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
+import { OtpLoginPage } from '@/pages/auth/OtpLoginPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { BiometricsPage } from '@/pages/app/BiometricsPage';
 import { RosterPage } from '@/pages/app/RosterPage';
@@ -55,6 +56,11 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
+    element: <OtpLoginPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/login/legacy",
     element: <LoginPage />,
     errorElement: <RouteErrorBoundary />,
   },

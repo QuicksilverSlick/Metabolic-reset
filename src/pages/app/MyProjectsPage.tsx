@@ -80,14 +80,14 @@ export function MyProjectsPage() {
         </h2>
 
         {sortedEnrollments.length === 0 ? (
-          <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900">
+          <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FolderKanban className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" />
               <p className="text-slate-500 dark:text-slate-400 text-center mb-4">
                 You haven't joined any challenges yet.
               </p>
               {availableProjects.length > 0 && (
-                <Button asChild>
+                <Button asChild className="bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold">
                   <a href="#available">Browse Available Challenges</a>
                 </Button>
               )}
@@ -105,7 +105,7 @@ export function MyProjectsPage() {
               return (
                 <Card
                   key={enrollment.id}
-                  className={`border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 transition-all ${
+                  className={`border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-all ${
                     isActive ? 'ring-2 ring-gold-500/50' : ''
                   }`}
                 >
@@ -207,7 +207,7 @@ export function MyProjectsPage() {
             {availableProjects.map((project) => (
               <Card
                 key={project.id}
-                className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 hover:border-gold-500/50 transition-all"
+                className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm hover:border-gold-500/50 transition-all"
               >
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -228,7 +228,7 @@ export function MyProjectsPage() {
                         <span>Starts {new Date(project.startDate).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <Button asChild>
+                    <Button asChild className="bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all">
                       <Link to={`/app/enroll/${project.id}`}>
                         Join Challenge
                         <ArrowRight className="ml-2 h-4 w-4" />

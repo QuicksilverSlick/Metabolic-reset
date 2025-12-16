@@ -169,7 +169,7 @@ export function BiometricsPage() {
         </p>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] transition-colors">
           <CardHeader>
             <CardTitle className="text-navy-900 dark:text-white">Biometric Data</CardTitle>
             <CardDescription className="text-slate-500 dark:text-slate-400">Enter values exactly as they appear on your scale.</CardDescription>
@@ -236,7 +236,7 @@ export function BiometricsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] transition-colors">
           <CardHeader>
             <CardTitle className="text-navy-900 dark:text-white">Proof of Weigh-In</CardTitle>
             <CardDescription className="text-slate-500 dark:text-slate-400">Upload a screenshot from your smart scale app.</CardDescription>
@@ -278,7 +278,7 @@ export function BiometricsPage() {
           <Button
             type="submit"
             disabled={isProcessing}
-            className="bg-gold-500 hover:bg-gold-600 text-navy-900 px-8 py-6 text-lg rounded-full shadow-lg font-bold"
+            className="bg-gold-500 hover:bg-gold-600 text-navy-900 px-8 py-6 text-lg rounded-full font-bold shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all"
           >
             {isProcessing
               ? <><Loader2 className="animate-spin mr-2" /> Uploading...</>

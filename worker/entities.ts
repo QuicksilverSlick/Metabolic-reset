@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -22,6 +22,12 @@ export class AdminIndex extends Index<string> {
 // Helper entity for email -> userId lookup
 export class EmailMapping extends Entity<{ userId: string }> {
   static readonly entityName = "email-mapping";
+  static readonly initialState = { userId: "" };
+}
+
+// Phone -> UserId mapping for phone-based login
+export class PhoneMapping extends Entity<{ userId: string }> {
+  static readonly entityName = "phone-mapping";
   static readonly initialState = { userId: "" };
 }
 export class UserEntity extends IndexedEntity<User> {
@@ -74,6 +80,38 @@ export class UserEntity extends IndexedEntity<User> {
     const userState = await userEntity.getState();
     if (!userState.id) return null;
     return userState;
+  }
+
+  static async findByPhone(env: Env, phone: string): Promise<User | null> {
+    // Normalize phone to E.164 format (just digits, last 10)
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) return null;
+
+    const normalizedPhone = `+1${digits}`;
+
+    // First, try the fast path via PhoneMapping
+    const mapping = new PhoneMapping(env, normalizedPhone);
+    const state = await mapping.getState();
+    if (state.userId) {
+      const userEntity = new UserEntity(env, state.userId);
+      const userState = await userEntity.getState();
+      if (userState.id) return userState;
+    }
+
+    // Fallback: Search all users by phone (for users registered before OTP system)
+    // This handles legacy users who don't have a PhoneMapping record
+    const { items: allUsers } = await UserEntity.list(env);
+    for (const user of allUsers) {
+      if (!user.id || !user.phone) continue;
+      const userDigits = user.phone.replace(/\D/g, '').slice(-10);
+      if (userDigits === digits) {
+        // Found a match - create the PhoneMapping for future lookups
+        await mapping.save({ userId: user.id });
+        return user;
+      }
+    }
+
+    return null;
   }
 }
 export class DailyScoreEntity extends IndexedEntity<DailyScore> {
@@ -304,3 +342,90 @@ export class UserEnrollmentIndex extends Index<string> {
     super(env, `user-enrollments:${userId}`);
   }
 }
+
+// Bug Report Entity - stores user-submitted bug reports
+export class BugReportEntity extends IndexedEntity<BugReport> {
+  static readonly entityName = "bug-report";
+  static readonly indexName = "bug-reports";
+  static readonly initialState: BugReport = {
+    id: "",
+    userId: "",
+    userName: "",
+    userEmail: "",
+    title: "",
+    description: "",
+    severity: "medium",
+    category: "other",
+    status: "open",
+    screenshotUrl: "",
+    videoUrl: "",
+    pageUrl: "",
+    userAgent: "",
+    createdAt: 0,
+    updatedAt: 0,
+    adminNotes: ""
+  };
+
+  // Get all bug reports sorted by creation date (newest first)
+  static async getAllSorted(env: Env): Promise<BugReport[]> {
+    const { items } = await BugReportEntity.list(env);
+    return items.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Get bug reports by status
+  static async findByStatus(env: Env, status: BugReport['status']): Promise<BugReport[]> {
+    const { items } = await BugReportEntity.list(env);
+    return items.filter(b => b.status === status).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Get bug reports by user
+  static async findByUser(env: Env, userId: string): Promise<BugReport[]> {
+    const { items } = await BugReportEntity.list(env);
+    return items.filter(b => b.userId === userId).sort((a, b) => b.createdAt - a.createdAt);
+  }
+}
+
+// Index for tracking all bug reports
+export class BugReportIndex extends Index<string> {
+  constructor(env: Env) {
+    super(env, "all-bug-reports");
+  }
+}
+
+// OTP Entity - stores one-time passwords for phone verification
+// ID is the phone number in E.164 format (e.g., +18065551234)
+export class OtpEntity extends Entity<OtpRecord> {
+  static readonly entityName = "otp";
+  static readonly initialState: OtpRecord = {
+    id: "",
+    code: "",
+    createdAt: 0,
+    expiresAt: 0,
+    attempts: 0,
+    verified: false
+  };
+
+  // Check if OTP is expired
+  isExpired(): boolean {
+    return Date.now() > this.state.expiresAt;
+  }
+
+  // Check if too many attempts (max 5)
+  hasTooManyAttempts(): boolean {
+    return this.state.attempts >= 5;
+  }
+
+  // Increment attempt count
+  async incrementAttempts(): Promise<void> {
+    await this.mutate(state => ({
+      ...state,
+      attempts: state.attempts + 1
+    }));
+  }
+
+  // Mark as verified
+  async markVerified(): Promise<void> {
+    await this.patch({ verified: true });
+  }
+}
+

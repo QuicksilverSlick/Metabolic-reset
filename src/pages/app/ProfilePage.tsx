@@ -70,7 +70,7 @@ export function ProfilePage() {
           </CardContent>
         </Card>
         {/* Status Card */}
-        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] transition-colors">
           <CardHeader>
             <CardTitle className="text-navy-900 dark:text-white">Status</CardTitle>
           </CardHeader>

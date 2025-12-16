@@ -182,3 +182,76 @@ export interface UpdateProjectRequest {
   status?: ProjectStatus;
   registrationOpen?: boolean;
 }
+
+// Bug Report types
+export type BugSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type BugStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type BugCategory = 'ui' | 'functionality' | 'performance' | 'data' | 'other';
+
+export interface BugReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  title: string;
+  description: string;
+  severity: BugSeverity;
+  category: BugCategory;
+  status: BugStatus;
+  screenshotUrl?: string;
+  videoUrl?: string;
+  pageUrl: string;
+  userAgent: string;
+  createdAt: number;
+  updatedAt: number;
+  adminNotes?: string;
+}
+
+export interface BugReportSubmitRequest {
+  title: string;
+  description: string;
+  severity: BugSeverity;
+  category: BugCategory;
+  screenshotUrl?: string;
+  videoUrl?: string;
+  pageUrl: string;
+  userAgent: string;
+}
+
+export interface BugReportUpdateRequest {
+  status?: BugStatus;
+  adminNotes?: string;
+}
+
+// OTP (One-Time Password) for phone verification
+export interface OtpRecord {
+  id: string; // Phone number in E.164 format
+  code: string; // 6-digit OTP code
+  createdAt: number; // Unix timestamp
+  expiresAt: number; // Unix timestamp (createdAt + 10 minutes)
+  attempts: number; // Failed verification attempts
+  verified: boolean;
+}
+
+// OTP Request/Response types
+export interface SendOtpRequest {
+  phone: string;
+}
+
+export interface SendOtpResponse {
+  success: boolean;
+  message: string;
+  expiresIn?: number; // seconds until expiration
+}
+
+export interface VerifyOtpRequest {
+  phone: string;
+  code: string;
+}
+
+export interface VerifyOtpResponse {
+  success: boolean;
+  message: string;
+  user?: User; // If verified and user exists
+  isNewUser?: boolean; // If no user found with this phone
+}

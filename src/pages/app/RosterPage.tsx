@@ -138,7 +138,7 @@ export function RosterPage() {
                 </code>
                 <Button
                   onClick={copyQuizLink}
-                  className="bg-blue-500 hover:bg-blue-600 text-white shrink-0"
+                  className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
                 >
                   {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
                   {copiedLink ? 'Copied!' : 'Copy Link'}
@@ -151,7 +151,7 @@ export function RosterPage() {
 
       {/* Tabs for Leads and Recruits */}
       <Tabs defaultValue="leads" className="space-y-6">
-        <TabsList className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800">
+        <TabsList className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800 transition-colors">
           <TabsTrigger value="leads" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Target className="h-4 w-4 mr-2" />
             Quiz Leads ({leadCount})
@@ -457,7 +457,7 @@ export function RosterPage() {
 
       {/* Biometrics Detail Dialog - Full Screen */}
       <Dialog open={!!selectedRecruitId} onOpenChange={(open) => !open && setSelectedRecruitId(null)}>
-        <DialogContent className="w-screen h-screen max-w-none max-h-none m-0 p-0 rounded-none bg-white dark:bg-navy-900 flex flex-col">
+        <DialogContent className="w-screen h-screen max-w-none max-h-none m-0 p-0 rounded-none bg-white dark:bg-navy-900 flex flex-col transition-colors">
           {/* Fixed Header */}
           <div className="sticky top-0 z-10 bg-white dark:bg-navy-900 border-b border-slate-200 dark:border-navy-800 px-4 py-4 sm:px-6">
             <div className="flex items-center justify-between">
@@ -513,7 +513,7 @@ export function RosterPage() {
                       const bodyFatChange = latest.bodyFat - first.bodyFat;
                       return (
                         <>
-                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4">
+                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
                             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Current Weight</div>
                             <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{latest.weight} lbs</div>
                             <div className={`text-sm flex items-center gap-1 ${weightChange < 0 ? 'text-green-600' : weightChange > 0 ? 'text-red-500' : 'text-slate-500'}`}>
@@ -522,7 +522,7 @@ export function RosterPage() {
                               {weightChange === 0 && 'No change'}
                             </div>
                           </div>
-                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4">
+                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
                             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Body Fat</div>
                             <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{latest.bodyFat}%</div>
                             <div className={`text-sm flex items-center gap-1 ${bodyFatChange < 0 ? 'text-green-600' : bodyFatChange > 0 ? 'text-red-500' : 'text-slate-500'}`}>
@@ -531,12 +531,12 @@ export function RosterPage() {
                               {bodyFatChange === 0 && 'No change'}
                             </div>
                           </div>
-                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4">
+                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
                             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Metabolic Age</div>
                             <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{latest.metabolicAge}</div>
                             <div className="text-sm text-slate-500 dark:text-slate-400">years</div>
                           </div>
-                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4">
+                          <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
                             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Progress</div>
                             <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{biometricsData.biometrics.length}/5</div>
                             <div className="text-sm text-slate-500 dark:text-slate-400">weigh-ins</div>

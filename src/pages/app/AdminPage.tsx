@@ -12,7 +12,10 @@ import {
   useProjectEnrollments,
   useAdminUserEnrollments,
   useAdminEnrollUser,
-  useAdminRemoveUserFromProject
+  useAdminRemoveUserFromProject,
+  useAdminBugReports,
+  useAdminUpdateBugReport,
+  useAdminDeleteBugReport
 } from '@/hooks/use-queries';
 import { Navigate } from 'react-router-dom';
 import {
@@ -49,7 +52,12 @@ import {
   ToggleLeft,
   ToggleRight,
   UserPlus,
-  UserMinus
+  UserMinus,
+  Bug,
+  MessageSquare,
+  ExternalLink,
+  Video,
+  Image
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,7 +81,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest } from '@shared/types';
+import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory } from '@shared/types';
 import {
   Sheet,
   SheetContent,
@@ -97,11 +105,17 @@ export function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [bootstrapDialogOpen, setBootstrapDialogOpen] = useState(false);
-  const [bootstrapEmail, setBootstrapEmail] = useState('');
+  const [bootstrapPhone, setBootstrapPhone] = useState('');
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs'>('users');
+
+  // Bug management state
+  const [selectedBug, setSelectedBug] = useState<BugReport | null>(null);
+  const [bugDetailSheetOpen, setBugDetailSheetOpen] = useState(false);
+  const [bugStatusFilter, setBugStatusFilter] = useState<BugStatus | 'all'>('all');
+  const [adminNotes, setAdminNotes] = useState('');
 
   // Project management state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -129,24 +143,29 @@ export function AdminPage() {
   const deleteProjectMutation = useDeleteProject();
   const { data: projectEnrollments, isLoading: enrollmentsLoading } = useProjectEnrollments(viewingProjectId);
 
+  // Bug report queries
+  const { data: bugReports, isLoading: bugsLoading } = useAdminBugReports();
+  const updateBugMutation = useAdminUpdateBugReport();
+  const deleteBugMutation = useAdminDeleteBugReport();
+
   // Form state for edit dialog
   const [editPoints, setEditPoints] = useState(0);
   const [editIsAdmin, setEditIsAdmin] = useState(false);
   const [editIsActive, setEditIsActive] = useState(true);
   const [editRole, setEditRole] = useState<'challenger' | 'coach'>('challenger');
 
-  // If not admin and no users loaded, show bootstrap option
-  if (!isAdmin && !isLoading && (!users || users.length === 0)) {
+  // If not admin, show bootstrap option (allows first admin to be created)
+  if (!isAdmin) {
     return (
       <div className="space-y-6">
-        <Card className="border-gold-200 bg-gold-50">
+        <Card className="border-gold-200 bg-gold-50 dark:border-gold-800 dark:bg-gold-900/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-gold-800">
+            <CardTitle className="flex items-center gap-2 text-gold-800 dark:text-gold-400">
               <Shield className="h-5 w-5" />
               Admin Access Required
             </CardTitle>
-            <CardDescription className="text-gold-700">
-              You need admin privileges to access this page.
+            <CardDescription className="text-gold-700 dark:text-gold-500">
+              You need admin privileges to access this page. If no admin exists yet, you can bootstrap the first admin account.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -161,19 +180,20 @@ export function AdminPage() {
             <DialogHeader>
               <DialogTitle>Bootstrap Admin Account</DialogTitle>
               <DialogDescription>
-                Create the first admin account. You'll need the secret bootstrap key.
+                Create the first admin account. You'll need the secret bootstrap key and your registered phone number.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="bootstrap-email">Your Email</Label>
+                <Label htmlFor="bootstrap-phone">Your Phone Number</Label>
                 <Input
-                  id="bootstrap-email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={bootstrapEmail}
-                  onChange={(e) => setBootstrapEmail(e.target.value)}
+                  id="bootstrap-phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={bootstrapPhone}
+                  onChange={(e) => setBootstrapPhone(e.target.value)}
                 />
+                <p className="text-xs text-slate-500">Enter the phone number you registered with</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bootstrap-key">Secret Key</Label>
@@ -193,11 +213,17 @@ export function AdminPage() {
               <Button
                 onClick={() => {
                   bootstrapMutation.mutate(
-                    { email: bootstrapEmail, secretKey: bootstrapKey },
-                    { onSuccess: () => setBootstrapDialogOpen(false) }
+                    { phone: bootstrapPhone, secretKey: bootstrapKey },
+                    {
+                      onSuccess: () => {
+                        setBootstrapDialogOpen(false);
+                        // Reload to refresh user data
+                        window.location.reload();
+                      }
+                    }
                   );
                 }}
-                disabled={bootstrapMutation.isPending || !bootstrapEmail || !bootstrapKey}
+                disabled={bootstrapMutation.isPending || !bootstrapPhone || !bootstrapKey}
               >
                 {bootstrapMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
                 Create Admin
@@ -207,11 +233,6 @@ export function AdminPage() {
         </Dialog>
       </div>
     );
-  }
-
-  // Redirect if not admin
-  if (!isAdmin) {
-    return <Navigate to="/app" replace />;
   }
 
   const handleSort = (field: 'name' | 'points' | 'createdAt') => {
@@ -349,6 +370,89 @@ export function AdminPage() {
     );
   };
 
+  // Bug severity badge helper
+  const getBugSeverityBadge = (severity: BugSeverity) => {
+    const styles: Record<BugSeverity, string> = {
+      low: 'bg-green-50 text-green-600 border-green-200',
+      medium: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+      high: 'bg-orange-50 text-orange-600 border-orange-200',
+      critical: 'bg-red-50 text-red-600 border-red-200',
+    };
+    return (
+      <Badge variant="outline" className={styles[severity]}>
+        <span className="capitalize">{severity}</span>
+      </Badge>
+    );
+  };
+
+  // Bug status badge helper
+  const getBugStatusBadge = (status: BugStatus) => {
+    const styles: Record<BugStatus, string> = {
+      open: 'bg-red-50 text-red-600 border-red-200',
+      in_progress: 'bg-blue-50 text-blue-600 border-blue-200',
+      resolved: 'bg-green-50 text-green-600 border-green-200',
+      closed: 'bg-slate-50 text-slate-600 border-slate-200',
+    };
+    const labels: Record<BugStatus, string> = {
+      open: 'Open',
+      in_progress: 'In Progress',
+      resolved: 'Resolved',
+      closed: 'Closed',
+    };
+    return (
+      <Badge variant="outline" className={styles[status]}>
+        <span>{labels[status]}</span>
+      </Badge>
+    );
+  };
+
+  // Bug category label helper
+  const getBugCategoryLabel = (category: BugCategory) => {
+    const labels: Record<BugCategory, string> = {
+      ui: 'UI / Visual',
+      functionality: 'Functionality',
+      performance: 'Performance',
+      data: 'Data / Sync',
+      other: 'Other',
+    };
+    return labels[category];
+  };
+
+  // Open bug detail sheet
+  const openBugDetail = (bug: BugReport) => {
+    setSelectedBug(bug);
+    setAdminNotes(bug.adminNotes || '');
+    setBugDetailSheetOpen(true);
+  };
+
+  // Handle bug status update
+  const handleUpdateBugStatus = (bugId: string, status: BugStatus) => {
+    updateBugMutation.mutate({ bugId, updates: { status } });
+  };
+
+  // Handle bug notes update
+  const handleSaveBugNotes = () => {
+    if (selectedBug) {
+      updateBugMutation.mutate(
+        { bugId: selectedBug.id, updates: { adminNotes } },
+        { onSuccess: () => setBugDetailSheetOpen(false) }
+      );
+    }
+  };
+
+  // Handle bug delete
+  const handleDeleteBug = (bugId: string) => {
+    if (confirm('Are you sure you want to delete this bug report?')) {
+      deleteBugMutation.mutate(bugId);
+      setBugDetailSheetOpen(false);
+    }
+  };
+
+  // Filter bug reports
+  const filteredBugs = (bugReports || []).filter(bug =>
+    bugStatusFilter === 'all' ? true : bug.status === bugStatusFilter
+  );
+
   // Filter and sort users
   const filteredUsers = (users || [])
     .filter(user => {
@@ -382,6 +486,8 @@ export function AdminPage() {
     admins: users?.filter(u => u.isAdmin).length || 0,
     totalProjects: projects?.length || 0,
     activeProjects: projects?.filter(p => p.status === 'active').length || 0,
+    totalBugs: bugReports?.length || 0,
+    openBugs: bugReports?.filter(b => b.status === 'open').length || 0,
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -433,11 +539,11 @@ export function AdminPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
                 <Users className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -447,10 +553,10 @@ export function AdminPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="bg-gold-100 p-2 rounded-lg">
+              <div className="bg-gold-100 dark:bg-gold-900/30 p-2 rounded-lg">
                 <Award className="h-5 w-5 text-gold-600" />
               </div>
               <div>
@@ -460,10 +566,10 @@ export function AdminPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="bg-purple-100 p-2 rounded-lg">
+              <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
                 <Crown className="h-5 w-5 text-purple-600" />
               </div>
               <div>
@@ -473,10 +579,10 @@ export function AdminPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="bg-green-100 p-2 rounded-lg">
+              <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
                 <ShieldCheck className="h-5 w-5 text-green-600" />
               </div>
               <div>
@@ -486,15 +592,28 @@ export function AdminPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-100 p-2 rounded-lg">
+              <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
                 <FolderKanban className="h-5 w-5 text-orange-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-navy-900 dark:text-white">{stats.activeProjects}/{stats.totalProjects}</p>
                 <p className="text-xs text-slate-500">Active Projects</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${stats.openBugs > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                <Bug className={`h-5 w-5 ${stats.openBugs > 0 ? 'text-red-600' : 'text-slate-600'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-navy-900 dark:text-white">{stats.openBugs}/{stats.totalBugs}</p>
+                <p className="text-xs text-slate-500">Open Bugs</p>
               </div>
             </div>
           </CardContent>
@@ -525,11 +644,27 @@ export function AdminPage() {
           <FolderKanban className="h-4 w-4 inline mr-2" />
           Reset Projects
         </button>
+        <button
+          onClick={() => setActiveTab('bugs')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'bugs'
+              ? 'border-gold-500 text-gold-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Bug className="h-4 w-4 inline mr-2" />
+          Bug Reports
+          {stats.openBugs > 0 && (
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
+              {stats.openBugs}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Users Tab */}
       {activeTab === 'users' && (
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <CardTitle>All Users</CardTitle>
@@ -660,7 +795,7 @@ export function AdminPage() {
 
       {/* Projects Tab */}
       {activeTab === 'projects' && (
-        <Card>
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -755,6 +890,280 @@ export function AdminPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Bugs Tab */}
+      {activeTab === 'bugs' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle>Bug Reports</CardTitle>
+                <CardDescription>View and manage user-submitted bug reports</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                {(['all', 'open', 'in_progress', 'resolved', 'closed'] as const).map((status) => (
+                  <Button
+                    key={status}
+                    variant={bugStatusFilter === status ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBugStatusFilter(status)}
+                    className="capitalize"
+                  >
+                    {status === 'all' ? 'All' : status === 'in_progress' ? 'In Progress' : status}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {bugsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
+              </div>
+            ) : filteredBugs.length > 0 ? (
+              <div className="space-y-4">
+                {filteredBugs.map((bug) => (
+                  <Card key={bug.id} className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-navy-900 dark:text-white">
+                            {bug.title}
+                          </h3>
+                          {getBugSeverityBadge(bug.severity)}
+                          {getBugStatusBadge(bug.status)}
+                        </div>
+                        <p className="text-sm text-slate-600 line-clamp-2">{bug.description}</p>
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
+                          <span>From: {bug.userName} ({bug.userEmail})</span>
+                          <span>Category: {getBugCategoryLabel(bug.category)}</span>
+                          <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {bug.screenshotUrl && (
+                            <Badge variant="outline" className="text-xs">
+                              <Image className="h-3 w-3 mr-1" />
+                              Screenshot
+                            </Badge>
+                          )}
+                          {bug.videoUrl && (
+                            <Badge variant="outline" className="text-xs">
+                              <Video className="h-3 w-3 mr-1" />
+                              Video
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openBugDetail(bug)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        {bug.status === 'open' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateBugStatus(bug.id, 'in_progress')}
+                            disabled={updateBugMutation.isPending}
+                          >
+                            Start
+                          </Button>
+                        )}
+                        {bug.status === 'in_progress' && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleUpdateBugStatus(bug.id, 'resolved')}
+                            disabled={updateBugMutation.isPending}
+                          >
+                            Resolve
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Bug className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500">
+                  {bugStatusFilter === 'all'
+                    ? 'No bug reports submitted yet.'
+                    : `No ${bugStatusFilter === 'in_progress' ? 'in progress' : bugStatusFilter} bugs.`}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bug Detail Sheet */}
+      <Sheet open={bugDetailSheetOpen} onOpenChange={setBugDetailSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Bug className="h-5 w-5" />
+              Bug Report Details
+            </SheetTitle>
+            <SheetDescription>
+              {selectedBug?.title}
+            </SheetDescription>
+          </SheetHeader>
+
+          {selectedBug && (
+            <div className="mt-6 space-y-6">
+              {/* Bug Info */}
+              <Card>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getBugSeverityBadge(selectedBug.severity)}
+                    {getBugStatusBadge(selectedBug.status)}
+                    <Badge variant="outline">{getBugCategoryLabel(selectedBug.category)}</Badge>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Description</Label>
+                    <p className="text-sm mt-1">{selectedBug.description}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <Label className="text-xs text-slate-500">Submitted By</Label>
+                      <p className="mt-1">{selectedBug.userName}</p>
+                      <p className="text-xs text-slate-500">{selectedBug.userEmail}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">Date</Label>
+                      <p className="mt-1">{new Date(selectedBug.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Page URL</Label>
+                    <p className="text-xs mt-1 font-mono break-all">{selectedBug.pageUrl}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Browser</Label>
+                    <p className="text-xs mt-1 break-all text-slate-600">{selectedBug.userAgent}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Attachments */}
+              {(selectedBug.screenshotUrl || selectedBug.videoUrl) && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Attachments</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {selectedBug.screenshotUrl && (
+                      <a
+                        href={selectedBug.screenshotUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 text-sm"
+                      >
+                        <Image className="h-4 w-4 text-blue-600" />
+                        <span className="flex-1 truncate">{selectedBug.screenshotUrl}</span>
+                        <ExternalLink className="h-4 w-4 text-slate-400" />
+                      </a>
+                    )}
+                    {selectedBug.videoUrl && (
+                      <a
+                        href={selectedBug.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 text-sm"
+                      >
+                        <Video className="h-4 w-4 text-purple-600" />
+                        <span className="flex-1 truncate">{selectedBug.videoUrl}</span>
+                        <ExternalLink className="h-4 w-4 text-slate-400" />
+                      </a>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Status Update */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Update Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {(['open', 'in_progress', 'resolved', 'closed'] as BugStatus[]).map((status) => (
+                      <Button
+                        key={status}
+                        variant={selectedBug.status === status ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          handleUpdateBugStatus(selectedBug.id, status);
+                          setSelectedBug({ ...selectedBug, status });
+                        }}
+                        disabled={updateBugMutation.isPending}
+                        className="capitalize"
+                      >
+                        {status === 'in_progress' ? 'In Progress' : status}
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Admin Notes */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Admin Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <textarea
+                    className="w-full min-h-[100px] p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gold-500"
+                    placeholder="Add internal notes about this bug..."
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                  />
+                  <Button
+                    onClick={handleSaveBugNotes}
+                    disabled={updateBugMutation.isPending}
+                    className="w-full"
+                  >
+                    {updateBugMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Save Notes
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Delete Bug */}
+              <Card className="border-red-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-red-700">Delete Bug Report</p>
+                      <p className="text-xs text-slate-500">This action cannot be undone.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDeleteBug(selectedBug.id)}
+                      disabled={deleteBugMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* User Detail Sheet */}
       <Sheet open={detailSheetOpen} onOpenChange={setDetailSheetOpen}>

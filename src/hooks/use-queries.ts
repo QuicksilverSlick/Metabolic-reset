@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
-import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest } from '@shared/types';
+import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus } from '@shared/types';
 export function useUser() {
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
@@ -180,10 +180,10 @@ export function useAdminUpdateUser() {
 
 export function useBootstrapAdmin() {
   return useMutation({
-    mutationFn: ({ email, secretKey }: { email: string; secretKey: string }) =>
-      adminApi.bootstrapAdmin(email, secretKey),
+    mutationFn: ({ phone, secretKey }: { phone: string; secretKey: string }) =>
+      adminApi.bootstrapAdmin(phone, secretKey),
     onSuccess: () => {
-      toast.success('Admin created successfully! Please log in again.');
+      toast.success('Admin created successfully!');
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to create admin');
@@ -469,6 +469,119 @@ export function useAdminRemoveUserFromProject() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to remove user from project');
+    }
+  });
+}
+
+// =========================================
+// Bug Report hooks
+// =========================================
+
+// Submit a bug report
+export function useSubmitBugReport() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (data: BugReportSubmitRequest) => {
+      if (!userId) throw new Error('Not authenticated');
+      return bugApi.submitBug(userId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bugs', 'mine'] });
+      toast.success('Bug report submitted! Thank you for your feedback.');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit bug report');
+    }
+  });
+}
+
+// Get current user's bug reports
+export function useMyBugReports() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['bugs', 'mine', userId],
+    queryFn: () => userId ? bugApi.getMyBugs(userId) : [],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// =========================================
+// Admin Bug Report hooks
+// =========================================
+
+// Get all bug reports (admin only)
+export function useAdminBugReports() {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'bugs'],
+    queryFn: () => userId ? adminBugApi.getAllBugs(userId) : [],
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Get bug reports by status (admin only)
+export function useAdminBugReportsByStatus(status: BugStatus | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'bugs', 'status', status],
+    queryFn: () => userId && status ? adminBugApi.getBugsByStatus(userId, status) : [],
+    enabled: !!userId && !!user?.isAdmin && !!status,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Get single bug report (admin only)
+export function useAdminBugReport(bugId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'bugs', bugId],
+    queryFn: () => userId && bugId ? adminBugApi.getBug(userId, bugId) : null,
+    enabled: !!userId && !!user?.isAdmin && !!bugId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Update bug report (admin only)
+export function useAdminUpdateBugReport() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ bugId, updates }: { bugId: string; updates: BugReportUpdateRequest }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminBugApi.updateBug(userId, bugId, updates);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bugs'] });
+      queryClient.setQueryData(['admin', 'bugs', data.id], data);
+      toast.success('Bug report updated!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update bug report');
+    }
+  });
+}
+
+// Delete bug report (admin only)
+export function useAdminDeleteBugReport() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (bugId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminBugApi.deleteBug(userId, bugId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bugs'] });
+      toast.success('Bug report deleted!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete bug report');
     }
   });
 }

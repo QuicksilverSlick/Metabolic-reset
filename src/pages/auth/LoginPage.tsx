@@ -54,7 +54,7 @@ export function LoginPage() {
             animate="center"
             transition={{ duration: 0.3 }}
           >
-            <Card className="border-navy-700 bg-navy-800 shadow-xl">
+            <Card className="border-navy-700 bg-navy-800/80 backdrop-blur-xl shadow-2xl">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl text-white">Welcome Back</CardTitle>
                 <CardDescription className="text-slate-400">
@@ -81,7 +81,7 @@ export function LoginPage() {
                       type="email"
                       placeholder="jane@example.com"
                       {...register('email')}
-                      className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500"
+                      className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-12 text-lg rounded-xl"
                     />
                     {errors.email && (
                       <p className="text-red-400 text-xs">{errors.email.message}</p>
@@ -98,7 +98,7 @@ export function LoginPage() {
                       type="tel"
                       placeholder="(555) 123-4567"
                       {...register('phone')}
-                      className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500"
+                      className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-12 text-lg rounded-xl"
                     />
                     {errors.phone && (
                       <p className="text-red-400 text-xs">{errors.phone.message}</p>
@@ -112,7 +112,7 @@ export function LoginPage() {
                   <Button
                     type="submit"
                     disabled={loginMutation.isPending}
-                    className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-semibold"
+                    className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold py-7 text-lg rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:-translate-y-0.5 transition-all duration-300"
                   >
                     {loginMutation.isPending ? (
                       <>

@@ -38,6 +38,8 @@ import { Switch } from '@/components/ui/switch';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useRegister, usePaymentIntent, useProject, useActiveProject } from '@/hooks/use-queries';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { isValidPhone, toE164 } from '@/lib/phone-utils';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import confetti from 'canvas-confetti';
@@ -62,7 +64,7 @@ try {
 const personalInfoSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(10, "Valid phone number required"),
+  phone: z.string().optional(), // Phone is handled separately via state
 });
 type PersonalInfo = z.infer<typeof personalInfoSchema>;
 
@@ -150,9 +152,13 @@ export function RegistrationPage() {
   const [searchParams] = useSearchParams();
   const referralCodeUsed = searchParams.get('ref') || undefined;
   const projectIdFromUrl = searchParams.get('project') || undefined;
+  const verifiedPhoneFromUrl = searchParams.get('phone') || undefined;
 
   const registerMutation = useRegister();
   const paymentIntentMutation = usePaymentIntent();
+
+  // Phone state for controlled input
+  const [phoneValue, setPhoneValue] = useState(verifiedPhoneFromUrl || '');
 
   // Fetch project info - either from URL param or get the active project
   const { data: specificProject, isLoading: specificProjectLoading } = useProject(projectIdFromUrl || null);
@@ -186,8 +192,18 @@ export function RegistrationPage() {
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
+  // State for phone validation error
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   const onPersonalInfoSubmit = (data: PersonalInfo) => {
-    setFormData(data);
+    // Validate phone from state
+    if (!phoneValue || !isValidPhone(phoneValue)) {
+      setPhoneError('Valid phone number required');
+      return;
+    }
+    setPhoneError(null);
+    // Include phone from state (may be pre-filled from OTP verification)
+    setFormData({ ...data, phone: phoneValue });
     setStep(2);
   };
 
@@ -401,17 +417,26 @@ export function RegistrationPage() {
                               <Phone className="h-4 w-4 text-slate-400" />
                               Mobile Phone
                             </Label>
-                            <Input
+                            <PhoneInput
                               id="phone"
-                              type="tel"
-                              placeholder="(555) 123-4567"
-                              {...register('phone')}
-                              className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-12 text-lg rounded-xl"
+                              value={phoneValue}
+                              onChange={(val) => {
+                                setPhoneValue(val);
+                                if (phoneError) setPhoneError(null);
+                              }}
+                              disabled={!!verifiedPhoneFromUrl}
+                              className="bg-navy-900 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-12 text-lg rounded-xl disabled:opacity-70"
                             />
-                            {errors.phone && (
+                            {phoneError && (
                               <p className="text-red-400 text-sm flex items-center gap-1">
                                 <AlertCircle className="h-3 w-3" />
-                                {errors.phone.message}
+                                {phoneError}
+                              </p>
+                            )}
+                            {verifiedPhoneFromUrl && (
+                              <p className="text-green-400 text-sm flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                Phone verified via SMS
                               </p>
                             )}
                           </div>

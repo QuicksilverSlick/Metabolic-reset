@@ -32,7 +32,7 @@ function createBeam(width: number, height: number): Beam {
     length: height * 2.5,
     angle: angle,
     speed: 0.4 + Math.random() * 0.8,
-    opacity: 0.25 + Math.random() * 0.2,
+    opacity: 0.18 + Math.random() * 0.12,
     // White/cream hue for contrast on gold background (40-60)
     hue: 40 + Math.random() * 20,
     pulse: Math.random() * Math.PI * 2,
@@ -51,9 +51,9 @@ export function BeamsBackground({
   const MINIMUM_BEAMS = 15;
 
   const opacityMap = {
-    subtle: 0.8,
-    medium: 1,
-    strong: 1.2,
+    subtle: 0.7,
+    medium: 0.9,
+    strong: 1.1,
   };
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export function BeamsBackground({
       beam.speed = 0.3 + Math.random() * 0.4;
       // White/cream hue for contrast
       beam.hue = 40 + (index * 20) / totalBeams;
-      beam.opacity = 0.25 + Math.random() * 0.15;
+      beam.opacity = 0.18 + Math.random() * 0.1;
       return beam;
     }
 

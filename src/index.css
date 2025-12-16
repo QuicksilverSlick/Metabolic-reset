@@ -5,19 +5,69 @@
 
 @layer base {
   :root {
-    /* Brand Colors - Deep Navy Blue & Gold Theme */
-    /* Background: #0F172A */
+    /* Light Mode - Clean, professional light theme */
+    /* Background: #F8FAFC (slate-50) */
     /* Primary (Gold): #F59E0B */
-    /* Card/Border: #1E293B */
-    /* Secondary: #334155 */
+    /* Card: #FFFFFF (white) */
+    /* Text: #0F172A (navy) */
 
+    --background: 210 40% 98%; /* #F8FAFC (slate-50) */
+    --foreground: 222 47% 11%; /* #0F172A (navy-900) */
+
+    --card: 0 0% 100%; /* #FFFFFF (white) */
+    --card-foreground: 222 47% 11%; /* #0F172A (navy-900) */
+
+    --popover: 0 0% 100%; /* #FFFFFF (white) */
+    --popover-foreground: 222 47% 11%; /* #0F172A (navy-900) */
+
+    --primary: 38 92% 50%; /* #F59E0B (Gold) */
+    --primary-foreground: 222 47% 11%; /* #0F172A (Navy text on gold) */
+
+    --secondary: 210 40% 96%; /* #F1F5F9 (slate-100) */
+    --secondary-foreground: 222 47% 11%; /* #0F172A */
+
+    --muted: 210 40% 96%; /* #F1F5F9 (slate-100) */
+    --muted-foreground: 215 16% 47%; /* #64748B (slate-500) */
+
+    --accent: 38 92% 50%; /* #F59E0B (Gold) */
+    --accent-foreground: 222 47% 11%; /* #0F172A */
+
+    --destructive: 0 84% 60%; /* Red for errors */
+    --destructive-foreground: 0 0% 100%; /* White */
+
+    --border: 214 32% 91%; /* #E2E8F0 (slate-200) */
+    --input: 214 32% 91%; /* #E2E8F0 (slate-200) */
+    --ring: 38 92% 50%; /* #F59E0B (Gold for focus states) */
+
+    --radius: 0.5rem;
+
+    /* Chart Colors */
+    --chart-1: 38 92% 50%; /* Gold */
+    --chart-2: 173 58% 39%; /* Teal */
+    --chart-3: 217 33% 17%; /* Navy-800 */
+    --chart-4: 43 74% 66%; /* Light gold */
+    --chart-5: 27 87% 67%; /* Orange */
+
+    /* Sidebar Colors - Light Mode */
+    --sidebar-background: 0 0% 100%; /* White */
+    --sidebar-foreground: 222 47% 11%; /* Navy-900 */
+    --sidebar-primary: 38 92% 50%; /* Gold */
+    --sidebar-primary-foreground: 222 47% 11%; /* Navy-900 */
+    --sidebar-accent: 210 40% 96%; /* Slate-100 */
+    --sidebar-accent-foreground: 222 47% 11%; /* Navy-900 */
+    --sidebar-border: 214 32% 91%; /* Slate-200 */
+    --sidebar-ring: 38 92% 50%; /* Gold */
+  }
+
+  /* Dark mode - Deep Navy Blue & Gold Theme */
+  .dark {
     --background: 222 47% 11%; /* #0F172A (Deep Navy Blue) */
     --foreground: 210 40% 98%; /* #F8FAFC (Off-white) */
 
     --card: 217 33% 17%; /* #1E293B (Card Background) */
     --card-foreground: 210 40% 98%; /* #F8FAFC */
 
-    --popover: 222 47% 11%; /* #0F172A (Same as background) */
+    --popover: 222 47% 11%; /* #0F172A */
     --popover-foreground: 210 40% 98%; /* #F8FAFC */
 
     --primary: 38 92% 50%; /* #F59E0B (Gold) */
@@ -26,73 +76,33 @@
     --secondary: 215 25% 27%; /* #334155 */
     --secondary-foreground: 210 40% 98%; /* #F8FAFC */
 
-    --muted: 217 33% 17%; /* #1E293B (Same as card) */
-    --muted-foreground: 215 20.2% 65.1%; /* Lighter grey for secondary text */
+    --muted: 217 33% 17%; /* #1E293B */
+    --muted-foreground: 215 20% 65%; /* Lighter grey */
 
     --accent: 38 92% 50%; /* #F59E0B (Gold) */
     --accent-foreground: 222 47% 11%; /* #0F172A */
 
-    --destructive: 0 62.8% 30.6%; /* Dark red for errors */
+    --destructive: 0 63% 31%; /* Dark red */
     --destructive-foreground: 210 40% 98%; /* #F8FAFC */
 
-    --border: 217 33% 17%; /* #1E293B (Same as card) */
-    --input: 217 33% 17%; /* #1E293B (Same as card) */
-    --ring: 38 92% 50%; /* #F59E0B (Gold for focus states) */
+    --border: 217 33% 17%; /* #1E293B */
+    --input: 217 33% 17%; /* #1E293B */
+    --ring: 38 92% 50%; /* Gold */
 
-    --radius: 0.5rem;
-
-    /* Chart Colors */
-    --chart-1: 38 92% 50%; /* Gold */
-    --chart-2: 173 58% 39%; /* Teal */
-    --chart-3: 197 37% 24%; /* Blue-grey */
-    --chart-4: 43 74% 66%; /* Light gold */
-    --chart-5: 27 87% 67%; /* Orange */
-
-    /* Sidebar Colors */
-    --sidebar-background: 222 47% 11%; /* #0F172A */
-    --sidebar-foreground: 210 40% 98%; /* #F8FAFC */
-    --sidebar-primary: 38 92% 50%; /* #F59E0B (Gold) */
-    --sidebar-primary-foreground: 222 47% 11%; /* #0F172A */
-    --sidebar-accent: 217 33% 17%; /* #1E293B */
-    --sidebar-accent-foreground: 210 40% 98%; /* #F8FAFC */
-    --sidebar-border: 217 33% 17%; /* #1E293B */
-    --sidebar-ring: 38 92% 50%; /* #F59E0B (Gold) */
-  }
-
-  /* Dark mode uses the same theme for consistency */
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 38 92% 50%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 215 25% 27%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 38 92% 50%;
     --chart-1: 38 92% 50%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 38 92% 50%;
+
+    --sidebar-background: 222 47% 11%; /* Navy-900 */
+    --sidebar-foreground: 210 40% 98%; /* Off-white */
+    --sidebar-primary: 38 92% 50%; /* Gold */
+    --sidebar-primary-foreground: 222 47% 11%; /* Navy-900 */
+    --sidebar-accent: 217 33% 17%; /* Navy-800 */
+    --sidebar-accent-foreground: 210 40% 98%; /* Off-white */
+    --sidebar-border: 217 33% 17%; /* Navy-800 */
+    --sidebar-ring: 38 92% 50%; /* Gold */
   }
 }
 
@@ -228,5 +238,160 @@
   }
   50% {
     transform: translateY(-10px);
+  }
+}
+
+/* =============================================
+   Animated Glow Button Styles
+   ============================================= */
+
+@keyframes glow-border {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* Gold Animated Border Button - Primary CTA Style */
+.glow-button-gold {
+  position: relative;
+}
+
+.glow-button-gold::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px; /* Even 1.5px border on all sides */
+  border-radius: 9999px; /* Match rounded-full */
+  background: linear-gradient(
+    45deg,
+    #F59E0B,
+    #FBBF24,
+    #FCD34D,
+    #F59E0B,
+    #D97706,
+    #F59E0B,
+    #FBBF24,
+    #FCD34D
+  );
+  background-size: 400% 400%;
+  z-index: 0;
+  animation: glow-border 4s ease infinite;
+}
+
+.glow-button-gold:hover::before {
+  background: linear-gradient(
+    45deg,
+    #FBBF24,
+    #FCD34D,
+    #FDE68A,
+    #FBBF24,
+    #F59E0B,
+    #FBBF24,
+    #FCD34D,
+    #FDE68A
+  );
+  background-size: 400% 400%;
+}
+
+/* Rainbow Animated Border Button - Alternative Style */
+.glow-button-rainbow {
+  position: relative;
+}
+
+.glow-button-rainbow::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px; /* Even 1.5px border on all sides */
+  border-radius: 9999px; /* Match rounded-full */
+  background: linear-gradient(
+    45deg,
+    #F59E0B,
+    #EF4444,
+    #EC4899,
+    #8B5CF6,
+    #3B82F6,
+    #10B981,
+    #F59E0B
+  );
+  background-size: 400% 400%;
+  z-index: 0;
+  animation: glow-border 6s linear infinite;
+}
+
+/* =============================================
+   Feature Card - Apple Liquid Glass Styles
+   ============================================= */
+
+/* Base feature card glassmorphism enhancements */
+.feature-card {
+  /* Ensure proper stacking context */
+  isolation: isolate;
+}
+
+/* Subtle light refraction effect on hover - deep navy for depth */
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(15, 23, 42, 0.2) 30%,
+    rgba(15, 23, 42, 0.3) 60%,
+    rgba(2, 6, 23, 0.35) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.feature-card:hover::before {
+  opacity: 1;
+}
+
+/* Inner highlight for glass depth - top edge */
+.feature-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  border-radius: 100%;
+  pointer-events: none;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .feature-card::before {
+    transition: none;
+  }
+
+  .glow-button-gold::before,
+  .glow-button-rainbow::before {
+    animation: none;
   }
 }

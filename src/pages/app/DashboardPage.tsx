@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { getChallengeProgress, getTodayInTimezone } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { BugReportDialog } from '@/components/BugReportDialog';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { data: user, isLoading: userLoading } = useUser();
@@ -273,7 +274,7 @@ export function DashboardPage() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* The Study Widget (Biometrics) - Spans 2 columns on large screens */}
-        <Card className="lg:col-span-2 border-gold-200 dark:border-navy-700 bg-gradient-to-br from-white to-gold-50/50 dark:from-navy-900 dark:to-navy-800 overflow-hidden relative transition-colors">
+        <Card className="lg:col-span-2 border-gold-200 dark:border-navy-700 bg-gradient-to-br from-white to-gold-50/50 dark:from-navy-900 dark:to-navy-800 overflow-hidden relative transition-colors shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)]">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gold-500/5 dark:bg-gold-500/10 rounded-full -mr-10 -mt-10"></div>
           <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
             <div className="flex items-center gap-6">
@@ -289,7 +290,7 @@ export function DashboardPage() {
             </div>
             <Button
               onClick={() => navigate('/app/biometrics')}
-              className="shrink-0 rounded-full px-8 py-6 text-lg bg-navy-900 hover:bg-navy-800 dark:bg-gold-500 dark:hover:bg-gold-600 dark:text-navy-900 font-bold"
+              className="shrink-0 rounded-full px-8 py-6 text-lg bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)] transition-all"
             >
               Log Data
               <ChevronRight className="ml-2 h-5 w-5" />
@@ -297,31 +298,31 @@ export function DashboardPage() {
           </CardContent>
         </Card>
         {/* Share & Earn Widget - Spans 1 column */}
-        <Card className="border-slate-200 dark:border-navy-700 shadow-sm bg-navy-900 dark:bg-navy-950 text-white relative overflow-hidden transition-colors">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+        <Card className="border-slate-200 dark:border-navy-700 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] bg-white dark:bg-navy-900 relative overflow-hidden transition-colors">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gold-500/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
           <CardHeader className="pb-2 relative z-10">
-            <CardTitle className="flex items-center gap-2 text-white">
+            <CardTitle className="flex items-center gap-2 text-navy-900 dark:text-white">
               <Share2 className="h-5 w-5 text-gold-500" />
               Share & Earn
             </CardTitle>
-            <CardDescription className="text-slate-300">
+            <CardDescription className="text-slate-500 dark:text-slate-300">
               Rocket up the leaderboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="relative z-10 space-y-4">
-            <div className="text-sm font-medium text-gold-300">
+            <div className="text-sm font-medium text-gold-600 dark:text-gold-400">
               {user?.role === 'challenger'
                 ? 'Earn 10 Points for every friend you recruit!'
                 : 'Earn 1 Point per recruit. Build your roster.'}
             </div>
-            <div className="bg-navy-800/50 dark:bg-navy-900/50 p-3 rounded-lg border border-navy-700 flex items-center justify-between gap-2">
-              <code className="text-xs sm:text-sm font-mono text-slate-300 truncate">
+            <div className="bg-slate-100 dark:bg-navy-950/50 p-3 rounded-lg border border-slate-200 dark:border-navy-700 flex items-center justify-between gap-2">
+              <code className="text-xs sm:text-sm font-mono text-navy-900 dark:text-slate-300 truncate">
                 {user?.referralCode}
               </code>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-white hover:bg-white/10 hover:text-gold-500"
+                className="h-8 w-8 text-slate-500 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 hover:text-gold-500 dark:hover:text-gold-400"
                 onClick={copyReferralLink}
               >
                 <Copy className="h-4 w-4" />
@@ -329,7 +330,7 @@ export function DashboardPage() {
             </div>
             <Button
               onClick={copyReferralLink}
-              className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold"
+              className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all"
             >
               Copy Invite Link
             </Button>
@@ -338,7 +339,7 @@ export function DashboardPage() {
       </div>
       {/* Daily Habits Grid */}
       <div>
-        <h2 className="text-xl font-bold text-navy-900 dark:text-white mb-4">Daily Habits</h2>
+        <h2 className="text-xl font-display font-bold text-navy-900 dark:text-white mb-4">Daily Habits</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {habitItems.map((habit) => {
             const isDone = habits[habit.id as keyof typeof habits];
@@ -352,32 +353,32 @@ export function DashboardPage() {
                 disabled={submitScore.isPending}
                 className={`relative p-6 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-40 overflow-hidden ${
                   isDone
-                    ? 'bg-gradient-to-br from-gold-500 to-gold-600 border-gold-300 shadow-lg'
+                    ? 'bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-500 dark:to-gold-600 border-gold-400 dark:border-gold-300 shadow-lg ring-2 ring-gold-400/50 dark:ring-gold-400/30'
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-gold-300 dark:hover:border-gold-500/50 hover:shadow-md'
                 }`}
               >
                 {/* Subtle shimmer effect on completed cards */}
                 {isDone && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-shimmer pointer-events-none z-0" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold-200/30 dark:via-white/15 to-transparent animate-shimmer pointer-events-none z-0" />
                 )}
                 {/* Icon circle - positioned above shimmer */}
-                <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDone ? 'bg-white/90 shadow-sm' : habit.bg}`}>
-                  <Icon className={`h-5 w-5 transition-colors ${isDone ? 'text-gold-600' : habit.color}`} />
+                <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDone ? 'bg-gold-500 dark:bg-white/90 shadow-sm' : habit.bg}`}>
+                  <Icon className={`h-5 w-5 transition-colors ${isDone ? 'text-white dark:text-gold-600' : habit.color}`} />
                 </div>
                 {/* Text content - positioned above shimmer */}
                 <div className="relative z-10">
-                  <div className={`font-bold text-lg transition-colors ${isDone ? 'text-white drop-shadow-sm' : 'text-navy-900 dark:text-white'}`}>
+                  <div className={`font-bold text-lg transition-colors ${isDone ? 'text-gold-700 dark:text-white dark:drop-shadow-sm' : 'text-navy-900 dark:text-white'}`}>
                     {habit.label}
                   </div>
-                  <div className={`text-sm mt-1 font-medium transition-colors ${isDone ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                  <div className={`text-sm mt-1 font-medium transition-colors ${isDone ? 'text-gold-600 dark:text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
                     {isDone ? '✓ Completed' : '+1 Point'}
                   </div>
                 </div>
                 {/* Checkmark badge - positioned above shimmer */}
                 {isDone && (
                   <div className="absolute top-4 right-4 z-10">
-                    <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-md">
-                      <svg className="w-4 h-4 text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-7 h-7 bg-gold-500 dark:bg-white rounded-full flex items-center justify-center shadow-md">
+                      <svg className="w-4 h-4 text-white dark:text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -388,6 +389,9 @@ export function DashboardPage() {
           })}
         </div>
       </div>
+
+      {/* Bug Report Button - Fixed position */}
+      <BugReportDialog />
     </div>
   );
 }

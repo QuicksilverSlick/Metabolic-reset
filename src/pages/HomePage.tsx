@@ -8,6 +8,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GlowWrapper } from '@/components/ui/glow-button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
 // import { LeadGenModal } from '@/components/lead-gen-modal';
@@ -18,6 +19,7 @@ import { DotPattern } from '@/components/ui/dot-pattern';
 import { AnimatedOrbs } from '@/components/ui/animated-orbs';
 import { AnimatedSteps } from '@/components/ui/animated-steps';
 import { BeamsBackground } from '@/components/ui/beams-background';
+import { FeatureCard } from '@/components/ui/feature-card';
 export function HomePage() {
   const navigate = useNavigate();
   const [isLeadGenOpen, setIsLeadGenOpen] = useState(false);
@@ -65,18 +67,20 @@ export function HomePage() {
                 Most people over 50 accept fatigue and weight gain as a normal part of aging because traditional diets stop working. We prove them wrong.
               </p>
               <div className="flex flex-col sm:flex-row gap-5">
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
-                >
-                  JOIN THE RESET PROJECT - $28
-                  <ArrowRight className="ml-2 h-6 w-6" />
-                </Button>
+                <GlowWrapper glowColor="gold">
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/register')}
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full transition-all duration-300 font-bold tracking-wide"
+                  >
+                    JOIN THE RESET PROJECT - $28
+                    <ArrowRight className="ml-2 h-6 w-6" />
+                  </Button>
+                </GlowWrapper>
                 <Button
                   size="lg"
                   onClick={() => navigate('/quiz')}
-                  className="bg-white/10 text-white hover:bg-white/20 border border-white/20 text-lg md:text-xl px-8 py-8 rounded-full transition-all duration-300 font-semibold backdrop-blur-sm"
+                  className="bg-white/[0.04] text-white hover:bg-white/[0.07] border border-white/[0.18] hover:border-white/[0.3] text-lg md:text-xl px-8 py-8 rounded-full transition-all duration-300 font-semibold backdrop-blur-xl shadow-[0_8px_32px_rgba(15,23,42,0.4),inset_0_0_0_2px_rgba(15,23,42,0.5),inset_0_3px_6px_rgba(15,23,42,0.4)] hover:shadow-[0_12px_40px_rgba(15,23,42,0.5),inset_0_0_0_2px_rgba(15,23,42,0.6),inset_0_4px_8px_rgba(15,23,42,0.5)]"
                 >
                   WHAT'S MY METABOLIC AGE?
                 </Button>
@@ -146,14 +150,16 @@ export function HomePage() {
                   "You shouldn't have to accept physical decline just because you're getting older."
                 </p>
               </div>
-              <Button
-                size="lg"
-                onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
-              >
-                Take Back Control
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <GlowWrapper glowColor="gold">
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/register')}
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+                >
+                  Take Back Control
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </GlowWrapper>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, scale: 0.95, rotate: 2 }}
@@ -195,53 +201,41 @@ export function HomePage() {
               We don't just give you a diet plan. We invite you into a Biometric Project. By tracking 5 key health markers, you see exactly how your body responds to the right inputs.
             </p>
           </div>
-          <motion.div
-            variants={staggerChildren}
-            initial="initial"
-            whileInView="whileInView"
-            className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12"
-          >
-            {[
-              {
-                icon: <TrendingDown className="w-10 h-10 text-gold-500" />,
-                title: "Visceral Fat Reduction",
-                desc: "Protect your organs. Target the dangerous fat stored deep in the abdomen that drives metabolic disease."
-              },
-              {
-                icon: <Activity className="w-10 h-10 text-gold-500" />,
-                title: "Lean Mass Retention",
-                desc: "Keep your strength. Most diets burn muscle. Our protocol is designed to preserve lean mass while burning fat."
-              },
-              {
-                icon: <Zap className="w-10 h-10 text-gold-500" />,
-                title: "Metabolic Age",
-                desc: "Turn back the clock. Watch your metabolic age drop as your cellular health improves week by week."
-              }
-            ].map((card, i) => (
-              <motion.div
-                key={i}
-                variants={fadeIn}
-                className="bg-navy-800/50 p-10 rounded-2xl border border-navy-700 hover:border-gold-500/30 hover:-translate-y-2 transition-all duration-300 group backdrop-blur-sm"
-              >
-                <div className="bg-gold-500/10 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-gold-500/20 transition-colors duration-300 border border-gold-500/20">
-                  <div className="group-hover:scale-110 transition-transform duration-300">
-                    {card.icon}
-                  </div>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-4 font-display">{card.title}</h3>
-                <p className="text-slate-400 leading-relaxed text-lg font-sans">{card.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
+          {/* Mobile-first feature cards with animations */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 lg:gap-10">
+            <FeatureCard
+              icon={<TrendingDown />}
+              title="Visceral Fat Reduction"
+              description="Protect your organs. Target the dangerous fat stored deep in the abdomen that drives metabolic disease."
+              stat={{ value: "Avg. -12%", label: "body fat" }}
+              index={0}
+            />
+            <FeatureCard
+              icon={<Activity />}
+              title="Lean Mass Retention"
+              description="Keep your strength. Most diets burn muscle. Our protocol is designed to preserve lean mass while burning fat."
+              stat={{ value: "98%", label: "muscle kept" }}
+              index={1}
+            />
+            <FeatureCard
+              icon={<Zap />}
+              title="Metabolic Age"
+              description="Turn back the clock. Watch your metabolic age drop as your cellular health improves week by week."
+              stat={{ value: "-4 years", label: "avg. result" }}
+              index={2}
+            />
+          </div>
           <div className="text-center mt-16">
-            <Button
-              size="lg"
-              onClick={() => navigate('/register')}
-              className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold transition-all duration-300"
-            >
-              Start Tracking Today
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <GlowWrapper glowColor="gold">
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold transition-all duration-300"
+              >
+                Start Tracking Today
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </GlowWrapper>
           </div>
         </div>
       </section>
@@ -299,14 +293,16 @@ export function HomePage() {
                 </div>
               </div>
               <div className="mt-10">
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
-                >
-                  Join Thousands Like Sarah
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                <GlowWrapper glowColor="gold">
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/register')}
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+                  >
+                    Join Thousands Like Sarah
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </GlowWrapper>
               </div>
             </motion.div>
           </div>
@@ -353,14 +349,16 @@ export function HomePage() {
             className="mb-20"
           />
           <div className="text-center">
-            <Button
-              size="lg"
-              onClick={() => navigate('/register')}
-              className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              START MY RESET - $28
-              <ArrowRight className="ml-2 h-6 w-6" />
-            </Button>
+            <GlowWrapper glowColor="gold">
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                START MY RESET - $28
+                <ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
+            </GlowWrapper>
           </div>
         </div>
       </section>
@@ -407,14 +405,16 @@ export function HomePage() {
               </div>
             </div>
             <div className="mt-12">
-              <Button
-                size="lg"
-                onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold transition-all duration-300"
-              >
-                Invest in Yourself Today
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <GlowWrapper glowColor="gold">
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/register')}
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold transition-all duration-300"
+                >
+                  Invest in Yourself Today
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </GlowWrapper>
             </div>
           </div>
         </div>
@@ -429,17 +429,20 @@ export function HomePage() {
             Reverse your metabolic age and finally feel at home in your body again.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6 mt-12">
-            <Button
-              size="lg"
-              onClick={() => navigate('/register')}
-              className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full shadow-2xl font-bold hover:-translate-y-1 transition-all duration-300"
-            >
-              JOIN THE RESET PROJECT
-            </Button>
+            <GlowWrapper glowColor="gold">
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full shadow-2xl font-bold transition-all duration-300"
+              >
+                JOIN THE RESET PROJECT
+                <ArrowRight className="ml-2 h-6 w-6" />
+              </Button>
+            </GlowWrapper>
             <Button
               size="lg"
               onClick={() => navigate('/quiz')}
-              className="bg-navy-900 text-white hover:bg-navy-800 text-lg px-10 py-8 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="bg-white/[0.15] text-navy-900 hover:bg-white/[0.22] border border-white/[0.35] hover:border-white/[0.5] text-lg px-10 py-8 rounded-full font-bold transition-all duration-300 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(180,83,9,0.1)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.7),inset_0_-2px_6px_rgba(180,83,9,0.15)]"
             >
               TAKE THE QUIZ FIRST
             </Button>

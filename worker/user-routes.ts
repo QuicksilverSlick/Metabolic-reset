@@ -8,6 +8,7 @@ import {
   CaptainIndex,
   AdminIndex,
   EmailMapping,
+  PhoneMapping,
   DailyScoreEntity,
   WeeklyBiometricEntity,
   SystemStatsEntity,
@@ -15,9 +16,12 @@ import {
   CaptainLeadsIndex,
   ResetProjectEntity,
   ProjectEnrollmentEntity,
-  ProjectIndex
+  ProjectIndex,
+  BugReportEntity,
+  BugReportIndex,
+  OtpEntity
 } from './entities';
-import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest } from "@shared/types";
+import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -118,6 +122,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const normalizedEmail = email.toLowerCase().trim();
       const emailMapping = new EmailMapping(c.env, normalizedEmail);
       await emailMapping.save({ userId: userId });
+
+      // Handle Phone Mapping for OTP login lookup
+      const phoneDigits = phone.replace(/\D/g, '').slice(-10);
+      if (phoneDigits.length === 10) {
+        const normalizedPhone = `+1${phoneDigits}`;
+        const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
+        await phoneMapping.save({ userId: userId });
+      }
+
       // If user is a coach, they are their own captain
       if (role === 'coach') {
         captainId = userId;
@@ -514,7 +527,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
-  // --- Login (for returning users) ---
+  // --- Login (for returning users - legacy email+phone) ---
   app.post('/api/login', async (c) => {
     try {
       const { email, phone } = await c.req.json() as { email: string; phone: string };
@@ -541,6 +554,199 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       return ok(c, user);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // OTP (SMS) Authentication Routes
+  // =========================================
+
+  // Helper: Convert phone to E.164 format
+  const toE164 = (phone: string): string => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('1')) {
+      return `+${digits}`;
+    }
+    if (digits.length === 10) {
+      return `+1${digits}`;
+    }
+    return `+1${digits.slice(-10)}`;
+  };
+
+  // Helper: Generate 6-digit OTP
+  const generateOtp = (): string => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // Send OTP via Twilio SMS
+  app.post('/api/auth/send-otp', async (c) => {
+    try {
+      const { phone } = await c.req.json() as SendOtpRequest;
+      if (!phone) {
+        return bad(c, 'Phone number is required');
+      }
+
+      const normalizedPhone = toE164(phone);
+      const digits = normalizedPhone.replace(/\D/g, '');
+      if (digits.length < 10) {
+        return bad(c, 'Invalid phone number format');
+      }
+
+      // Get Twilio credentials from environment
+      const twilioSid = (c.env as any).TWILIO_ACCOUNT_SID;
+      const twilioToken = (c.env as any).TWILIO_AUTH_TOKEN;
+      const twilioPhone = (c.env as any).TWILIO_PHONE_NUMBER;
+
+      // Generate OTP
+      const code = generateOtp();
+      const now = Date.now();
+      const expiresAt = now + 10 * 60 * 1000; // 10 minutes
+
+      // Store OTP in database
+      const otpEntity = new OtpEntity(c.env, normalizedPhone);
+      await otpEntity.save({
+        id: normalizedPhone,
+        code,
+        createdAt: now,
+        expiresAt,
+        attempts: 0,
+        verified: false
+      });
+
+      // If no Twilio credentials, use mock mode (for development)
+      if (!twilioSid || !twilioToken || !twilioPhone) {
+        console.log(`[DEV MODE] OTP for ${normalizedPhone}: ${code}`);
+        return ok(c, {
+          success: true,
+          message: 'Verification code sent (dev mode)',
+          expiresIn: 600,
+          // Only include code in dev mode for testing
+          devCode: code
+        });
+      }
+
+      // Send SMS via Twilio
+      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
+      const params = new URLSearchParams();
+      params.append('To', normalizedPhone);
+      params.append('From', twilioPhone);
+      params.append('Body', `Your Metabolic Reset verification code is: ${code}. Valid for 10 minutes.`);
+
+      const authHeader = btoa(`${twilioSid}:${twilioToken}`);
+      const response = await fetch(twilioUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${authHeader}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params,
+      });
+
+      const result: any = await response.json();
+      if (!response.ok) {
+        console.error('Twilio API Error:', JSON.stringify(result));
+        return c.json({ error: result.message || 'Failed to send SMS' }, 500);
+      }
+
+      console.log(`OTP sent to ${normalizedPhone}, SID: ${result.sid}`);
+      return ok(c, {
+        success: true,
+        message: 'Verification code sent to your phone',
+        expiresIn: 600
+      });
+    } catch (e: any) {
+      console.error('Send OTP Error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Verify OTP and login
+  app.post('/api/auth/verify-otp', async (c) => {
+    try {
+      const { phone, code } = await c.req.json() as VerifyOtpRequest;
+      if (!phone || !code) {
+        return bad(c, 'Phone and verification code are required');
+      }
+
+      const normalizedPhone = toE164(phone);
+
+      // Get OTP record
+      const otpEntity = new OtpEntity(c.env, normalizedPhone);
+      const otp = await otpEntity.getState();
+
+      if (!otp.id || !otp.code) {
+        return c.json({ error: 'No verification code found. Please request a new one.' }, 400);
+      }
+
+      // Check if expired
+      if (Date.now() > otp.expiresAt) {
+        return c.json({ error: 'Verification code has expired. Please request a new one.' }, 400);
+      }
+
+      // Check attempt limit
+      if (otp.attempts >= 5) {
+        return c.json({ error: 'Too many failed attempts. Please request a new code.' }, 429);
+      }
+
+      // Verify code
+      if (otp.code !== code.trim()) {
+        await otpEntity.incrementAttempts();
+        const remaining = 5 - (otp.attempts + 1);
+        return c.json({ error: `Invalid code. ${remaining} attempts remaining.` }, 401);
+      }
+
+      // Mark as verified
+      await otpEntity.markVerified();
+
+      // Find user by phone
+      const user = await UserEntity.findByPhone(c.env, normalizedPhone);
+
+      if (user) {
+        // Existing user - return user data for login
+        return ok(c, {
+          success: true,
+          message: 'Phone verified successfully',
+          user,
+          isNewUser: false
+        });
+      } else {
+        // New user - they need to complete registration
+        return ok(c, {
+          success: true,
+          message: 'Phone verified. Please complete registration.',
+          isNewUser: true,
+          verifiedPhone: normalizedPhone
+        });
+      }
+    } catch (e: any) {
+      console.error('Verify OTP Error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Check if OTP is verified (for registration flow)
+  app.get('/api/auth/check-verified/:phone', async (c) => {
+    try {
+      const phone = c.req.param('phone');
+      if (!phone) return bad(c, 'Phone number required');
+
+      const normalizedPhone = toE164(decodeURIComponent(phone));
+      const otpEntity = new OtpEntity(c.env, normalizedPhone);
+      const otp = await otpEntity.getState();
+
+      if (!otp.id || !otp.verified) {
+        return ok(c, { verified: false });
+      }
+
+      // Check if verification is recent (within 30 minutes)
+      const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+      if (otp.createdAt < thirtyMinutesAgo) {
+        return ok(c, { verified: false, expired: true });
+      }
+
+      return ok(c, { verified: true });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -877,10 +1083,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // Bootstrap first admin (special endpoint - only works if no admins exist)
   app.post('/api/admin/bootstrap', async (c) => {
     try {
-      const { email, secretKey } = await c.req.json() as { email: string; secretKey: string };
+      const { phone, secretKey } = await c.req.json() as { phone: string; secretKey: string };
 
       // Check for bootstrap secret key (should be set in environment)
-      const bootstrapKey = (c.env as any).ADMIN_BOOTSTRAP_KEY || 'metabolic-admin-2024';
+      const bootstrapKey = (c.env as any).ADMIN_BOOTSTRAP_KEY || 'x.@-_Re$et>/-';
       if (secretKey !== bootstrapKey) {
         return c.json({ error: 'Invalid bootstrap key' }, 403);
       }
@@ -892,8 +1098,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return c.json({ error: 'Admin already exists. Use admin panel to add more.' }, 400);
       }
 
-      // Find user by email
-      const user = await UserEntity.findByEmail(c.env, email);
+      // Find user by phone
+      const user = await UserEntity.findByPhone(c.env, phone);
       if (!user) {
         return c.json({ error: 'User not found. Please register first.' }, 404);
       }
@@ -903,7 +1109,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       await userEntity.patch({ isAdmin: true });
       await adminIndex.add(user.id);
 
-      return ok(c, { message: 'Admin created successfully', userId: user.id });
+      return ok(c, { message: 'Admin created successfully', userId: user.id, userName: user.name });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -1415,6 +1621,179 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         daysUntilStart: today < startDate ? Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0,
         daysRemaining: today <= endDate ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0
       });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Bug Report Routes
+  // =========================================
+
+  // Submit a bug report (requires auth)
+  app.post('/api/bugs', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      const body = await c.req.json() as BugReportSubmitRequest;
+      const { title, description, severity, category, screenshotUrl, videoUrl, pageUrl, userAgent } = body;
+
+      if (!title || !description) {
+        return bad(c, 'Title and description are required');
+      }
+
+      const bugId = crypto.randomUUID();
+      const now = Date.now();
+
+      await BugReportEntity.create(c.env, {
+        id: bugId,
+        userId,
+        userName: user.name,
+        userEmail: user.email,
+        title,
+        description,
+        severity: severity || 'medium',
+        category: category || 'other',
+        status: 'open',
+        screenshotUrl: screenshotUrl || '',
+        videoUrl: videoUrl || '',
+        pageUrl: pageUrl || '',
+        userAgent: userAgent || '',
+        createdAt: now,
+        updatedAt: now,
+        adminNotes: ''
+      });
+
+      // Add to bug report index
+      const bugIndex = new BugReportIndex(c.env);
+      await bugIndex.add(bugId);
+
+      return ok(c, await new BugReportEntity(c.env, bugId).getState());
+    } catch (e: any) {
+      console.error('Bug submission error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get user's own bug reports (requires auth)
+  app.get('/api/bugs/mine', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugs = await BugReportEntity.findByUser(c.env, userId);
+      return ok(c, bugs);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get all bug reports (admin only)
+  app.get('/api/admin/bugs', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const bugs = await BugReportEntity.getAllSorted(c.env);
+      return ok(c, bugs);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get bug reports by status (admin only)
+  app.get('/api/admin/bugs/status/:status', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const status = c.req.param('status') as BugReport['status'];
+      if (!['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
+        return bad(c, 'Invalid status');
+      }
+
+      const bugs = await BugReportEntity.findByStatus(c.env, status);
+      return ok(c, bugs);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get single bug report (admin only)
+  app.get('/api/admin/bugs/:bugId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+      return ok(c, bug);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Update bug report status/notes (admin only)
+  app.patch('/api/admin/bugs/:bugId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      const updates = await c.req.json() as BugReportUpdateRequest;
+      const patch: Partial<BugReport> = { updatedAt: Date.now() };
+
+      if (updates.status) {
+        if (!['open', 'in_progress', 'resolved', 'closed'].includes(updates.status)) {
+          return bad(c, 'Invalid status');
+        }
+        patch.status = updates.status;
+      }
+
+      if (updates.adminNotes !== undefined) {
+        patch.adminNotes = updates.adminNotes;
+      }
+
+      await bugEntity.patch(patch);
+      return ok(c, await bugEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Delete bug report (admin only)
+  app.delete('/api/admin/bugs/:bugId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      // Remove from index
+      const bugIndex = new BugReportIndex(c.env);
+      await bugIndex.remove(bugId);
+
+      // Delete the entity
+      await bugEntity.delete();
+
+      return ok(c, { message: 'Bug report deleted successfully' });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

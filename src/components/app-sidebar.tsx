@@ -29,24 +29,24 @@ export function AppSidebar(): JSX.Element {
   const role = user?.role;
   const isActive = (path: string) => location.pathname === path;
   return (
-    <Sidebar className="border-r border-slate-800 bg-navy-900 text-white" variant="sidebar">
-      <SidebarHeader className="bg-navy-900 border-b border-slate-800 p-4">
+    <Sidebar className="border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 text-navy-900 dark:text-white transition-colors" variant="sidebar">
+      <SidebarHeader className="bg-white dark:bg-navy-900 border-b border-slate-200 dark:border-slate-800 p-4 transition-colors">
         <div className="flex items-center gap-2 px-2">
           <img
-            src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/693713334b202f8789c13789.png"
-            alt="28 Day Reset"
-            className="h-8 w-auto rounded-md"
+            src="https://storage.googleapis.com/msgsndr/ck6TDBskjrhSPWEO92xX/media/6940d027ca7298d33f239911.png"
+            alt="The Metabolic Reset Project"
+            className="h-10 w-auto"
           />
         </div>
       </SidebarHeader>
-      <SidebarContent className="bg-navy-900">
+      <SidebarContent className="bg-white dark:bg-navy-900 transition-colors">
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
                 isActive={isActive('/app')}
-                className="text-slate-300 hover:text-white hover:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-gold-500"
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
                 <Link to="/app">
                   <LayoutDashboard className="h-5 w-5" />
@@ -58,7 +58,7 @@ export function AppSidebar(): JSX.Element {
               <SidebarMenuButton
                 asChild
                 isActive={isActive('/app/biometrics')}
-                className="text-slate-300 hover:text-white hover:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-gold-500"
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
                 <Link to="/app/biometrics">
                   <Scale className="h-5 w-5" />
@@ -70,7 +70,7 @@ export function AppSidebar(): JSX.Element {
               <SidebarMenuButton
                 asChild
                 isActive={isActive('/app/projects')}
-                className="text-slate-300 hover:text-white hover:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-gold-500"
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
                 <Link to="/app/projects">
                   <FolderKanban className="h-5 w-5" />
@@ -83,7 +83,7 @@ export function AppSidebar(): JSX.Element {
                 <SidebarMenuButton
                   asChild
                   isActive={isActive('/app/roster')}
-                  className="text-slate-300 hover:text-white hover:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-gold-500"
+                  className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
                 >
                   <Link to="/app/roster">
                     <Users className="h-5 w-5" />
@@ -97,7 +97,7 @@ export function AppSidebar(): JSX.Element {
                 <SidebarMenuButton
                   asChild
                   isActive={isActive('/app/admin')}
-                  className="text-slate-300 hover:text-white hover:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-gold-500"
+                  className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
                 >
                   <Link to="/app/admin">
                     <ShieldCheck className="h-5 w-5" />
@@ -108,13 +108,13 @@ export function AppSidebar(): JSX.Element {
             )}
           </SidebarMenu>
         </SidebarGroup>
-        <SidebarSeparator className="bg-slate-800" />
+        <SidebarSeparator className="bg-slate-200 dark:bg-slate-800" />
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                className="text-slate-300 hover:text-white hover:bg-slate-800"
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Link to="/app/profile">
                   <User className="h-5 w-5" />
@@ -125,10 +125,10 @@ export function AppSidebar(): JSX.Element {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="bg-navy-900 border-t border-slate-800 p-4">
+      <SidebarFooter className="bg-white dark:bg-navy-900 border-t border-slate-200 dark:border-slate-800 p-4 transition-colors">
         <Button
           variant="ghost"
-          className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"
+          className="w-full justify-start text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-slate-800"
           onClick={() => logout()}
         >
           <LogOut className="mr-2 h-4 w-4" />

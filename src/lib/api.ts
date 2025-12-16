@@ -13,7 +13,15 @@ import {
   ResetProject,
   ProjectEnrollment,
   CreateProjectRequest,
-  UpdateProjectRequest
+  UpdateProjectRequest,
+  BugReport,
+  BugReportSubmitRequest,
+  BugReportUpdateRequest,
+  BugStatus,
+  SendOtpRequest,
+  SendOtpResponse,
+  VerifyOtpRequest,
+  VerifyOtpResponse
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -27,6 +35,27 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ amount })
     }),
+};
+
+// OTP (SMS) Authentication API
+export const otpApi = {
+  // Send OTP code to phone number
+  sendOtp: (data: SendOtpRequest) =>
+    api<SendOtpResponse & { devCode?: string }>('/api/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  // Verify OTP code and login/register
+  verifyOtp: (data: VerifyOtpRequest) =>
+    api<VerifyOtpResponse & { verifiedPhone?: string }>('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  // Check if phone is verified (for registration flow)
+  checkVerified: (phone: string) =>
+    api<{ verified: boolean; expired?: boolean }>(`/api/auth/check-verified/${encodeURIComponent(phone)}`),
 };
 export const scoreApi = {
   getDailyScore: (userId: string, date: string) =>
@@ -92,10 +121,10 @@ export const adminApi = {
     }),
   getAdmins: (adminUserId: string) =>
     api<User[]>('/api/admin/admins', { headers: { 'X-User-ID': adminUserId } }),
-  bootstrapAdmin: (email: string, secretKey: string) =>
-    api<{ message: string; userId: string }>('/api/admin/bootstrap', {
+  bootstrapAdmin: (phone: string, secretKey: string) =>
+    api<{ message: string; userId: string; userName?: string }>('/api/admin/bootstrap', {
       method: 'POST',
-      body: JSON.stringify({ email, secretKey })
+      body: JSON.stringify({ phone, secretKey })
     }),
   // Get a user's enrollments (admin)
   getUserEnrollments: (adminUserId: string, targetUserId: string) =>
@@ -250,4 +279,49 @@ export const adminProjectApi = {
       `/api/admin/projects/${projectId}/enrollments`,
       { headers: { 'X-User-ID': adminUserId } }
     ),
+};
+
+// Bug Report API - for submitting and managing bug reports
+export const bugApi = {
+  // Submit a new bug report (requires auth)
+  submitBug: (userId: string, data: BugReportSubmitRequest) =>
+    api<BugReport>('/api/bugs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get current user's bug reports
+  getMyBugs: (userId: string) =>
+    api<BugReport[]>('/api/bugs/mine', { headers: { 'X-User-ID': userId } }),
+};
+
+// Admin Bug API - for admin bug management
+export const adminBugApi = {
+  // Get all bug reports
+  getAllBugs: (adminUserId: string) =>
+    api<BugReport[]>('/api/admin/bugs', { headers: { 'X-User-ID': adminUserId } }),
+
+  // Get bugs by status
+  getBugsByStatus: (adminUserId: string, status: BugStatus) =>
+    api<BugReport[]>(`/api/admin/bugs/status/${status}`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Get single bug
+  getBug: (adminUserId: string, bugId: string) =>
+    api<BugReport>(`/api/admin/bugs/${bugId}`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Update bug (status, admin notes)
+  updateBug: (adminUserId: string, bugId: string, updates: BugReportUpdateRequest) =>
+    api<BugReport>(`/api/admin/bugs/${bugId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Delete bug
+  deleteBug: (adminUserId: string, bugId: string) =>
+    api<{ message: string }>(`/api/admin/bugs/${bugId}`, {
+      method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };
