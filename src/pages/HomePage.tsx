@@ -53,13 +53,13 @@ export function HomePage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-gold-500"></span>
                 </span>
-                New Cohort Starting Soon
+                New Reset Project Starting Soon
               </div>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold leading-[1.1] mb-8 tracking-tight">
                 <span className="text-white">Reverse Your</span> <span className="text-gold-500">Metabolic Age</span> <span className="text-white">in 28 Days.</span>
               </h1>
               <h2 className="text-xl md:text-2xl lg:text-3xl text-slate-200 font-medium mb-8 max-w-3xl leading-relaxed">
-                Join the science-backed challenge that helps you lose visceral fat, sleep better, and reclaim your energy.
+                Join the science-backed metabolic reset project that helps you lose visceral fat, sleep better, and reclaim your energy.
               </h2>
               <p className="text-lg md:text-xl text-slate-300 mb-12 leading-relaxed max-w-2xl font-sans">
                 Most people over 50 accept fatigue and weight gain as a normal part of aging because traditional diets stop working. We prove them wrong.
@@ -70,7 +70,7 @@ export function HomePage() {
                   onClick={() => navigate('/register')}
                   className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide"
                 >
-                  JOIN THE CHALLENGE - $28
+                  JOIN THE RESET PROJECT - $28
                   <ArrowRight className="ml-2 h-6 w-6" />
                 </Button>
                 <Button
@@ -141,11 +141,19 @@ export function HomePage() {
                   </div>
                 ))}
               </div>
-              <div className="pl-6 border-l-4 border-gold-500 py-2">
+              <div className="pl-6 border-l-4 border-gold-500 py-2 mb-10">
                 <p className="text-xl md:text-2xl text-slate-200 font-medium italic font-display">
                   "You shouldn't have to accept physical decline just because you're getting older."
                 </p>
               </div>
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+              >
+                Take Back Control
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, scale: 0.95, rotate: 2 }}
@@ -184,7 +192,7 @@ export function HomePage() {
               Stop Guessing. Start Tracking.
             </h2>
             <p className="text-xl md:text-2xl text-slate-300 leading-relaxed font-sans">
-              We don't just give you a diet plan. We invite you into a Biometric Study. By tracking 5 key health markers, you see exactly how your body responds to the right inputs.
+              We don't just give you a diet plan. We invite you into a Biometric Project. By tracking 5 key health markers, you see exactly how your body responds to the right inputs.
             </p>
           </div>
           <motion.div
@@ -225,6 +233,16 @@ export function HomePage() {
               </motion.div>
             ))}
           </motion.div>
+          <div className="text-center mt-16">
+            <Button
+              size="lg"
+              onClick={() => navigate('/register')}
+              className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold transition-all duration-300"
+            >
+              Start Tracking Today
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </section>
       {/* GUIDE SECTION (Empathy & Authority) */}
@@ -280,6 +298,16 @@ export function HomePage() {
                   <div className="font-bold text-gold-500 text-lg">- Sarah, 54</div>
                 </div>
               </div>
+              <div className="mt-10">
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/register')}
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+                >
+                  Join Thousands Like Sarah
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
             </motion.div>
           </div>
         </div>
@@ -308,8 +336,8 @@ export function HomePage() {
             steps={[
               {
                 step: "01",
-                title: "Place Your Bet",
-                desc: "Commit to your health for less than a dollar a day. Join the challenge for $28."
+                title: "Join the Reset",
+                desc: "Commit to your health for less than a dollar a day. Join the project for $28."
               },
               {
                 step: "02",
@@ -330,7 +358,8 @@ export function HomePage() {
               onClick={() => navigate('/register')}
               className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              I'M READY TO START
+              START MY RESET - $28
+              <ArrowRight className="ml-2 h-6 w-6" />
             </Button>
           </div>
         </div>
@@ -355,7 +384,7 @@ export function HomePage() {
               Why do we charge $28?
             </h2>
             <p className="text-xl text-slate-300 mb-10 leading-relaxed font-sans">
-              We used to offer free challenges, but we found that people who don't pay, don't pay attention. We want you to succeed. By betting $28 on yourself, you are making a psychological commitment to show up.
+              We used to offer free programs, but we found that people who don't invest, don't commit. We want you to succeed. By investing $28 in yourself, you're making a powerful statement: "I'm worth it, and I'm ready to change."
             </p>
             <div className="bg-navy-800/50 p-8 rounded-2xl border border-navy-700 backdrop-blur-sm inline-block text-left max-w-2xl w-full">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -377,6 +406,16 @@ export function HomePage() {
                 </Button>
               </div>
             </div>
+            <div className="mt-12">
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold transition-all duration-300"
+              >
+                Invest in Yourself Today
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -384,7 +423,7 @@ export function HomePage() {
       <BeamsBackground intensity="subtle" className="py-32 bg-gold-500 text-center">
         <div className="max-w-5xl mx-auto px-4">
           <h2 className="text-4xl md:text-6xl font-display font-bold mb-8 leading-tight text-navy-900">
-            Don't just diet. Join the study.
+            Don't just diet. Reset.
           </h2>
           <p className="text-xl md:text-2xl text-navy-800 mb-6 max-w-3xl mx-auto font-medium">
             Reverse your metabolic age and finally feel at home in your body again.
@@ -395,7 +434,7 @@ export function HomePage() {
               onClick={() => navigate('/register')}
               className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full shadow-2xl font-bold hover:-translate-y-1 transition-all duration-300"
             >
-              JOIN THE CHALLENGE
+              JOIN THE RESET PROJECT
             </Button>
             <Button
               size="lg"

@@ -62,7 +62,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                 onClick={() => navigate('/register')}
                 className="bg-gold-500 hover:bg-gold-400 text-navy-900 rounded-full px-6 font-semibold transition-all duration-200"
               >
-                Join Challenge
+                Join the Reset Project
               </Button>
             </nav>
             {/* Mobile Nav */}
@@ -103,7 +103,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                       }}
                       className="bg-gold-500 hover:bg-gold-400 text-navy-900 w-full rounded-full py-6 text-lg font-semibold"
                     >
-                      Join Challenge
+                      Join the Reset Project
                     </Button>
                   </div>
                 </SheetContent>
