@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" fill="none">
+  <!-- Heartbeat line -->
+  <path d="M0 50 L60 50 L70 30 L80 60 L90 40 L100 50 L200 50"
+        stroke="#F59E0B"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- Heart shape -->
+  <path d="M100 15 C90 5, 75 5, 70 15 C65 25, 70 35, 100 50 C130 35, 135 25, 130 15 C125 5, 110 5, 100 15"
+        fill="#F59E0B"/>
+
+  <!-- Leaf -->
+  <path d="M95 8 C85 -5, 95 -8, 100 0 C105 -8, 115 -5, 105 8 L100 15 L95 8"
+        fill="#22C55E"/>
+  <path d="M100 0 L100 15"
+        stroke="#22C55E"
+        stroke-width="1.5"/>
+</svg>

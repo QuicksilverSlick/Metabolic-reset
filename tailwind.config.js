@@ -187,6 +187,11 @@ export default {
             opacity: '0.8',
             transform: 'scale(1.05)'
           }
+        },
+        'border-beam': {
+          '100%': {
+            'offset-distance': '100%'
+          }
         }
       },
       animation: {
@@ -199,7 +204,8 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'pulse-gold': 'pulse-gold 2s ease-in-out infinite',
-        'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite'
+        'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
+        'border-beam': 'border-beam calc(var(--duration)*1s) infinite linear'
       }
     }
   },
