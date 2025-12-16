@@ -1,0 +1,184 @@
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+export type UserRole = 'challenger' | 'coach';
+
+// Reset Project (Challenge) status values
+export type ProjectStatus = 'draft' | 'upcoming' | 'active' | 'completed';
+
+// Reset Project entity - represents a 28-day challenge
+export interface ResetProject {
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD (28 days after start)
+  status: ProjectStatus;
+  registrationOpen: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Project Enrollment - tracks user participation in projects
+export interface ProjectEnrollment {
+  id: string; // Format: projectId:userId
+  projectId: string;
+  userId: string;
+  role: UserRole;
+  groupLeaderId: string | null; // Their group leader for this project
+  points: number; // Points earned in this project
+  enrolledAt: number;
+  isGroupLeaderEnrolled: boolean; // If role=coach, did they pay for this project?
+}
+export interface User {
+  id: string;
+  phone: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  captainId: string | null; // Legacy - use ProjectEnrollment.groupLeaderId for project-specific
+  referralCode: string;
+  timezone: string;
+  points: number; // Legacy total - use ProjectEnrollment.points for project-specific
+  currentProjectId: string | null; // Current active project
+  createdAt: number; // Unix timestamp
+  isActive: boolean;
+  hasScale: boolean;
+  isAdmin?: boolean; // Admin flag for system administrators
+  stripeCustomerId?: string;
+}
+export interface DailyScore {
+  id: string; // Format: projectId:userId:YYYY-MM-DD
+  projectId: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  habits: {
+    water: boolean;
+    steps: boolean;
+    sleep: boolean;
+    lesson: boolean;
+  };
+  totalPoints: number;
+  updatedAt: number;
+}
+export interface WeeklyBiometric {
+  id: string; // Format: projectId:userId:weekN
+  projectId: string;
+  userId: string;
+  weekNumber: number; // 0 = Initial, 1-4 = weekly, relative to project start
+  weight: number;
+  bodyFat: number;
+  visceralFat: number;
+  leanMass: number;
+  metabolicAge: number;
+  screenshotUrl: string;
+  pointsAwarded: number;
+  submittedAt: number;
+}
+export interface ReferralLedger {
+  id: string;
+  projectId: string;
+  recruiterId: string;
+  newRecruitId: string;
+  pointsAmount: number;
+  createdAt: number;
+}
+export interface SystemStats {
+  totalParticipants: number;
+  totalBiometricSubmissions: number;
+  totalHabitsLogged: number;
+}
+// DTOs
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+  referralCodeUsed?: string; // The code they entered to join
+  isCaptain?: boolean; // If they want to be their own group leader
+  timezone?: string;
+  hasScale?: boolean;
+  projectId?: string; // Specific project to join (from referral link)
+}
+export interface ScoreSubmitRequest {
+  date: string; // YYYY-MM-DD
+  habits: {
+    water?: boolean;
+    steps?: boolean;
+    sleep?: boolean;
+    lesson?: boolean;
+  };
+  projectId?: string; // Optional project context
+}
+export interface BiometricSubmitRequest {
+  weekNumber: number;
+  weight: number;
+  bodyFat: number;
+  visceralFat: number;
+  leanMass: number;
+  metabolicAge: number;
+  screenshotUrl: string;
+  projectId?: string; // Optional project context
+}
+
+// Login request for returning users
+export interface LoginRequest {
+  email: string;
+  phone: string;
+}
+
+// Admin update request
+export interface AdminUpdateUserRequest {
+  userId: string;
+  updates: {
+    isAdmin?: boolean;
+    isActive?: boolean;
+    points?: number;
+    role?: UserRole;
+  };
+}
+
+// Quiz Lead - captured from quiz funnel before registration
+export interface QuizLead {
+  id: string;
+  projectId: string | null;    // Project they were captured for
+  name: string;
+  phone: string;
+  age: number;
+  referralCode: string | null; // The group leader's referral code that referred them
+  captainId: string | null;    // Resolved group leader user ID (legacy name kept for compatibility)
+  quizScore: number;
+  metabolicAge: number;        // Calculated metabolic age (age + offset)
+  convertedToUserId: string | null; // If they registered, link to their user ID
+  capturedAt: number;          // Unix timestamp
+  source: string;              // 'quiz'
+}
+
+// Quiz Lead submission request
+export interface QuizLeadSubmitRequest {
+  name: string;
+  phone: string;
+  age: number;
+  referralCode?: string | null;
+  projectId?: string | null;
+  quizScore: number;
+  metabolicAge: number;
+}
+
+// Admin Reset Project DTOs
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  startDate: string; // YYYY-MM-DD
+  registrationOpen?: boolean;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  startDate?: string;
+  status?: ProjectStatus;
+  registrationOpen?: boolean;
+}
