@@ -296,6 +296,37 @@ export const bugApi = {
     api<BugReport[]>('/api/bugs/mine', { headers: { 'X-User-ID': userId } }),
 };
 
+// Media Upload API - for uploading screenshots and videos
+export const uploadApi = {
+  // Get presigned URL for upload
+  getPresignedUrl: (userId: string, filename: string, contentType: string, fileSize: number) =>
+    api<{ uploadUrl: string; key: string; publicUrl: string }>('/api/upload/presigned-url', {
+      method: 'POST',
+      body: JSON.stringify({ filename, contentType, fileSize }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Upload file directly
+  uploadFile: async (userId: string, key: string, file: Blob, contentType: string): Promise<{ success: boolean; key: string; publicUrl: string; size: number }> => {
+    const formData = new FormData();
+    formData.append('file', file, key.split('/').pop() || 'file');
+    formData.append('key', key);
+
+    const response = await fetch('/api/upload/file', {
+      method: 'POST',
+      headers: { 'X-User-ID': userId },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json();
+  }
+};
+
 // Admin Bug API - for admin bug management
 export const adminBugApi = {
   // Get all bug reports

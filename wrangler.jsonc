@@ -29,5 +29,11 @@
           "GlobalDurableObject"
         ]
       }
+    ],
+    "r2_buckets": [
+      {
+        "bucket_name": "bug-reports-media",
+        "binding": "BUG_REPORTS_BUCKET"
+      }
     ]
 }

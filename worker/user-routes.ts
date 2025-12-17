@@ -1627,6 +1627,133 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // =========================================
+  // Media Upload Routes (R2)
+  // =========================================
+
+  // Get a presigned URL for uploading media to R2
+  app.post('/api/upload/presigned-url', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const { filename, contentType, fileSize } = await c.req.json() as {
+        filename: string;
+        contentType: string;
+        fileSize: number;
+      };
+
+      // Validate content type (only images and videos)
+      const allowedTypes = [
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+        'video/webm', 'video/mp4', 'video/quicktime'
+      ];
+      if (!allowedTypes.includes(contentType)) {
+        return bad(c, 'Invalid file type. Only images and videos are allowed.');
+      }
+
+      // Limit file size (50MB for images, 100MB for videos)
+      const maxSize = contentType.startsWith('video/') ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+      if (fileSize > maxSize) {
+        return bad(c, `File too large. Maximum size is ${maxSize / 1024 / 1024}MB`);
+      }
+
+      // Generate unique key for the file
+      const ext = filename.split('.').pop() || 'bin';
+      const key = `bugs/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+      // For R2, we'll use direct upload through our worker
+      // Return the upload endpoint and key
+      return ok(c, {
+        uploadUrl: `/api/upload/file`,
+        key,
+        publicUrl: `/api/media/${key}`
+      });
+    } catch (e: any) {
+      console.error('Presigned URL error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Direct file upload to R2
+  app.post('/api/upload/file', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const formData = await c.req.formData();
+      const file = formData.get('file') as File | null;
+      const key = formData.get('key') as string | null;
+
+      if (!file || !key) {
+        return bad(c, 'File and key are required');
+      }
+
+      // Validate file type
+      const allowedTypes = [
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+        'video/webm', 'video/mp4', 'video/quicktime'
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        return bad(c, 'Invalid file type');
+      }
+
+      // Validate key belongs to user
+      if (!key.startsWith(`bugs/${userId}/`)) {
+        return bad(c, 'Invalid upload key');
+      }
+
+      // Upload to R2
+      const bucket = (c.env as any).BUG_REPORTS_BUCKET;
+      if (!bucket) {
+        return c.json({ error: 'Storage not configured' }, 500);
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      await bucket.put(key, arrayBuffer, {
+        httpMetadata: {
+          contentType: file.type
+        }
+      });
+
+      return ok(c, {
+        success: true,
+        key,
+        publicUrl: `/api/media/${key}`,
+        size: file.size
+      });
+    } catch (e: any) {
+      console.error('File upload error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Serve media files from R2
+  app.get('/api/media/*', async (c) => {
+    try {
+      const key = c.req.path.replace('/api/media/', '');
+
+      const bucket = (c.env as any).BUG_REPORTS_BUCKET;
+      if (!bucket) {
+        return c.json({ error: 'Storage not configured' }, 500);
+      }
+
+      const object = await bucket.get(key);
+      if (!object) {
+        return notFound(c, 'File not found');
+      }
+
+      const headers = new Headers();
+      headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+      headers.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+      return new Response(object.body, { headers });
+    } catch (e: any) {
+      console.error('Media fetch error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
   // Bug Report Routes
   // =========================================
 
