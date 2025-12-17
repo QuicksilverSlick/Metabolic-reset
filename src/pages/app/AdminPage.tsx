@@ -940,13 +940,13 @@ export function AdminPage() {
                           <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          {bug.screenshotUrl && (
+                          {bug.screenshotUrl && bug.screenshotUrl.length > 0 && (
                             <Badge variant="outline" className="text-xs">
                               <Image className="h-3 w-3 mr-1" />
                               Screenshot
                             </Badge>
                           )}
-                          {bug.videoUrl && (
+                          {bug.videoUrl && bug.videoUrl.length > 0 && (
                             <Badge variant="outline" className="text-xs">
                               <Video className="h-3 w-3 mr-1" />
                               Video
@@ -1051,35 +1051,53 @@ export function AdminPage() {
               </Card>
 
               {/* Attachments */}
-              {(selectedBug.screenshotUrl || selectedBug.videoUrl) && (
+              {(selectedBug.screenshotUrl?.length > 0 || selectedBug.videoUrl?.length > 0) && (
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm">Attachments</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    {selectedBug.screenshotUrl && (
-                      <a
-                        href={selectedBug.screenshotUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 text-sm"
-                      >
-                        <Image className="h-4 w-4 text-blue-600" />
-                        <span className="flex-1 truncate">{selectedBug.screenshotUrl}</span>
-                        <ExternalLink className="h-4 w-4 text-slate-400" />
-                      </a>
+                  <CardContent className="space-y-4">
+                    {selectedBug.screenshotUrl && selectedBug.screenshotUrl.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Image className="h-4 w-4 text-blue-600" />
+                          <span>Screenshot</span>
+                          <a
+                            href={selectedBug.screenshotUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            Open in new tab <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <img
+                          src={selectedBug.screenshotUrl}
+                          alt="Bug screenshot"
+                          className="w-full rounded-lg border border-slate-200 max-h-[300px] object-contain bg-slate-100"
+                        />
+                      </div>
                     )}
-                    {selectedBug.videoUrl && (
-                      <a
-                        href={selectedBug.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 text-sm"
-                      >
-                        <Video className="h-4 w-4 text-purple-600" />
-                        <span className="flex-1 truncate">{selectedBug.videoUrl}</span>
-                        <ExternalLink className="h-4 w-4 text-slate-400" />
-                      </a>
+                    {selectedBug.videoUrl && selectedBug.videoUrl.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Video className="h-4 w-4 text-purple-600" />
+                          <span>Screen Recording</span>
+                          <a
+                            href={selectedBug.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                          >
+                            Open in new tab <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <video
+                          src={selectedBug.videoUrl}
+                          controls
+                          className="w-full rounded-lg border border-slate-200 max-h-[300px] bg-slate-900"
+                        />
+                      </div>
                     )}
                   </CardContent>
                 </Card>

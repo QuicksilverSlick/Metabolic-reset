@@ -488,6 +488,7 @@ export function useSubmitBugReport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bugs', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bugs'] });
       toast.success('Bug report submitted! Thank you for your feedback.');
     },
     onError: (error) => {

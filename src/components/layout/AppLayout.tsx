@@ -5,6 +5,8 @@ import { useAuthStore } from "@/lib/auth-store";
 import { Navigate } from "react-router-dom";
 import { differenceInDays } from "date-fns";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FloatingBugCapture } from "@/components/FloatingBugCapture";
+import { BugReportDialog } from "@/components/BugReportDialog";
 type AppLayoutProps = {
   children: React.ReactNode;
   container?: boolean;
@@ -56,6 +58,9 @@ export function AppLayout({ children, container = false, className, contentClass
             children
           )}
         </main>
+        {/* Global bug capture components */}
+        <FloatingBugCapture />
+        <BugReportDialog />
       </SidebarInset>
     </SidebarProvider>
   );

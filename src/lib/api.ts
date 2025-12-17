@@ -323,7 +323,9 @@ export const uploadApi = {
       throw new Error(error.error || 'Upload failed');
     }
 
-    return response.json();
+    // Backend returns { success: true, data: { ... } }, extract the data field
+    const json = await response.json();
+    return json.data;
   }
 };
 

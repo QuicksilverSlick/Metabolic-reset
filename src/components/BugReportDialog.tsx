@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Bug, AlertCircle, Image, Video, Loader2, Camera, Square, X, Upload, Check } from 'lucide-react';
-import html2canvas from 'html2canvas';
+// Bug report dialog - uses FloatingBugCapture for screen recording/screenshots
+import React, { useState } from 'react';
+import { Bug, AlertCircle, Image, Video, Loader2, Camera, X, Upload, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,183 +26,75 @@ import {
 import { useSubmitBugReport } from '@/hooks/use-queries';
 import { useAuthStore } from '@/lib/auth-store';
 import { uploadApi } from '@/lib/api';
+import { useBugReportStore } from '@/lib/bug-report-store';
 import type { BugSeverity, BugCategory } from '@shared/types';
 
 interface BugReportDialogProps {
   trigger?: React.ReactNode;
 }
 
-type MediaType = 'screenshot' | 'video' | null;
+// Declare the global capture functions type
+declare global {
+  interface Window {
+    __bugCapture?: {
+      captureScreenshot: () => Promise<void>;
+      startRecording: () => Promise<void>;
+      stopRecording: () => void;
+    };
+  }
+}
 
 export function BugReportDialog({ trigger }: BugReportDialogProps) {
   const userId = useAuthStore(s => s.userId);
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState<BugSeverity>('medium');
-  const [category, setCategory] = useState<BugCategory>('other');
+  const store = useBugReportStore();
 
-  // Media capture state
-  const [capturedScreenshot, setCapturedScreenshot] = useState<Blob | null>(null);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
-  const [capturedVideo, setCapturedVideo] = useState<Blob | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+  // Local upload progress state
   const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean; video?: boolean }>({});
-  const [uploadedUrls, setUploadedUrls] = useState<{ screenshot?: string; video?: string }>({});
-
-  // Refs for recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const submitBug = useSubmitBugReport();
 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setSeverity('medium');
-    setCategory('other');
-    setCapturedScreenshot(null);
-    setScreenshotPreview(null);
-    setCapturedVideo(null);
-    setVideoPreview(null);
-    setUploadProgress({});
-    setUploadedUrls({});
-    setRecordingTime(0);
+  // Handle dialog open state from store
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      store.setDialogOpen(true);
+      store.setMinimized(false);
+    } else {
+      // Only truly close if not in capture mode
+      if (store.captureMode === 'idle') {
+        store.setDialogOpen(false);
+      } else {
+        // Minimize instead of close during capture
+        store.setMinimized(true);
+        store.setDialogOpen(false);
+      }
+    }
   };
 
-  // Capture screenshot of the current page
-  const captureScreenshot = useCallback(async () => {
-    setIsCapturing(true);
-    // Temporarily hide the dialog
-    const dialogElement = document.querySelector('[role="dialog"]') as HTMLElement;
-    if (dialogElement) {
-      dialogElement.style.display = 'none';
-    }
+  // Trigger screenshot capture via global handler
+  const handleCaptureScreenshot = () => {
+    store.setDialogOpen(false);
+    // Small delay to let dialog close
+    setTimeout(() => {
+      window.__bugCapture?.captureScreenshot();
+    }, 200);
+  };
 
-    try {
-      // Wait a moment for the dialog to hide
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: window.devicePixelRatio || 1,
-        logging: false,
-      });
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          setCapturedScreenshot(blob);
-          setScreenshotPreview(URL.createObjectURL(blob));
-        }
-      }, 'image/png');
-    } catch (error) {
-      console.error('Screenshot capture failed:', error);
-    } finally {
-      // Show the dialog again
-      if (dialogElement) {
-        dialogElement.style.display = '';
-      }
-      setIsCapturing(false);
-    }
-  }, []);
-
-  // Start screen recording
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: 'browser',
-        } as MediaTrackConstraints,
-        audio: true,
-      });
-
-      streamRef.current = stream;
-      recordedChunksRef.current = [];
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-        setCapturedVideo(blob);
-        setVideoPreview(URL.createObjectURL(blob));
-        setIsRecording(false);
-
-        // Clean up
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-        }
-        if (recordingIntervalRef.current) {
-          clearInterval(recordingIntervalRef.current);
-        }
-      };
-
-      // Handle when user stops sharing via browser UI
-      stream.getVideoTracks()[0].onended = () => {
-        stopRecording();
-      };
-
-      mediaRecorder.start(1000); // Collect data every second
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Update recording time
-      recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-
-    } catch (error) {
-      console.error('Screen recording failed:', error);
-      setIsRecording(false);
-    }
-  }, []);
-
-  // Stop screen recording
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-    }
-  }, []);
-
-  // Format recording time
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Trigger screen recording via global handler
+  const handleStartRecording = () => {
+    window.__bugCapture?.startRecording();
   };
 
   // Remove captured media
   const removeScreenshot = () => {
-    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-    setCapturedScreenshot(null);
-    setScreenshotPreview(null);
-    setUploadedUrls(prev => ({ ...prev, screenshot: undefined }));
+    if (store.media.screenshotPreview) URL.revokeObjectURL(store.media.screenshotPreview);
+    store.setScreenshot(null, null);
+    store.setUploadedUrl('screenshot', undefined);
   };
 
   const removeVideo = () => {
-    if (videoPreview) URL.revokeObjectURL(videoPreview);
-    setCapturedVideo(null);
-    setVideoPreview(null);
-    setUploadedUrls(prev => ({ ...prev, video: undefined }));
+    if (store.media.videoPreview) URL.revokeObjectURL(store.media.videoPreview);
+    store.setVideo(null, null);
+    store.setUploadedUrl('video', undefined);
   };
 
   // Upload media to R2
@@ -221,7 +113,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       // Upload the file
       const result = await uploadApi.uploadFile(userId, key, blob, contentType);
 
-      setUploadedUrls(prev => ({ ...prev, [type]: result.publicUrl }));
+      store.setUploadedUrl(type, result.publicUrl);
       return result.publicUrl;
     } catch (error) {
       console.error(`Failed to upload ${type}:`, error);
@@ -235,33 +127,32 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     e.preventDefault();
 
     // Upload any captured media first
-    let screenshotUrl = uploadedUrls.screenshot;
-    let videoUrl = uploadedUrls.video;
+    let screenshotUrl = store.uploadedUrls.screenshot;
+    let videoUrl = store.uploadedUrls.video;
 
-    if (capturedScreenshot && !screenshotUrl) {
-      screenshotUrl = await uploadMedia(capturedScreenshot, 'screenshot') || undefined;
+    if (store.media.screenshot && !screenshotUrl) {
+      screenshotUrl = await uploadMedia(store.media.screenshot, 'screenshot') || undefined;
     }
 
-    if (capturedVideo && !videoUrl) {
-      videoUrl = await uploadMedia(capturedVideo, 'video') || undefined;
+    if (store.media.video && !videoUrl) {
+      videoUrl = await uploadMedia(store.media.video, 'video') || undefined;
     }
 
     await submitBug.mutateAsync({
-      title,
-      description,
-      severity,
-      category,
+      title: store.title,
+      description: store.description,
+      severity: store.severity,
+      category: store.category,
       screenshotUrl: screenshotUrl || undefined,
       videoUrl: videoUrl || undefined,
       pageUrl: window.location.href,
       userAgent: navigator.userAgent,
     });
 
-    resetForm();
-    setOpen(false);
+    store.reset();
   };
 
-  const isValid = title.trim().length > 0 && description.trim().length > 0;
+  const isValid = store.title.trim().length > 0 && store.description.trim().length > 0;
   const isUploading = uploadProgress.screenshot || uploadProgress.video;
 
   // Check if screen recording is supported
@@ -270,7 +161,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     'getDisplayMedia' in navigator.mediaDevices;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={store.isDialogOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button
@@ -303,8 +194,8 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             <Input
               id="title"
               placeholder="Brief description of the issue"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={store.title}
+              onChange={(e) => store.setTitle(e.target.value)}
               className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
             />
           </div>
@@ -317,8 +208,8 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             <Textarea
               id="description"
               placeholder="What happened? What did you expect to happen? Steps to reproduce..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={store.description}
+              onChange={(e) => store.setDescription(e.target.value)}
               rows={3}
               className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
             />
@@ -329,7 +220,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             {/* Severity */}
             <div className="space-y-2">
               <Label className="text-white">Severity</Label>
-              <Select value={severity} onValueChange={(v) => setSeverity(v as BugSeverity)}>
+              <Select value={store.severity} onValueChange={(v) => store.setSeverity(v as BugSeverity)}>
                 <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -345,7 +236,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             {/* Category */}
             <div className="space-y-2">
               <Label className="text-white">Category</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as BugCategory)}>
+              <Select value={store.category} onValueChange={(v) => store.setCategory(v as BugCategory)}>
                 <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -373,16 +264,12 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={captureScreenshot}
-                disabled={isCapturing || isRecording}
+                onClick={handleCaptureScreenshot}
+                disabled={store.isRecording}
                 className="border-navy-600 text-navy-300 hover:bg-navy-800 hover:text-white flex-1"
               >
-                {isCapturing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Image className="h-4 w-4 mr-2" />
-                )}
-                {isCapturing ? 'Capturing...' : 'Screenshot'}
+                <Image className="h-4 w-4 mr-2" />
+                Take Screenshot
               </Button>
 
               {isScreenRecordingSupported && (
@@ -390,38 +277,30 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`border-navy-600 flex-1 ${
-                    isRecording
-                      ? 'bg-red-900/50 border-red-700 text-red-400 hover:bg-red-900 hover:text-red-300'
-                      : 'text-navy-300 hover:bg-navy-800 hover:text-white'
-                  }`}
+                  onClick={handleStartRecording}
+                  disabled={store.isRecording}
+                  className="border-navy-600 text-navy-300 hover:bg-navy-800 hover:text-white flex-1"
                 >
-                  {isRecording ? (
-                    <>
-                      <Square className="h-4 w-4 mr-2 fill-current" />
-                      Stop ({formatTime(recordingTime)})
-                    </>
-                  ) : (
-                    <>
-                      <Video className="h-4 w-4 mr-2" />
-                      Record Screen
-                    </>
-                  )}
+                  <Video className="h-4 w-4 mr-2" />
+                  Record Screen
                 </Button>
               )}
             </div>
 
+            <p className="text-xs text-navy-400">
+              Navigate anywhere in the app while recording. Click "Stop Recording" when done.
+            </p>
+
             {/* Screenshot Preview */}
-            {screenshotPreview && (
+            {store.media.screenshotPreview && (
               <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
                 <img
-                  src={screenshotPreview}
+                  src={store.media.screenshotPreview}
                   alt="Screenshot preview"
                   className="w-full h-32 object-cover object-top"
                 />
                 <div className="absolute top-2 right-2 flex gap-1">
-                  {uploadedUrls.screenshot && (
+                  {store.uploadedUrls.screenshot && (
                     <div className="bg-green-600 text-white p-1 rounded-full">
                       <Check className="h-3 w-3" />
                     </div>
@@ -445,15 +324,15 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             )}
 
             {/* Video Preview */}
-            {videoPreview && (
+            {store.media.videoPreview && (
               <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
                 <video
-                  src={videoPreview}
+                  src={store.media.videoPreview}
                   controls
                   className="w-full h-32 object-cover"
                 />
                 <div className="absolute top-2 right-2 flex gap-1">
-                  {uploadedUrls.video && (
+                  {store.uploadedUrls.video && (
                     <div className="bg-green-600 text-white p-1 rounded-full">
                       <Check className="h-3 w-3" />
                     </div>
@@ -475,10 +354,6 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 )}
               </div>
             )}
-
-            <p className="text-xs text-navy-400">
-              Screenshots capture the current page. Screen recording requires permission and works on desktop browsers.
-            </p>
           </div>
 
           {/* Info note */}
@@ -493,14 +368,14 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => store.reset()}
               className="border-navy-600 text-navy-300 hover:bg-navy-800"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={!isValid || submitBug.isPending || isUploading || isRecording}
+              disabled={!isValid || submitBug.isPending || isUploading || store.isRecording}
               className="bg-gold hover:bg-gold-600 text-navy-900"
             >
               {submitBug.isPending || isUploading ? (
