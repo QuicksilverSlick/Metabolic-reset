@@ -12,7 +12,8 @@ import { GlowWrapper } from '@/components/ui/glow-button';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate } from 'react-router-dom';
 // import { LeadGenModal } from '@/components/lead-gen-modal';
-import { useSystemStats } from '@/hooks/use-queries';
+import { useSystemStats, useRecentAvatars } from '@/hooks/use-queries';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { NeuralNetworkBackground } from '@/components/ui/neural-network-background';
 import { FloatingParticles } from '@/components/ui/floating-particles';
 import { DotPattern } from '@/components/ui/dot-pattern';
@@ -24,6 +25,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const [isLeadGenOpen, setIsLeadGenOpen] = useState(false);
   const { data: stats } = useSystemStats();
+  const { data: recentAvatars } = useRecentAvatars();
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
     whileInView: { opacity: 1, y: 0 },
@@ -88,11 +90,30 @@ export function HomePage() {
               <div className="mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 text-sm text-slate-400 font-medium">
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="w-10 h-10 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
-                         <div className="w-full h-full bg-slate-600 animate-pulse"></div>
+                    {/* Show real user avatars if available, otherwise fallback placeholders */}
+                    {recentAvatars && recentAvatars.length > 0 ? (
+                      recentAvatars.slice(0, 4).map((user) => (
+                        <Avatar key={user.id} className="w-10 h-10 border-2 border-navy-900 ring-2 ring-gold-500/20">
+                          <AvatarImage src={user.avatarUrl} alt={user.name} />
+                          <AvatarFallback className="bg-gold-600 text-white text-xs font-bold">
+                            {user.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))
+                    ) : (
+                      // Fallback placeholder avatars
+                      [1, 2, 3, 4].map((i) => (
+                        <div key={i} className="w-10 h-10 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-white overflow-hidden">
+                          <div className="w-full h-full bg-gradient-to-br from-gold-500/30 to-gold-600/30"></div>
+                        </div>
+                      ))
+                    )}
+                    {/* Show +N more indicator if there are more avatars */}
+                    {recentAvatars && recentAvatars.length > 4 && (
+                      <div className="w-10 h-10 rounded-full bg-navy-800 border-2 border-navy-900 flex items-center justify-center text-xs text-gold-400 font-bold">
+                        +{recentAvatars.length - 4}
                       </div>
-                    ))}
+                    )}
                   </div>
                   <p className="text-base">
                     Join <span className="text-white font-bold">{stats?.totalParticipants ? stats.totalParticipants.toLocaleString() + '+' : '2,000+'}</span> participants

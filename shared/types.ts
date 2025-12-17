@@ -48,6 +48,7 @@ export interface User {
   hasScale: boolean;
   isAdmin?: boolean; // Admin flag for system administrators
   stripeCustomerId?: string;
+  avatarUrl?: string; // User profile photo URL
 }
 export interface DailyScore {
   id: string; // Format: projectId:userId:YYYY-MM-DD

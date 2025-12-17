@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Scale,
-  User,
   LogOut,
   Users,
   ShieldCheck,
@@ -20,8 +19,19 @@ import {
   SidebarMenuButton,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
+
+// Get user initials for avatar fallback
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 export function AppSidebar(): JSX.Element {
   const location = useLocation();
   const logout = useAuthStore(s => s.logout);
@@ -114,10 +124,18 @@ export function AppSidebar(): JSX.Element {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                isActive={isActive('/app/profile')}
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
-                <Link to="/app/profile">
-                  <User className="h-5 w-5" />
+                <Link to="/app/profile" className="flex items-center gap-3">
+                  <Avatar className="h-6 w-6 border border-slate-200 dark:border-slate-700">
+                    {user?.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    ) : null}
+                    <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
+                      {user?.name ? getInitials(user.name) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="font-medium">My Profile</span>
                 </Link>
               </SidebarMenuButton>

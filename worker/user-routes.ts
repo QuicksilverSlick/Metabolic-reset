@@ -243,6 +243,41 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return c.json({ error: e.message }, 500);
     }
   });
+
+  // Update user profile (for avatarUrl and other editable fields)
+  app.patch('/api/users/me', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      const updates = await c.req.json() as {
+        avatarUrl?: string;
+        name?: string;
+        timezone?: string;
+      };
+
+      const patch: Partial<User> = {};
+
+      // Only allow updating specific fields
+      if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl;
+      if (updates.name !== undefined && updates.name.trim()) patch.name = updates.name.trim();
+      if (updates.timezone !== undefined) patch.timezone = updates.timezone;
+
+      if (Object.keys(patch).length === 0) {
+        return bad(c, 'No valid updates provided');
+      }
+
+      await userEntity.patch(patch);
+      return ok(c, await userEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // --- Daily Scores ---
   app.get('/api/scores', async (c) => {
     try {
@@ -522,6 +557,29 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const statsEntity = new SystemStatsEntity(c.env, "global");
       const stats = await statsEntity.getState();
       return ok(c, stats);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // --- Public user avatars for hero section ---
+  // Returns recent users with avatars (public, no auth)
+  app.get('/api/avatars/recent', async (c) => {
+    try {
+      const { items: allUsers } = await UserEntity.list(c.env);
+
+      // Filter users who have an avatar, sort by most recent, take first 8
+      const usersWithAvatars = allUsers
+        .filter(u => u.id && u.avatarUrl && u.avatarUrl.length > 0)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 8)
+        .map(u => ({
+          id: u.id,
+          name: u.name.split(' ')[0], // First name only for privacy
+          avatarUrl: u.avatarUrl
+        }));
+
+      return ok(c, usersWithAvatars);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -1636,30 +1694,40 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const userId = c.req.header('X-User-ID');
       if (!userId) return bad(c, 'Unauthorized');
 
-      const { filename, contentType, fileSize } = await c.req.json() as {
+      const { filename, contentType, fileSize, category } = await c.req.json() as {
         filename: string;
         contentType: string;
         fileSize: number;
+        category?: 'bugs' | 'avatars'; // Optional category, defaults to 'bugs'
       };
 
-      // Validate content type (only images and videos)
-      const allowedTypes = [
-        'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-        'video/webm', 'video/mp4', 'video/quicktime'
-      ];
+      // Validate content type based on category
+      const uploadCategory = category || 'bugs';
+      const allowedTypes = uploadCategory === 'avatars'
+        ? ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] // Avatars: images only
+        : ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/webm', 'video/mp4', 'video/quicktime']; // Bugs: images + videos
+
       if (!allowedTypes.includes(contentType)) {
-        return bad(c, 'Invalid file type. Only images and videos are allowed.');
+        return bad(c, uploadCategory === 'avatars'
+          ? 'Invalid file type. Only images are allowed for avatars.'
+          : 'Invalid file type. Only images and videos are allowed.');
       }
 
-      // Limit file size (50MB for images, 100MB for videos)
-      const maxSize = contentType.startsWith('video/') ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+      // Limit file size (5MB for avatars, 50MB for bug images, 100MB for videos)
+      let maxSize: number;
+      if (uploadCategory === 'avatars') {
+        maxSize = 5 * 1024 * 1024; // 5MB for avatars
+      } else {
+        maxSize = contentType.startsWith('video/') ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+      }
+
       if (fileSize > maxSize) {
         return bad(c, `File too large. Maximum size is ${maxSize / 1024 / 1024}MB`);
       }
 
       // Generate unique key for the file
       const ext = filename.split('.').pop() || 'bin';
-      const key = `bugs/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      const key = `${uploadCategory}/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
       // For R2, we'll use direct upload through our worker
       // Return the upload endpoint and key
@@ -1697,8 +1765,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Invalid file type');
       }
 
-      // Validate key belongs to user
-      if (!key.startsWith(`bugs/${userId}/`)) {
+      // Validate key belongs to user (bugs/ or avatars/ prefix)
+      const validPrefixes = [`bugs/${userId}/`, `avatars/${userId}/`];
+      if (!validPrefixes.some(prefix => key.startsWith(prefix))) {
         return bad(c, 'Invalid upload key');
       }
 

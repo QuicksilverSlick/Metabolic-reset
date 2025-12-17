@@ -2,11 +2,22 @@ import React from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuthStore } from "@/lib/auth-store";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import { differenceInDays } from "date-fns";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FloatingBugCapture } from "@/components/FloatingBugCapture";
 import { BugReportDialog } from "@/components/BugReportDialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+
+// Get user initials for avatar fallback
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 type AppLayoutProps = {
   children: React.ReactNode;
   container?: boolean;
@@ -46,6 +57,16 @@ export function AppLayout({ children, container = false, className, contentClass
                 {dayDisplay}
               </div>
               <ThemeToggle className="relative top-0 right-0" />
+              <Link to="/app/profile" className="flex items-center">
+                <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">
+                  {user?.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  ) : null}
+                  <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
+                    {user?.name ? getInitials(user.name) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
             </div>
           </div>
         </header>

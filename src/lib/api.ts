@@ -37,6 +37,17 @@ export const authApi = {
     }),
 };
 
+// User Profile API - for updating profile info
+export const userApi = {
+  // Update user profile (avatarUrl, name, timezone)
+  updateProfile: (userId: string, updates: { avatarUrl?: string; name?: string; timezone?: string }) =>
+    api<User>('/api/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': userId }
+    }),
+};
+
 // OTP (SMS) Authentication API
 export const otpApi = {
   // Send OTP code to phone number
@@ -99,6 +110,8 @@ export const rosterApi = {
 export const statsApi = {
   getSystemStats: () =>
     api<SystemStats>('/api/stats'),
+  getRecentAvatars: () =>
+    api<{ id: string; name: string; avatarUrl: string }[]>('/api/avatars/recent'),
 };
 
 export const adminApi = {
@@ -299,10 +312,10 @@ export const bugApi = {
 // Media Upload API - for uploading screenshots and videos
 export const uploadApi = {
   // Get presigned URL for upload
-  getPresignedUrl: (userId: string, filename: string, contentType: string, fileSize: number) =>
+  getPresignedUrl: (userId: string, filename: string, contentType: string, fileSize: number, category?: 'bugs' | 'avatars') =>
     api<{ uploadUrl: string; key: string; publicUrl: string }>('/api/upload/presigned-url', {
       method: 'POST',
-      body: JSON.stringify({ filename, contentType, fileSize }),
+      body: JSON.stringify({ filename, contentType, fileSize, category }),
       headers: { 'X-User-ID': userId }
     }),
 

@@ -47,7 +47,8 @@ export class UserEntity extends IndexedEntity<User> {
     createdAt: 0,
     isActive: true,
     hasScale: false,
-    isAdmin: false
+    isAdmin: false,
+    avatarUrl: ""
   };
   static async findByReferralCode(env: Env, code: string): Promise<User | null> {
     // Normalize code to uppercase for case-insensitive lookup

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus } from '@shared/types';
@@ -22,6 +22,27 @@ export function useUser() {
     },
     enabled: !!userId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Update user profile (avatarUrl, name, timezone)
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  const login = useAuthStore(s => s.login);
+  return useMutation({
+    mutationFn: (updates: { avatarUrl?: string; name?: string; timezone?: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return userApi.updateProfile(userId, updates);
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(['user', userId], user);
+      login(user); // Sync store with latest data
+      toast.success('Profile updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update profile');
+    }
   });
 }
 export function useDailyScore(date: string) {
@@ -127,6 +148,15 @@ export function useSystemStats() {
     queryKey: ['system-stats'],
     queryFn: statsApi.getSystemStats,
     staleTime: 1000 * 60 * 15, // 15 minutes
+  });
+}
+
+// Get recent users with avatars (for hero section)
+export function useRecentAvatars() {
+  return useQuery({
+    queryKey: ['recent-avatars'],
+    queryFn: statsApi.getRecentAvatars,
+    staleTime: 1000 * 60 * 30, // 30 minutes
   });
 }
 
