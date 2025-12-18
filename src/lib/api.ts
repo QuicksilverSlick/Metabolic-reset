@@ -21,7 +21,9 @@ import {
   SendOtpRequest,
   SendOtpResponse,
   VerifyOtpRequest,
-  VerifyOtpResponse
+  VerifyOtpResponse,
+  CohortType,
+  SystemSettings
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -35,6 +37,30 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ amount })
     }),
+};
+
+// Payment API - for creating payment intents
+export const paymentApi = {
+  createIntent: (amount: number) =>
+    api<{ clientSecret: string | null; mock: boolean }>('/api/create-payment-intent', {
+      method: 'POST',
+      body: JSON.stringify({ amount })
+    }),
+};
+
+// Users API - for registration (separate from auth for quiz funnel)
+export const usersApi = {
+  register: (data: {
+    name: string;
+    phone: string;
+    email: string; // Required for Stripe receipts
+    role: 'challenger' | 'coach';
+    referralCodeUsed?: string;
+    hasScale: boolean;
+    timezone: string;
+    projectId?: string;
+  }) =>
+    api<{ user: User; enrolledProjectId: string | null }>('/api/register', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // User Profile API - for updating profile info
@@ -114,6 +140,21 @@ export const statsApi = {
     api<{ id: string; name: string; avatarUrl: string }[]>('/api/avatars/recent'),
 };
 
+// System Settings API - for video URLs, kit order link, etc.
+export const settingsApi = {
+  // Get system settings (public)
+  getSettings: () =>
+    api<SystemSettings>('/api/settings'),
+
+  // Update system settings (admin only)
+  updateSettings: (adminUserId: string, updates: Partial<Omit<SystemSettings, 'id'>>) =>
+    api<SystemSettings>('/api/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+};
+
 export const adminApi = {
   getAllUsers: (adminUserId: string) =>
     api<User[]>('/api/admin/users', { headers: { 'X-User-ID': adminUserId } }),
@@ -174,7 +215,16 @@ export const referralApi = {
 export const leadsApi = {
   // Submit a new lead (public, no auth required)
   submitLead: (data: QuizLeadSubmitRequest) =>
-    api<{ id: string; name: string; phone: string; age: number; captainId: string | null; metabolicAge: number }>(
+    api<{
+      id: string;
+      name: string;
+      phone: string;
+      age: number;
+      sex: 'male' | 'female';
+      captainId: string | null;
+      resultType: 'fatigue' | 'instability' | 'plateau' | 'optimized';
+      metabolicAge: number;
+    }>(
       '/api/leads',
       { method: 'POST', body: JSON.stringify(data) }
     ),
@@ -259,6 +309,26 @@ export const enrollmentApi = {
       body: JSON.stringify({ projectId, groupLeaderId }),
       headers: { 'X-User-ID': userId }
     }),
+
+  // Update cohort selection for enrollment
+  updateCohort: (userId: string, projectId: string, cohortId: CohortType) =>
+    api<ProjectEnrollment>(`/api/enrollments/${projectId}/cohort`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cohortId }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Update onboarding progress
+  updateOnboarding: (userId: string, projectId: string, updates: {
+    hasKit?: boolean;
+    kitOrderClicked?: boolean;
+    onboardingComplete?: boolean;
+  }) =>
+    api<ProjectEnrollment>(`/api/enrollments/${projectId}/onboarding`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': userId }
+    }),
 };
 
 // Admin Project API - for admin project management
@@ -292,6 +362,29 @@ export const adminProjectApi = {
       `/api/admin/projects/${projectId}/enrollments`,
       { headers: { 'X-User-ID': adminUserId } }
     ),
+
+  // Get cohort stats for a project
+  getCohortStats: (adminUserId: string, projectId: string) =>
+    api<{
+      total: number;
+      groupA: number;
+      groupB: number;
+      unassigned: number;
+      onboardingComplete: number;
+      onboardingPending: number;
+      groupAWithKit: number;
+      groupANeedKit: number;
+    }>(`/api/admin/projects/${projectId}/cohort-stats`, {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Update user's cohort (admin)
+  updateEnrollmentCohort: (adminUserId: string, enrollmentId: string, cohortId: CohortType | null) =>
+    api<ProjectEnrollment>(`/api/admin/enrollments/${enrollmentId}/cohort`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cohortId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };
 
 // Bug Report API - for submitting and managing bug reports

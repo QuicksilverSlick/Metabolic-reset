@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
-import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus } from '@shared/types';
+import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings } from '@shared/types';
 export function useUser() {
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
@@ -613,6 +613,115 @@ export function useAdminDeleteBugReport() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to delete bug report');
+    }
+  });
+}
+
+// =========================================
+// System Settings hooks
+// =========================================
+
+// Get system settings (video URLs, kit order link)
+export function useSystemSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.getSettings,
+    staleTime: 1000 * 60 * 30, // 30 minutes - settings rarely change
+  });
+}
+
+// Update system settings (admin only)
+export function useUpdateSystemSettings() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (updates: Partial<Omit<SystemSettings, 'id'>>) => {
+      if (!userId) throw new Error('Not authenticated');
+      return settingsApi.updateSettings(userId, updates);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['settings'], data);
+      toast.success('Settings updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update settings');
+    }
+  });
+}
+
+// =========================================
+// Cohort Onboarding hooks
+// =========================================
+
+// Update cohort selection for current user's enrollment
+export function useUpdateCohort() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ projectId, cohortId }: { projectId: string; cohortId: CohortType }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return enrollmentApi.updateCohort(userId, projectId, cohortId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      // Don't show toast - onboarding flow will handle navigation
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to select cohort');
+    }
+  });
+}
+
+// Update onboarding progress (hasKit, kitOrderClicked, onboardingComplete)
+export function useUpdateOnboarding() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ projectId, updates }: {
+      projectId: string;
+      updates: { hasKit?: boolean; kitOrderClicked?: boolean; onboardingComplete?: boolean }
+    }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return enrollmentApi.updateOnboarding(userId, projectId, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      // Don't show toast - onboarding flow will handle navigation
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update onboarding progress');
+    }
+  });
+}
+
+// Get cohort stats for a project (admin only)
+export function useAdminCohortStats(projectId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'projects', projectId, 'cohort-stats'],
+    queryFn: () => userId && projectId ? adminProjectApi.getCohortStats(userId, projectId) : null,
+    enabled: !!userId && !!projectId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Update user's cohort (admin only)
+export function useAdminUpdateCohort() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ enrollmentId, cohortId }: { enrollmentId: string; cohortId: CohortType | null }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminProjectApi.updateEnrollmentCohort(userId, enrollmentId, cohortId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      toast.success('Cohort updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update cohort');
     }
   });
 }

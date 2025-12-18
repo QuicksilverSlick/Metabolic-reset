@@ -15,7 +15,9 @@ import {
   useAdminRemoveUserFromProject,
   useAdminBugReports,
   useAdminUpdateBugReport,
-  useAdminDeleteBugReport
+  useAdminDeleteBugReport,
+  useSystemSettings,
+  useUpdateSystemSettings
 } from '@/hooks/use-queries';
 import { Navigate } from 'react-router-dom';
 import {
@@ -57,7 +59,10 @@ import {
   MessageSquare,
   ExternalLink,
   Video,
-  Image
+  Image,
+  Settings,
+  Link as LinkIcon,
+  Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,7 +114,7 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs' | 'settings'>('users');
 
   // Bug management state
   const [selectedBug, setSelectedBug] = useState<BugReport | null>(null);
@@ -147,6 +152,26 @@ export function AdminPage() {
   const { data: bugReports, isLoading: bugsLoading } = useAdminBugReports();
   const updateBugMutation = useAdminUpdateBugReport();
   const deleteBugMutation = useAdminDeleteBugReport();
+
+  // System settings queries
+  const { data: systemSettings, isLoading: settingsLoading } = useSystemSettings();
+  const updateSettingsMutation = useUpdateSystemSettings();
+
+  // Settings form state
+  const [settingsGroupAVideo, setSettingsGroupAVideo] = useState('');
+  const [settingsGroupBVideo, setSettingsGroupBVideo] = useState('');
+  const [settingsKitOrderUrl, setSettingsKitOrderUrl] = useState('');
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+
+  // Initialize settings form when data loads
+  React.useEffect(() => {
+    if (systemSettings && !settingsInitialized) {
+      setSettingsGroupAVideo(systemSettings.groupAVideoUrl || '');
+      setSettingsGroupBVideo(systemSettings.groupBVideoUrl || '');
+      setSettingsKitOrderUrl(systemSettings.kitOrderUrl || '');
+      setSettingsInitialized(true);
+    }
+  }, [systemSettings, settingsInitialized]);
 
   // Form state for edit dialog
   const [editPoints, setEditPoints] = useState(0);
@@ -660,6 +685,17 @@ export function AdminPage() {
             </span>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'settings'
+              ? 'border-gold-500 text-gold-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Settings className="h-4 w-4 inline mr-2" />
+          Settings
+        </button>
       </div>
 
       {/* Users Tab */}
@@ -996,6 +1032,109 @@ export function AdminPage() {
                     : `No ${bugStatusFilter === 'in_progress' ? 'in progress' : bugStatusFilter} bugs.`}
                 </p>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Settings Tab */}
+      {activeTab === 'settings' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              System Settings
+            </CardTitle>
+            <CardDescription>
+              Configure onboarding videos and kit order link for cohort selection flow.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {settingsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+              </div>
+            ) : (
+              <>
+                {/* Group A Video URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="group-a-video" className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-emerald-500" />
+                    Group A (Protocol) Video URL
+                  </Label>
+                  <Input
+                    id="group-a-video"
+                    type="url"
+                    placeholder="https://..."
+                    value={settingsGroupAVideo}
+                    onChange={(e) => setSettingsGroupAVideo(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    The orientation video shown to Protocol group participants during onboarding.
+                  </p>
+                </div>
+
+                {/* Group B Video URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="group-b-video" className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-blue-500" />
+                    Group B (DIY) Video URL
+                  </Label>
+                  <Input
+                    id="group-b-video"
+                    type="url"
+                    placeholder="https://..."
+                    value={settingsGroupBVideo}
+                    onChange={(e) => setSettingsGroupBVideo(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    The orientation video shown to Self-Directed group participants during onboarding.
+                  </p>
+                </div>
+
+                {/* Kit Order URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="kit-order-url" className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4 text-amber-500" />
+                    Nutrition Kit Order URL
+                  </Label>
+                  <Input
+                    id="kit-order-url"
+                    type="url"
+                    placeholder="https://..."
+                    value={settingsKitOrderUrl}
+                    onChange={(e) => setSettingsKitOrderUrl(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Where Protocol group users are redirected to order their Clinical Nutrition Kit.
+                  </p>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      updateSettingsMutation.mutate({
+                        groupAVideoUrl: settingsGroupAVideo,
+                        groupBVideoUrl: settingsGroupBVideo,
+                        kitOrderUrl: settingsKitOrderUrl
+                      });
+                    }}
+                    disabled={updateSettingsMutation.isPending}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                  >
+                    {updateSettingsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Settings
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

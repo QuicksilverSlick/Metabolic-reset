@@ -65,20 +65,21 @@ export function formatPhoneInput(value: string): string {
   // Remove all non-digit characters
   const digits = value.replace(/\D/g, '');
 
-  // Limit to 10 digits
-  const limited = digits.slice(0, 10);
+  // Get the last 10 digits (handles E.164 format like +19185205115)
+  // If 11+ digits and starts with 1, it's likely a country code
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits.slice(0, 10);
 
   // Progressive formatting as user types
-  if (limited.length === 0) {
+  if (last10.length === 0) {
     return '';
   }
-  if (limited.length <= 3) {
-    return `(${limited}`;
+  if (last10.length <= 3) {
+    return `(${last10}`;
   }
-  if (limited.length <= 6) {
-    return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
+  if (last10.length <= 6) {
+    return `(${last10.slice(0, 3)}) ${last10.slice(3)}`;
   }
-  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+  return `(${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6)}`;
 }
 
 /**

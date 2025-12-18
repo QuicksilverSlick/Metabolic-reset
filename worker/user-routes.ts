@@ -19,9 +19,10 @@ import {
   ProjectIndex,
   BugReportEntity,
   BugReportIndex,
-  OtpEntity
+  OtpEntity,
+  SystemSettingsEntity
 } from './entities';
-import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest } from "@shared/types";
+import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -90,7 +91,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     try {
       const body = await c.req.json() as any;
       const { name, email, phone, referralCodeUsed, role, hasScale, projectId, timezone } = body;
-      if (!name || !email || !phone) {
+      // Email is now optional - can be added later in profile setup
+      if (!name || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
       let recruiterId = null;
@@ -118,10 +120,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         await mapping.save({ userId: userId });
       }
 
-      // Handle Email Mapping for login lookup
-      const normalizedEmail = email.toLowerCase().trim();
-      const emailMapping = new EmailMapping(c.env, normalizedEmail);
-      await emailMapping.save({ userId: userId });
+      // Handle Email Mapping for login lookup (only if email provided)
+      if (email) {
+        const normalizedEmail = email.toLowerCase().trim();
+        const emailMapping = new EmailMapping(c.env, normalizedEmail);
+        await emailMapping.save({ userId: userId });
+      }
 
       // Handle Phone Mapping for OTP login lookup
       const phoneDigits = phone.replace(/\D/g, '').slice(-10);
@@ -139,7 +143,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         id: userId,
         phone,
         name,
-        email,
+        email: email || '', // Email can be added later in profile setup
         role: role || 'challenger',
         captainId: captainId,
         referralCode: newReferralCode,
@@ -174,12 +178,27 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Update System Stats
       await SystemStatsEntity.incrementUsers(c.env);
 
-      // Create Project Enrollment if projectId is provided
-      if (projectId) {
-        const enrollmentId = `${projectId}:${userId}`;
+      // Create Project Enrollment - use provided projectId or find active project
+      let enrollProjectId = projectId;
+      if (!enrollProjectId) {
+        // Try to find an active or open project to enroll in
+        const activeProject = await ResetProjectEntity.findActive(c.env);
+        if (activeProject) {
+          enrollProjectId = activeProject.id;
+        } else {
+          // Check for open projects
+          const openProjects = await ResetProjectEntity.findOpenForRegistration(c.env);
+          if (openProjects.length > 0) {
+            enrollProjectId = openProjects[0].id;
+          }
+        }
+      }
+
+      if (enrollProjectId) {
+        const enrollmentId = `${enrollProjectId}:${userId}`;
         await ProjectEnrollmentEntity.create(c.env, {
           id: enrollmentId,
-          projectId,
+          projectId: enrollProjectId,
           userId,
           role: role || 'challenger',
           groupLeaderId: captainId || null, // Their group leader for this project
@@ -190,10 +209,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
         // Index user's enrollment for looking up their projects
         const userEnrollmentsIndex = new Index(c.env, `user_enrollments:${userId}`);
-        await userEnrollmentsIndex.add(projectId);
+        await userEnrollmentsIndex.add(enrollProjectId);
 
         // Index project's enrollment for looking up participants
-        const projectEnrollmentsIndex = new Index(c.env, `project_enrollments:${projectId}`);
+        const projectEnrollmentsIndex = new Index(c.env, `project_enrollments:${enrollProjectId}`);
         await projectEnrollmentsIndex.add(userId);
       }
 
@@ -218,13 +237,22 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         );
       }
       return ok(c, {
-        id: userId,
-        name,
-        email,
-        phone,
-        referralCode: newReferralCode,
-        captainId,
-        recruiterId
+        user: {
+          id: userId,
+          name,
+          email: email || '',
+          phone,
+          role: role || 'challenger',
+          referralCode: newReferralCode,
+          captainId,
+          recruiterId,
+          timezone: timezone || 'America/New_York',
+          hasScale: !!hasScale,
+          points: 0,
+          createdAt: now,
+          isActive: true
+        },
+        enrolledProjectId: enrollProjectId || null
       });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
@@ -384,6 +412,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const bioEntity = new WeeklyBiometricEntity(c.env, biometricId);
       const isNewSubmission = !(await bioEntity.exists());
       const existing = await bioEntity.getState();
+
+      // Get cohort snapshot from current enrollment
+      let cohortId: CohortType | null = null;
+      if (projectId) {
+        const enrollmentId = `${projectId}:${userId}`;
+        const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+        if (await enrollmentEntity.exists()) {
+          const enrollment = await enrollmentEntity.getState();
+          cohortId = enrollment.cohortId;
+        }
+      }
+
       // Save Biometric Data
       await bioEntity.save({
         id: biometricId,
@@ -397,7 +437,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         metabolicAge: Number(metabolicAge),
         screenshotUrl,
         pointsAwarded: isNewSubmission ? 25 : 0,
-        submittedAt: Date.now()
+        submittedAt: Date.now(),
+        cohortId // Snapshot of cohort at submission time
       });
       // Add to index if new submission
       if (isNewSubmission) {
@@ -841,15 +882,19 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         name: string;
         phone: string;
         age: number;
+        sex: 'male' | 'female';
         referralCode?: string | null;
+        projectId?: string | null;
         quizScore: number;
+        quizAnswers: Record<string, number>;
+        resultType: 'fatigue' | 'instability' | 'plateau' | 'optimized';
         metabolicAge: number;
       };
 
-      const { name, phone, age, referralCode, quizScore, metabolicAge } = body;
+      const { name, phone, age, sex, referralCode, projectId, quizScore, quizAnswers, resultType, metabolicAge } = body;
 
-      if (!name || !phone || !age) {
-        return bad(c, 'Missing required fields: name, phone, age');
+      if (!name || !phone || !age || !sex) {
+        return bad(c, 'Missing required fields: name, phone, age, sex');
       }
 
       // Resolve captain from referral code if provided
@@ -866,15 +911,19 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const leadId = crypto.randomUUID();
       const now = Date.now();
 
-      // Create the lead
+      // Create the lead with extended data
       await QuizLeadEntity.create(c.env, {
         id: leadId,
+        projectId: projectId || null,
         name,
         phone,
         age,
+        sex,
         referralCode: referralCode || null,
         captainId,
         quizScore,
+        quizAnswers: quizAnswers || {},
+        resultType: resultType || 'fatigue',
         metabolicAge,
         convertedToUserId: null,
         capturedAt: now,
@@ -902,9 +951,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
               name,
               phone,
               age,
+              sex,
               quizScore,
+              resultType,
               metabolicAge,
               referralCode,
+              projectId,
               captainId,
               source: 'quiz-lead'
             })
@@ -917,7 +969,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         name,
         phone,
         age,
+        sex,
         captainId,
+        resultType,
         metabolicAge
       });
     } catch (e: any) {
@@ -1990,6 +2044,174 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       await bugEntity.delete();
 
       return ok(c, { message: 'Bug report deleted successfully' });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // System Settings Routes
+  // =========================================
+
+  // Get system settings (public - for video URLs, etc.)
+  app.get('/api/settings', async (c) => {
+    try {
+      const settings = await SystemSettingsEntity.getGlobal(c.env);
+      return ok(c, settings);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Update system settings (admin only)
+  app.put('/api/admin/settings', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const updates = await c.req.json() as Partial<Omit<SystemSettings, 'id'>>;
+      const settings = await SystemSettingsEntity.updateGlobal(c.env, updates);
+      return ok(c, settings);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Cohort Onboarding Routes
+  // =========================================
+
+  // Update enrollment cohort selection
+  app.patch('/api/enrollments/:projectId/cohort', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const projectId = c.req.param('projectId');
+      const { cohortId } = await c.req.json() as { cohortId: CohortType };
+
+      if (!cohortId || !['GROUP_A', 'GROUP_B'].includes(cohortId)) {
+        return bad(c, 'Invalid cohort selection. Must be GROUP_A or GROUP_B');
+      }
+
+      const enrollmentId = `${projectId}:${userId}`;
+      const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+
+      if (!(await enrollmentEntity.exists())) {
+        return notFound(c, 'Enrollment not found');
+      }
+
+      await enrollmentEntity.patch({ cohortId });
+      return ok(c, await enrollmentEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Update enrollment onboarding progress
+  app.patch('/api/enrollments/:projectId/onboarding', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const projectId = c.req.param('projectId');
+      const updates = await c.req.json() as {
+        hasKit?: boolean;
+        kitOrderClicked?: boolean;
+        onboardingComplete?: boolean;
+      };
+
+      const enrollmentId = `${projectId}:${userId}`;
+      const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+
+      if (!(await enrollmentEntity.exists())) {
+        return notFound(c, 'Enrollment not found');
+      }
+
+      const enrollment = await enrollmentEntity.getState();
+      const patch: Partial<ProjectEnrollment> = {};
+
+      if (typeof updates.hasKit === 'boolean') {
+        patch.hasKit = updates.hasKit;
+      }
+
+      if (typeof updates.kitOrderClicked === 'boolean') {
+        patch.kitOrderClicked = updates.kitOrderClicked;
+        if (updates.kitOrderClicked) {
+          patch.kitOrderClickedAt = Date.now();
+        }
+      }
+
+      if (typeof updates.onboardingComplete === 'boolean') {
+        patch.onboardingComplete = updates.onboardingComplete;
+        if (updates.onboardingComplete) {
+          patch.onboardingCompletedAt = Date.now();
+        }
+      }
+
+      if (Object.keys(patch).length === 0) {
+        return bad(c, 'No valid updates provided');
+      }
+
+      await enrollmentEntity.patch(patch);
+      return ok(c, await enrollmentEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Update user's cohort (with audit logging)
+  app.patch('/api/admin/enrollments/:enrollmentId/cohort', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const enrollmentId = c.req.param('enrollmentId');
+      const { cohortId } = await c.req.json() as { cohortId: CohortType | null };
+
+      if (cohortId !== null && !['GROUP_A', 'GROUP_B'].includes(cohortId)) {
+        return bad(c, 'Invalid cohort. Must be GROUP_A, GROUP_B, or null');
+      }
+
+      const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+
+      if (!(await enrollmentEntity.exists())) {
+        return notFound(c, 'Enrollment not found');
+      }
+
+      const oldEnrollment = await enrollmentEntity.getState();
+      await enrollmentEntity.patch({ cohortId });
+
+      // Log the change (could expand to a proper audit log entity later)
+      console.log(`Admin ${admin.id} changed cohort for ${enrollmentId}: ${oldEnrollment.cohortId} -> ${cohortId}`);
+
+      return ok(c, await enrollmentEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get cohort stats for a project (admin)
+  app.get('/api/admin/projects/:projectId/cohort-stats', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const projectId = c.req.param('projectId');
+      const enrollments = await ProjectEnrollmentEntity.findByProject(c.env, projectId);
+
+      const stats = {
+        total: enrollments.length,
+        groupA: enrollments.filter(e => e.cohortId === 'GROUP_A').length,
+        groupB: enrollments.filter(e => e.cohortId === 'GROUP_B').length,
+        unassigned: enrollments.filter(e => !e.cohortId).length,
+        onboardingComplete: enrollments.filter(e => e.onboardingComplete).length,
+        onboardingPending: enrollments.filter(e => !e.onboardingComplete).length,
+        groupAWithKit: enrollments.filter(e => e.cohortId === 'GROUP_A' && e.hasKit).length,
+        groupANeedKit: enrollments.filter(e => e.cohortId === 'GROUP_A' && !e.hasKit).length,
+      };
+
+      return ok(c, stats);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

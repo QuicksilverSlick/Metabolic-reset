@@ -5,6 +5,9 @@ export interface ApiResponse<T = unknown> {
 }
 export type UserRole = 'challenger' | 'coach';
 
+// Cohort types for onboarding
+export type CohortType = 'GROUP_A' | 'GROUP_B';
+
 // Reset Project (Challenge) status values
 export type ProjectStatus = 'draft' | 'upcoming' | 'active' | 'completed';
 
@@ -31,6 +34,13 @@ export interface ProjectEnrollment {
   points: number; // Points earned in this project
   enrolledAt: number;
   isGroupLeaderEnrolled: boolean; // If role=coach, did they pay for this project?
+  // Cohort onboarding fields
+  cohortId: CohortType | null; // GROUP_A (Protocol) or GROUP_B (DIY)
+  onboardingComplete: boolean; // Has completed full onboarding flow
+  hasKit: boolean; // Group A only - do they have the nutrition kit
+  kitOrderClicked: boolean; // Clicked "order kit" link
+  kitOrderClickedAt: number | null; // Timestamp when they clicked order
+  onboardingCompletedAt: number | null; // Timestamp when onboarding finished
 }
 export interface User {
   id: string;
@@ -77,6 +87,7 @@ export interface WeeklyBiometric {
   screenshotUrl: string;
   pointsAwarded: number;
   submittedAt: number;
+  cohortId?: CohortType | null; // Snapshot of cohort at submission time
 }
 export interface ReferralLedger {
   id: string;
@@ -90,6 +101,14 @@ export interface SystemStats {
   totalParticipants: number;
   totalBiometricSubmissions: number;
   totalHabitsLogged: number;
+}
+
+// System Settings - admin-configurable values
+export interface SystemSettings {
+  id: string; // "global"
+  groupAVideoUrl: string; // Orientation video URL for Group A (Protocol)
+  groupBVideoUrl: string; // Orientation video URL for Group B (DIY)
+  kitOrderUrl: string; // URL to order the nutrition kit
 }
 // DTOs
 export interface RegisterRequest {
@@ -141,6 +160,12 @@ export interface AdminUpdateUserRequest {
   };
 }
 
+// Sex type for quiz and metabolic calculations
+export type SexType = 'male' | 'female';
+
+// Quiz result types based on score ranges
+export type QuizResultType = 'fatigue' | 'instability' | 'plateau' | 'optimized';
+
 // Quiz Lead - captured from quiz funnel before registration
 export interface QuizLead {
   id: string;
@@ -148,10 +173,13 @@ export interface QuizLead {
   name: string;
   phone: string;
   age: number;
+  sex: SexType;                // Male or female for gender-specific questions
   referralCode: string | null; // The group leader's referral code that referred them
   captainId: string | null;    // Resolved group leader user ID (legacy name kept for compatibility)
-  quizScore: number;
-  metabolicAge: number;        // Calculated metabolic age (age + offset)
+  quizScore: number;           // Total score (0-100)
+  quizAnswers: Record<string, number>; // Question ID to points mapping
+  resultType: QuizResultType;  // Fatigue, Instability, Plateau, or Optimized
+  metabolicAge: number;        // Calculated metabolic age using Harris-Benedict
   convertedToUserId: string | null; // If they registered, link to their user ID
   capturedAt: number;          // Unix timestamp
   source: string;              // 'quiz'
@@ -162,9 +190,12 @@ export interface QuizLeadSubmitRequest {
   name: string;
   phone: string;
   age: number;
+  sex: SexType;
   referralCode?: string | null;
   projectId?: string | null;
   quizScore: number;
+  quizAnswers: Record<string, number>;
+  resultType: QuizResultType;
   metabolicAge: number;
 }
 

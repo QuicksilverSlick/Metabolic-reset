@@ -1,22 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertCircle, Phone, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Phone, ArrowLeft, CheckCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { otpApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { formatPhoneDisplay, toE164, isValidPhone } from '@/lib/phone-utils';
+import { cn } from '@/lib/utils';
 
 type Step = 'phone' | 'verify' | 'success';
 
 export function OtpLoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuthStore();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -27,6 +29,10 @@ export function OtpLoginPage() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Get referral code and project from URL params (passed from quiz)
+  const referralCode = searchParams.get('ref');
+  const projectId = searchParams.get('project');
 
   // Auto-focus first OTP input when entering verify step
   useEffect(() => {
@@ -62,8 +68,10 @@ export function OtpLoginPage() {
     }
   };
 
-  const handleVerifyOtp = async () => {
-    const fullCode = code.join('');
+  const handleVerifyOtp = async (codeOverride?: string[]) => {
+    // If codeOverride is not an array (e.g., it's a click event), use code
+    const codeToUse = Array.isArray(codeOverride) ? codeOverride : code;
+    const fullCode = codeToUse.join('');
     if (fullCode.length !== 6) {
       setError('Please enter the complete 6-digit code');
       return;
@@ -104,6 +112,9 @@ export function OtpLoginPage() {
     newCode[index] = digit;
     setCode(newCode);
 
+    // Clear any existing error when user types
+    setError(null);
+
     // Auto-advance to next input
     if (digit && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -111,12 +122,9 @@ export function OtpLoginPage() {
 
     // Auto-submit when all digits entered
     if (digit && index === 5 && newCode.every(d => d)) {
-      // Small delay to let state update
+      // Small delay to let UI update, then submit with the new code directly
       setTimeout(() => {
-        const fullCode = newCode.join('');
-        if (fullCode.length === 6) {
-          handleVerifyOtp();
-        }
+        handleVerifyOtp(newCode);
       }, 100);
     }
   };
@@ -136,6 +144,8 @@ export function OtpLoginPage() {
         newCode[i] = pastedData[i];
       }
       setCode(newCode);
+      // Clear any existing error when user pastes
+      setError(null);
       // Focus the next empty input or the last one
       const nextEmpty = newCode.findIndex(d => !d);
       inputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
@@ -217,8 +227,11 @@ export function OtpLoginPage() {
 
                     <div className="text-center text-sm text-slate-400">
                       Don't have an account?{' '}
-                      <Link to="/register" className="text-gold-500 hover:text-gold-400 font-medium">
-                        Register here
+                      <Link
+                        to={`/quiz${referralCode || projectId ? `?${new URLSearchParams({ ...(referralCode && { ref: referralCode }), ...(projectId && { project: projectId }) }).toString()}` : ''}`}
+                        className="text-gold-500 hover:text-gold-400 font-medium"
+                      >
+                        Take the quiz to get started
                       </Link>
                     </div>
                   </CardContent>
@@ -262,7 +275,7 @@ export function OtpLoginPage() {
                     </div>
                   </div>
                   <CardContent className="p-6 md:p-8 space-y-6">
-                    {error && (
+                    {error && !code.every(d => d !== '') && (
                       <Alert variant="destructive" className="bg-red-900/20 border-red-800">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription className="text-red-300">{error}</AlertDescription>
@@ -278,31 +291,52 @@ export function OtpLoginPage() {
                     )}
 
                     <div className="flex justify-center gap-2 sm:gap-3">
-                      {code.map((digit, index) => (
-                        <Input
-                          key={index}
-                          ref={(el) => (inputRefs.current[index] = el)}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleCodeChange(index, e.target.value)}
-                          onKeyDown={(e) => handleCodeKeyDown(index, e)}
-                          onPaste={handleCodePaste}
-                          className="w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold bg-navy-900 border-navy-600 text-white focus:border-gold-500 focus:ring-gold-500/20 rounded-xl"
-                        />
-                      ))}
+                      {code.map((digit, index) => {
+                        const allDigitsEntered = code.every(d => d !== '');
+                        return (
+                          <Input
+                            key={index}
+                            ref={(el) => (inputRefs.current[index] = el)}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleCodeChange(index, e.target.value)}
+                            onKeyDown={(e) => handleCodeKeyDown(index, e)}
+                            onPaste={handleCodePaste}
+                            className={cn(
+                              "w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold bg-navy-900 text-white rounded-xl",
+                              allDigitsEntered
+                                ? "border-green-500 focus:border-green-500 focus:ring-green-500/20"
+                                : "border-navy-600 focus:border-gold-500 focus:ring-gold-500/20"
+                            )}
+                          />
+                        );
+                      })}
                     </div>
 
-                    <p className="text-center text-sm text-slate-500">
-                      Didn't receive the code?{' '}
-                      <button
-                        onClick={handleSendOtp}
-                        disabled={isLoading}
-                        className="text-gold-500 hover:text-gold-400 font-medium"
-                      >
-                        Resend
-                      </button>
+                    {/* Status Message */}
+                    <p className={cn(
+                      "text-center text-sm",
+                      code.every(d => d !== '') ? "text-green-400" : "text-slate-500"
+                    )}>
+                      {code.every(d => d !== '') ? (
+                        <span className="flex items-center justify-center gap-1">
+                          <Check className="h-4 w-4" />
+                          All digits entered. Click verify.
+                        </span>
+                      ) : (
+                        <>
+                          Didn't receive the code?{' '}
+                          <button
+                            onClick={handleSendOtp}
+                            disabled={isLoading}
+                            className="text-gold-500 hover:text-gold-400 font-medium"
+                          >
+                            Resend
+                          </button>
+                        </>
+                      )}
                     </p>
 
                     <Button
@@ -348,7 +382,14 @@ export function OtpLoginPage() {
                     </p>
                     {isNewUser && (
                       <Button
-                        onClick={() => navigate(`/register?phone=${encodeURIComponent(verifiedPhone || '')}`)}
+                        onClick={() => {
+                          // Build registration URL with verified phone and any referral/project params
+                          const regParams = new URLSearchParams();
+                          regParams.set('phone', verifiedPhone || '');
+                          if (referralCode) regParams.set('ref', referralCode);
+                          if (projectId) regParams.set('project', projectId);
+                          navigate(`/registration?${regParams.toString()}`);
+                        }}
                         className="bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold py-3 px-8 text-lg rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all duration-300"
                       >
                         Complete Registration

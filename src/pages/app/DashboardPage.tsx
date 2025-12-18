@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
@@ -14,18 +14,30 @@ import {
   Share2,
   ArrowRight,
   Users,
-  Trophy
+  Trophy,
+  Sparkles,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek } from '@/hooks/use-queries';
+import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek, useOpenProjects } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { getChallengeProgress, getTodayInTimezone } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { BugReportDialog } from '@/components/BugReportDialog';
+import { KitReminderBanner } from '@/components/kit-reminder-banner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { data: user, isLoading: userLoading } = useUser();
@@ -41,6 +53,13 @@ export function DashboardPage() {
   const { data: activeEnrollment, isLoading: enrollmentLoading } = useMyActiveEnrollment();
   const { data: project, isLoading: projectLoading } = useProject(activeEnrollment?.projectId || null);
   const { data: weekInfo } = useProjectWeek(activeEnrollment?.projectId || null);
+
+  // Fetch open projects for referral link selector
+  const { data: openProjects } = useOpenProjects();
+
+  // State for referral project selector dialog
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false);
+  const [selectedReferralProject, setSelectedReferralProject] = useState<string | null>(null);
 
   // Refs for habit card elements to trigger confetti from their position
   const habitRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -151,15 +170,39 @@ export function DashboardPage() {
       projectId: activeEnrollment?.projectId
     });
   };
-  const copyReferralLink = () => {
+  // Generate quiz link with referral code and optional project
+  const generateQuizLink = (projectId?: string | null) => {
+    if (!user?.referralCode) return '';
+    const params = new URLSearchParams();
+    params.set('ref', user.referralCode);
+    if (projectId) {
+      params.set('project', projectId);
+    }
+    return `${window.location.origin}/quiz?${params.toString()}`;
+  };
+
+  const copyReferralLink = (projectId?: string | null) => {
     if (!user?.referralCode) return;
-    // Include project ID in referral link if user is enrolled in a project
-    const baseLink = `${window.location.origin}/register?ref=${user.referralCode}`;
-    const link = activeEnrollment?.projectId
-      ? `${baseLink}&project=${activeEnrollment.projectId}`
-      : baseLink;
+    const link = generateQuizLink(projectId);
     navigator.clipboard.writeText(link);
-    toast.success('Invite link copied to clipboard!');
+    toast.success('Quiz link copied to clipboard!');
+    setReferralDialogOpen(false);
+  };
+
+  // Quick copy: use active enrollment project or no project
+  const handleQuickCopy = () => {
+    // If there's only one open project or user is enrolled, use that
+    if (activeEnrollment?.projectId) {
+      copyReferralLink(activeEnrollment.projectId);
+    } else if (openProjects && openProjects.length === 1) {
+      copyReferralLink(openProjects[0].id);
+    } else if (openProjects && openProjects.length > 1) {
+      // Multiple projects available, show selector
+      setReferralDialogOpen(true);
+    } else {
+      // No projects, copy link without project
+      copyReferralLink(null);
+    }
   };
   if (userLoading || scoreLoading) {
     return (
@@ -195,6 +238,9 @@ export function DashboardPage() {
   const dayDisplay = day > 28 ? 28 : (day < 1 ? 0 : day);
   return (
     <div className="space-y-8">
+      {/* Kit Reminder Banner for Group A */}
+      <KitReminderBanner />
+
       {/* Orphan Alert */}
       {isOrphan && (
         <Alert variant="destructive" className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900">
@@ -306,7 +352,7 @@ export function DashboardPage() {
               Share & Earn
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-slate-300">
-              Rocket up the leaderboard.
+              Refer friends to earn points!
             </CardDescription>
           </CardHeader>
           <CardContent className="relative z-10 space-y-4">
@@ -316,24 +362,80 @@ export function DashboardPage() {
                 : 'Earn 1 Point per recruit. Build your roster.'}
             </div>
             <div className="bg-slate-100 dark:bg-navy-950/50 p-3 rounded-lg border border-slate-200 dark:border-navy-700 flex items-center justify-between gap-2">
-              <code className="text-xs sm:text-sm font-mono text-navy-900 dark:text-slate-300 truncate">
-                {user?.referralCode}
-              </code>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Sparkles className="h-4 w-4 text-gold-500 shrink-0" />
+                <code className="text-xs sm:text-sm font-mono text-navy-900 dark:text-slate-300 truncate">
+                  {generateQuizLink(activeEnrollment?.projectId || openProjects?.[0]?.id).replace(window.location.origin, '').substring(0, 25)}...
+                </code>
+              </div>
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-8 w-8 text-slate-500 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 hover:text-gold-500 dark:hover:text-gold-400"
-                onClick={copyReferralLink}
+                onClick={handleQuickCopy}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <Button
-              onClick={copyReferralLink}
-              className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all"
-            >
-              Copy Invite Link
-            </Button>
+            <Dialog open={referralDialogOpen} onOpenChange={setReferralDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={handleQuickCopy}
+                  className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all"
+                >
+                  Copy Quiz Link
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md bg-navy-900 border-navy-700">
+                <DialogHeader>
+                  <DialogTitle className="text-white flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-gold-500" />
+                    Select a Project
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-400">
+                    Choose which project you want to refer friends to. They'll complete the metabolic quiz and can join your selected project.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 mt-4">
+                  {openProjects?.map((proj) => (
+                    <button
+                      key={proj.id}
+                      onClick={() => copyReferralLink(proj.id)}
+                      className="w-full p-4 rounded-xl border-2 border-navy-700 bg-navy-800 hover:border-gold-500/50 hover:bg-navy-800/80 transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-white group-hover:text-gold-400 transition-colors">
+                            {proj.name}
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            Starts {new Date(proj.startDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <Copy className="h-5 w-5 text-slate-500 group-hover:text-gold-400 transition-colors" />
+                      </div>
+                    </button>
+                  ))}
+                  {/* Option to copy without project */}
+                  <button
+                    onClick={() => copyReferralLink(null)}
+                    className="w-full p-4 rounded-xl border-2 border-dashed border-navy-700 bg-navy-900/50 hover:border-gold-500/30 transition-all text-left group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-400 group-hover:text-slate-300 transition-colors">
+                          General Referral Link
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          Let them choose their project later
+                        </div>
+                      </div>
+                      <Copy className="h-5 w-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                    </div>
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       </div>

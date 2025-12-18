@@ -8,6 +8,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { FloatingBugCapture } from "@/components/FloatingBugCapture";
 import { BugReportDialog } from "@/components/BugReportDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useMyActiveEnrollment } from "@/hooks/use-queries";
+import { CohortIndicator } from "@/components/cohort-badge";
+import { Loader2 } from "lucide-react";
 
 // Get user initials for avatar fallback
 const getInitials = (name: string) => {
@@ -27,9 +30,31 @@ type AppLayoutProps = {
 export function AppLayout({ children, container = false, className, contentClassName }: AppLayoutProps): JSX.Element {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   const user = useAuthStore(s => s.user);
+  const { data: activeEnrollment, isLoading: enrollmentLoading } = useMyActiveEnrollment();
+
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
+
+  // Show loading while we check enrollment status
+  if (enrollmentLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  // Gatekeeper: If user has an enrollment but hasn't completed onboarding, redirect
+  if (activeEnrollment && !activeEnrollment.onboardingComplete) {
+    // Determine which onboarding step they should be at
+    if (!activeEnrollment.cohortId) {
+      return <Navigate to="/app/onboarding/cohort" replace />;
+    }
+    // If they have cohort but somehow got here, send to video
+    return <Navigate to="/app/onboarding/video" replace />;
+  }
+
   // Calculate current day of the challenge
   const getDayNumber = () => {
     if (!user?.createdAt) return 1;
@@ -58,14 +83,17 @@ export function AppLayout({ children, container = false, className, contentClass
               </div>
               <ThemeToggle className="relative top-0 right-0" />
               <Link to="/app/profile" className="flex items-center">
-                <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">
-                  {user?.avatarUrl ? (
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  ) : null}
-                  <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
-                    {user?.name ? getInitials(user.name) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">
+                    {user?.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    ) : null}
+                    <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
+                      {user?.name ? getInitials(user.name) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <CohortIndicator cohortId={activeEnrollment?.cohortId} />
+                </div>
               </Link>
             </div>
           </div>

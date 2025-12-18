@@ -6,7 +6,9 @@ import { createRoot } from 'react-dom/client'
 import {
   createBrowserRouter,
   RouterProvider,
-  Outlet
+  Outlet,
+  Navigate,
+  useSearchParams
 } from "react-router-dom";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
@@ -30,6 +32,19 @@ import { MyProjectsPage } from '@/pages/app/MyProjectsPage';
 import { EnrollProjectPage } from '@/pages/app/EnrollProjectPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
+// Onboarding Pages
+import CohortSelectionPage from '@/pages/app/onboarding/CohortSelectionPage';
+import ProfilePhotoPage from '@/pages/app/onboarding/ProfilePhotoPage';
+import PhoneVerificationPage from '@/pages/app/onboarding/PhoneVerificationPage';
+import VideoOrientationPage from '@/pages/app/onboarding/VideoOrientationPage';
+import KitConfirmationPage from '@/pages/app/onboarding/KitConfirmationPage';
+
+// Redirect component for /register that preserves query params
+function RegisterRedirect() {
+  const [searchParams] = useSearchParams();
+  const params = searchParams.toString();
+  return <Navigate to={`/quiz${params ? `?${params}` : ''}`} replace />;
+}
 
 const queryClient = new QueryClient();
 
@@ -45,7 +60,13 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
   {
+    // Redirect /register to /quiz (preserving query params)
     path: "/register",
+    element: <RegisterRedirect />,
+  },
+  {
+    // Registration page (accessed after quiz + OTP verification for new users)
+    path: "/registration",
     element: <RegistrationPage />,
     errorElement: <RouteErrorBoundary />,
   },
@@ -62,6 +83,32 @@ const router = createBrowserRouter([
   {
     path: "/login/legacy",
     element: <LoginPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  // Onboarding routes (full-screen, no AppLayout)
+  {
+    path: "/app/onboarding/cohort",
+    element: <CohortSelectionPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/app/onboarding/profile",
+    element: <ProfilePhotoPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/app/onboarding/verify",
+    element: <PhoneVerificationPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/app/onboarding/video",
+    element: <VideoOrientationPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/app/onboarding/kit",
+    element: <KitConfirmationPage />,
     errorElement: <RouteErrorBoundary />,
   },
   {

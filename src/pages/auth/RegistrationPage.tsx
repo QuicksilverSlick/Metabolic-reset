@@ -185,9 +185,16 @@ export function RegistrationPage() {
     }
   }, []);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<PersonalInfo>({
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<PersonalInfo>({
     resolver: zodResolver(personalInfoSchema)
   });
+
+  // Pre-fill name from quiz lead data
+  useEffect(() => {
+    if (quizResult?.leadData?.name) {
+      setValue('name', quizResult.leadData.name);
+    }
+  }, [quizResult, setValue]);
 
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
@@ -551,7 +558,7 @@ export function RegistrationPage() {
 
                       <CardContent className="p-6 md:p-8 space-y-6">
                         <RadioGroup value={role} onValueChange={(v) => setRole(v as 'challenger' | 'coach')}>
-                          {/* Challenger Option */}
+                          {/* Participant Option */}
                           <motion.div
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -571,7 +578,7 @@ export function RegistrationPage() {
                               <div className="flex-1">
                                 <div className="flex items-center justify-between mb-2">
                                   <Label className="font-bold text-white text-lg cursor-pointer">
-                                    I am a Challenger
+                                    Participant
                                   </Label>
                                   <RadioGroupItem value="challenger" className="border-slate-500 text-gold-500" />
                                 </div>
@@ -597,7 +604,7 @@ export function RegistrationPage() {
                             )}
                           </motion.div>
 
-                          {/* Coach Option */}
+                          {/* Group Leader Option */}
                           <motion.div
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -618,7 +625,7 @@ export function RegistrationPage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <Label className="font-bold text-white text-lg cursor-pointer">
-                                      I am a Coach / Captain
+                                      Group Leader
                                     </Label>
                                     <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-medium">
                                       LEADER
@@ -627,7 +634,7 @@ export function RegistrationPage() {
                                   <RadioGroupItem value="coach" className="border-slate-500 text-gold-500" />
                                 </div>
                                 <p className="text-slate-400 mb-4">
-                                  Lead a team, access roster data, track team progress, and recruit challengers.
+                                  Lead a team, access roster data, track team progress, and recruit participants.
                                 </p>
                                 <div className="flex items-center gap-4">
                                   <span className="text-2xl font-bold text-gold-500">$49</span>
@@ -760,7 +767,7 @@ export function RegistrationPage() {
                                   {project?.name || '28-Day Metabolic Reset'}
                                 </p>
                                 <p className="text-slate-500 text-sm">
-                                  {role === 'coach' ? 'Coach / Captain Access' : 'Challenger Access'}
+                                  {role === 'coach' ? 'Group Leader Access' : 'Participant Access'}
                                 </p>
                               </div>
                             </div>
@@ -918,10 +925,10 @@ export function RegistrationPage() {
                           transition={{ delay: 0.7 }}
                         >
                           <Button
-                            onClick={() => navigate('/app')}
+                            onClick={() => navigate('/app/onboarding/cohort')}
                             className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-7 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] transition-all duration-300"
                           >
-                            Go to Your Dashboard
+                            Continue Setup
                             <ArrowRight className="ml-2 h-5 w-5" />
                           </Button>
                         </motion.div>

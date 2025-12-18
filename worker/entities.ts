@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -198,9 +198,12 @@ export class QuizLeadEntity extends IndexedEntity<QuizLead> {
     name: "",
     phone: "",
     age: 0,
+    sex: "female",
     referralCode: null,
     captainId: null,
     quizScore: 0,
+    quizAnswers: {},
+    resultType: "fatigue",
     metabolicAge: 0,
     convertedToUserId: null,
     capturedAt: 0,
@@ -288,7 +291,14 @@ export class ProjectEnrollmentEntity extends IndexedEntity<ProjectEnrollment> {
     groupLeaderId: null,
     points: 0,
     enrolledAt: 0,
-    isGroupLeaderEnrolled: false
+    isGroupLeaderEnrolled: false,
+    // Cohort onboarding fields
+    cohortId: null,
+    onboardingComplete: false,
+    hasKit: false,
+    kitOrderClicked: false,
+    kitOrderClickedAt: null,
+    onboardingCompletedAt: null
   };
 
   // Get enrollment by project and user
@@ -427,6 +437,30 @@ export class OtpEntity extends Entity<OtpRecord> {
   // Mark as verified
   async markVerified(): Promise<void> {
     await this.patch({ verified: true });
+  }
+}
+
+// System Settings Entity - admin-configurable values
+export class SystemSettingsEntity extends Entity<SystemSettings> {
+  static readonly entityName = "system-settings";
+  static readonly initialState: SystemSettings = {
+    id: "global",
+    groupAVideoUrl: "https://descriptusercontent.com/published/9e3d87f9-a6f6-4088-932e-87d618f6fafa/original.mp4",
+    groupBVideoUrl: "https://descriptusercontent.com/published/6117b02a-9c38-4ac2-b79a-b4f0e2708367/original.mp4",
+    kitOrderUrl: "https://www.optavia.com/us/en/coach/craveoptimalhealth/sc/30164167-000070009"
+  };
+
+  // Get global settings (singleton pattern)
+  static async getGlobal(env: Env): Promise<SystemSettings> {
+    const entity = new SystemSettingsEntity(env, "global");
+    return entity.getState();
+  }
+
+  // Update global settings
+  static async updateGlobal(env: Env, updates: Partial<Omit<SystemSettings, 'id'>>): Promise<SystemSettings> {
+    const entity = new SystemSettingsEntity(env, "global");
+    await entity.patch(updates);
+    return entity.getState();
   }
 }
 
