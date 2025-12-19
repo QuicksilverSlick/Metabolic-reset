@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { useTeamRoster, useUser, useCaptainLeads, useTeamMemberBiometrics, useOpenProjects, useMyActiveEnrollment } from '@/hooks/use-queries';
+import { useTeamRoster, useUser, useCaptainLeads, useTeamMemberBiometrics, useOpenProjects, useMyActiveEnrollment, useMyGenealogy } from '@/hooks/use-queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Users, AlertCircle, Trophy, CheckCircle2, Star, Target, Phone, Calendar, Activity, Copy, Check, Link, ChevronRight, Scale, Heart, X, TrendingDown, TrendingUp, Image, Sparkles, Brain, Moon, Clock, Flame, Dumbbell, Zap, ThermometerSun } from 'lucide-react';
+import { Loader2, Users, AlertCircle, Trophy, CheckCircle2, Star, Target, Phone, Calendar, Activity, Copy, Check, Link, ChevronRight, Scale, Heart, X, TrendingDown, TrendingUp, Image, Sparkles, Brain, Moon, Clock, Flame, Dumbbell, Zap, ThermometerSun, GitBranch } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import type { QuizLead } from '@shared/types';
+import { GenealogyTree, GenealogyList } from '@/components/ui/genealogy-tree';
 // Quiz questions for displaying answers
 const quizQuestions: Record<string, { question: string; category: string; icon: React.ComponentType<{ className?: string }> }> = {
   f1: { question: 'How would you describe your menstrual cycle regularity and associated symptoms?', category: 'Hormonal Balance', icon: Heart },
@@ -42,11 +43,13 @@ export function RosterPage() {
   const { data: leads, isLoading: leadsLoading } = useCaptainLeads();
   const { data: openProjects } = useOpenProjects();
   const { data: activeEnrollment } = useMyActiveEnrollment();
+  const { data: genealogy, isLoading: genealogyLoading } = useMyGenealogy();
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedRecruitId, setSelectedRecruitId] = useState<string | null>(null);
   const [selectedScreenshot, setSelectedScreenshot] = useState<{ url: string; label: string } | null>(null);
   const [selectedLead, setSelectedLead] = useState<QuizLead | null>(null);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+  const [treeView, setTreeView] = useState<'tree' | 'list'>('list'); // Default to list for mobile-friendliness
   const { data: biometricsData, isLoading: biometricsLoading } = useTeamMemberBiometrics(selectedRecruitId);
 
   // Generate quiz link with referral code and optional project
@@ -256,16 +259,25 @@ export function RosterPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Tabs for Leads and Recruits */}
+      {/* Tabs for Leads, Recruits, and Genealogy */}
       <Tabs defaultValue="leads" className="space-y-6">
         <TabsList className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800 transition-colors">
           <TabsTrigger value="leads" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
             <Target className="h-4 w-4 mr-2" />
-            Quiz Leads ({leadCount})
+            <span className="hidden sm:inline">Quiz Leads</span>
+            <span className="sm:hidden">Leads</span>
+            <span className="ml-1">({leadCount})</span>
           </TabsTrigger>
           <TabsTrigger value="recruits" className="data-[state=active]:bg-gold-500 data-[state=active]:text-navy-900">
             <Users className="h-4 w-4 mr-2" />
-            Team Recruits ({recruitCount})
+            <span className="hidden sm:inline">Team Recruits</span>
+            <span className="sm:hidden">Team</span>
+            <span className="ml-1">({recruitCount})</span>
+          </TabsTrigger>
+          <TabsTrigger value="genealogy" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
+            <GitBranch className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Genealogy</span>
+            <span className="sm:hidden">Tree</span>
           </TabsTrigger>
         </TabsList>
 
@@ -580,6 +592,85 @@ export function RosterPage() {
                     </Table>
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Genealogy Tab */}
+        <TabsContent value="genealogy">
+          <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-navy-900 dark:text-white flex items-center gap-2">
+                    <GitBranch className="h-5 w-5 text-green-500" />
+                    Referral Genealogy
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-slate-400">
+                    Visual representation of your referral tree and team structure.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={treeView === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTreeView('list')}
+                    className={treeView === 'list'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-400'}
+                  >
+                    List View
+                  </Button>
+                  <Button
+                    variant={treeView === 'tree' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTreeView('tree')}
+                    className={treeView === 'tree'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-400'}
+                  >
+                    Tree View
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {genealogyLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-green-500" />
+                </div>
+              ) : !genealogy ? (
+                <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+                  <GitBranch className="h-12 w-12 mx-auto mb-4 text-slate-300 dark:text-navy-700" />
+                  <p className="mb-2">No genealogy data available.</p>
+                  <p className="text-sm">Start referring people to build your team tree!</p>
+                </div>
+              ) : treeView === 'tree' ? (
+                <GenealogyTree data={genealogy} showStats={true} />
+              ) : (
+                <div className="space-y-4">
+                  {/* Stats Summary for List View */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Direct Referrals</div>
+                      <div className="text-xl font-bold text-navy-900 dark:text-white">{genealogy.directReferrals}</div>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Total Team</div>
+                      <div className="text-xl font-bold text-navy-900 dark:text-white">{genealogy.totalDownline}</div>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Your Points</div>
+                      <div className="text-xl font-bold text-gold-600 dark:text-gold-400">{genealogy.points}</div>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Team Points</div>
+                      <div className="text-xl font-bold text-green-600 dark:text-green-400">{genealogy.teamPoints}</div>
+                    </div>
+                  </div>
+                  <GenealogyList data={genealogy} maxDepth={5} />
+                </div>
               )}
             </CardContent>
           </Card>

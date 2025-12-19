@@ -20,7 +20,9 @@ import {
   BugReportEntity,
   BugReportIndex,
   OtpEntity,
-  SystemSettingsEntity
+  SystemSettingsEntity,
+  PointsLedgerEntity,
+  buildGenealogyTree
 } from './entities';
 import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
@@ -160,18 +162,33 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
       // Handle Recruitment Logic
       if (recruiterId && referrerRole) {
-        const points = referrerRole === 'challenger' ? 10 : 1;
-        // Add to Ledger
+        // Get configurable point values from system settings
+        const settings = await SystemSettingsEntity.getGlobal(c.env);
+        const points = referrerRole === 'challenger'
+          ? (settings.referralPointsChallenger || 5)
+          : (settings.referralPointsCoach || 1);
+
+        // Add to Ledger (legacy)
         await ReferralLedgerEntity.create(c.env, {
           id: crypto.randomUUID(),
+          projectId: enrollProjectId || '',
           recruiterId: recruiterId,
           newRecruitId: userId,
           pointsAmount: points,
           createdAt: now
         });
-        // Award points to recruiter
-        await UserEntity.addPoints(c.env, recruiterId, points);
-        // Index the recruit for the recruiter (for Roster view)
+
+        // Award points with audit logging
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: enrollProjectId || null,
+          userId: recruiterId,
+          transactionType: referrerRole === 'challenger' ? 'referral_challenger' : 'referral_coach',
+          points: points,
+          relatedUserId: userId,
+          description: `Referral bonus for ${name} joining`
+        });
+
+        // Index the recruit for the recruiter (for Roster view / genealogy)
         const recruitIndex = new Index(c.env, `recruits:${recruiterId}`);
         await recruitIndex.add(userId);
       }
@@ -332,20 +349,31 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const body = await c.req.json() as any;
       const { date, habits, projectId } = body;
       if (!date || !habits) return bad(c, 'Missing date or habits');
+
+      // Get configurable point values
+      const settings = await SystemSettingsEntity.getGlobal(c.env);
+      const habitPointValue = settings.dailyHabitPoints || 1;
+
       const scoreId = `${userId}:${date}`;
       const scoreEntity = new DailyScoreEntity(c.env, scoreId);
       // Check if this is a new score entry
       const isNewScore = !(await scoreEntity.exists());
       // Get current state to calculate point difference
       const currentScore = await scoreEntity.getState();
-      const oldPoints = currentScore.id ? currentScore.totalPoints : 0;
-      // Calculate new points
-      let newPoints = 0;
-      if (habits.water) newPoints += 1;
-      if (habits.steps) newPoints += 1;
-      if (habits.sleep) newPoints += 1;
-      if (habits.lesson) newPoints += 1;
+
+      // Count old habits
+      const oldHabitCount = currentScore.id
+        ? [currentScore.habits.water, currentScore.habits.steps, currentScore.habits.sleep, currentScore.habits.lesson].filter(Boolean).length
+        : 0;
+
+      // Count new habits
+      const newHabitCount = [habits.water, habits.steps, habits.sleep, habits.lesson].filter(Boolean).length;
+
+      // Calculate points using configurable value
+      const oldPoints = oldHabitCount * habitPointValue;
+      const newPoints = newHabitCount * habitPointValue;
       const pointDelta = newPoints - oldPoints;
+
       // Update Score Entity
       await scoreEntity.save({
         id: scoreId,
@@ -366,13 +394,16 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const scoresIndex = new Index(c.env, 'scores');
         await scoresIndex.add(scoreId);
       }
-      // Update User Points if there is a change
+      // Update User Points with audit logging if there is a change
       if (pointDelta !== 0) {
-        await UserEntity.addPoints(c.env, userId, pointDelta);
-        // Also update project enrollment points if projectId provided
-        if (projectId) {
-          await ProjectEnrollmentEntity.addPoints(c.env, projectId, userId, pointDelta);
-        }
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: projectId || null,
+          userId,
+          transactionType: 'daily_habit',
+          points: pointDelta,
+          relatedEntityId: scoreId,
+          description: `Daily habits for ${date} (${newHabitCount} habits)`
+        });
       }
       // Update System Stats
       await SystemStatsEntity.incrementHabits(c.env);
@@ -439,6 +470,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const body = await c.req.json() as any;
       const { weekNumber, weight, bodyFat, visceralFat, leanMass, metabolicAge, screenshotUrl, projectId } = body;
       if (!weekNumber || !screenshotUrl) return bad(c, 'Missing required fields');
+
+      // Get configurable point values
+      const settings = await SystemSettingsEntity.getGlobal(c.env);
+      const biometricPoints = settings.biometricSubmissionPoints || 25;
+
       const biometricId = `${userId}:week${weekNumber}`;
       const bioEntity = new WeeklyBiometricEntity(c.env, biometricId);
       const isNewSubmission = !(await bioEntity.exists());
@@ -456,7 +492,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       // Save Biometric Data
-      // Preserve existing pointsAwarded on update, only set 25 for new submissions
+      // Preserve existing pointsAwarded on update, use configurable value for new submissions
       await bioEntity.save({
         id: biometricId,
         projectId: projectId || existing.projectId || '',
@@ -468,7 +504,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         leanMass: Number(leanMass),
         metabolicAge: Number(metabolicAge),
         screenshotUrl,
-        pointsAwarded: isNewSubmission ? 25 : existing.pointsAwarded,
+        pointsAwarded: isNewSubmission ? biometricPoints : existing.pointsAwarded,
         submittedAt: Date.now(),
         cohortId // Snapshot of cohort at submission time
       });
@@ -476,11 +512,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (isNewSubmission) {
         const biometricsIndex = new Index(c.env, 'biometrics');
         await biometricsIndex.add(biometricId);
-        await UserEntity.addPoints(c.env, userId, 25);
-        // Also update project enrollment points if projectId provided
-        if (projectId) {
-          await ProjectEnrollmentEntity.addPoints(c.env, projectId, userId, 25);
-        }
+
+        // Award points with audit logging
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: projectId || null,
+          userId,
+          transactionType: 'biometric_submit',
+          points: biometricPoints,
+          relatedEntityId: biometricId,
+          description: `Biometric submission for week ${weekNumber}`
+        });
+
         // Update System Stats
         await SystemStatsEntity.incrementSubmissions(c.env);
       }
@@ -2277,6 +2319,247 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       };
 
       return ok(c, stats);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Genealogy / Referral Tree Routes
+  // =========================================
+
+  // Get user's own genealogy tree (their downline)
+  app.get('/api/genealogy/me', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const tree = await buildGenealogyTree(c.env, userId);
+      if (!tree) return notFound(c, 'User not found');
+
+      return ok(c, tree);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get genealogy tree for specific user (coach can see their own recruits, admin can see anyone)
+  app.get('/api/genealogy/:userId', async (c) => {
+    try {
+      const requesterId = c.req.header('X-User-ID');
+      if (!requesterId) return bad(c, 'Unauthorized');
+
+      const targetUserId = c.req.param('userId');
+
+      // Check permissions
+      const requesterEntity = new UserEntity(c.env, requesterId);
+      const requester = await requesterEntity.getState();
+      if (!requester.id) return notFound(c, 'User not found');
+
+      // Admin can view anyone
+      if (!requester.isAdmin) {
+        // Non-admin: must be viewing own tree or be the target's captain
+        if (requesterId !== targetUserId) {
+          // Check if target is in requester's downline
+          const recruitIndex = new Index(c.env, `recruits:${requesterId}`);
+          const recruits = await recruitIndex.list();
+
+          // Simple check: is target a direct recruit?
+          if (!recruits.includes(targetUserId)) {
+            // For deeper checking, we could traverse the tree but for now restrict to direct
+            return c.json({ error: 'You can only view your own genealogy or your direct recruits' }, 403);
+          }
+        }
+      }
+
+      const tree = await buildGenealogyTree(c.env, targetUserId);
+      if (!tree) return notFound(c, 'User not found');
+
+      return ok(c, tree);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get full genealogy for any user
+  app.get('/api/admin/genealogy/:userId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const tree = await buildGenealogyTree(c.env, targetUserId);
+      if (!tree) return notFound(c, 'User not found');
+
+      return ok(c, tree);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get all "root" coaches (coaches with no captain except themselves)
+  app.get('/api/admin/genealogy/roots', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const captainIndex = new CaptainIndex(c.env);
+      const captainIds = await captainIndex.list();
+
+      // Get all coach trees (lightweight - just root level info)
+      const roots = await Promise.all(captainIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        const user = await userEntity.getState();
+        if (!user.id) return null;
+
+        // Count direct recruits
+        const recruitIndex = new Index(c.env, `recruits:${id}`);
+        const recruits = await recruitIndex.list();
+
+        return {
+          userId: user.id,
+          name: user.name,
+          role: user.role,
+          avatarUrl: user.avatarUrl,
+          points: user.points,
+          referralCode: user.referralCode,
+          joinedAt: user.createdAt,
+          directReferrals: recruits.length
+        };
+      }));
+
+      return ok(c, roots.filter(r => r !== null));
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Points Ledger / Audit Routes
+  // =========================================
+
+  // Get user's own point transactions
+  app.get('/api/points/history', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const transactions = await PointsLedgerEntity.findByUser(c.env, userId);
+      return ok(c, transactions);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get point transactions for any user
+  app.get('/api/admin/points/:userId/history', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const transactions = await PointsLedgerEntity.findByUser(c.env, targetUserId);
+      return ok(c, transactions);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get recent point transactions (global)
+  app.get('/api/admin/points/recent', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const limit = parseInt(c.req.query('limit') || '50');
+      const transactions = await PointsLedgerEntity.getRecent(c.env, limit);
+      return ok(c, transactions);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Manually adjust user points (with audit logging)
+  app.post('/api/admin/points/adjust', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const { userId, points, description, projectId } = await c.req.json() as {
+        userId: string;
+        points: number;
+        description: string;
+        projectId?: string;
+      };
+
+      if (!userId || points === undefined || !description) {
+        return bad(c, 'userId, points, and description are required');
+      }
+
+      // Verify user exists
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Record the adjustment with audit trail
+      const transaction = await PointsLedgerEntity.recordTransaction(c.env, {
+        projectId: projectId || null,
+        userId,
+        transactionType: points >= 0 ? 'bonus' : 'admin_adjustment',
+        points,
+        description: `Admin adjustment: ${description}`,
+        adminId: admin.id
+      });
+
+      return ok(c, {
+        transaction,
+        user: await userEntity.getState()
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Update point settings
+  app.put('/api/admin/settings/points', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const updates = await c.req.json() as {
+        referralPointsCoach?: number;
+        referralPointsChallenger?: number;
+        dailyHabitPoints?: number;
+        biometricSubmissionPoints?: number;
+      };
+
+      // Validate point values are positive integers
+      const pointFields = ['referralPointsCoach', 'referralPointsChallenger', 'dailyHabitPoints', 'biometricSubmissionPoints'] as const;
+      for (const field of pointFields) {
+        if (updates[field] !== undefined) {
+          if (typeof updates[field] !== 'number' || updates[field]! < 0) {
+            return bad(c, `${field} must be a non-negative number`);
+          }
+        }
+      }
+
+      const settings = await SystemSettingsEntity.updateGlobal(c.env, updates);
+      return ok(c, settings);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get current point settings (public)
+  app.get('/api/settings/points', async (c) => {
+    try {
+      const settings = await SystemSettingsEntity.getGlobal(c.env);
+      return ok(c, {
+        referralPointsCoach: settings.referralPointsCoach,
+        referralPointsChallenger: settings.referralPointsChallenger,
+        dailyHabitPoints: settings.dailyHabitPoints,
+        biometricSubmissionPoints: settings.biometricSubmissionPoints
+      });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

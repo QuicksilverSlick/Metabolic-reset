@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings } from '@shared/types';
@@ -745,6 +745,149 @@ export function useAdminUpdateCohort() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update cohort');
+    }
+  });
+}
+
+// =========================================
+// Genealogy hooks
+// =========================================
+
+// Get current user's genealogy tree
+export function useMyGenealogy() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['genealogy', 'me', userId],
+    queryFn: () => userId ? genealogyApi.getMyTree(userId) : null,
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Get genealogy tree for specific user
+export function useGenealogy(targetUserId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['genealogy', targetUserId],
+    queryFn: () => userId && targetUserId ? genealogyApi.getTree(userId, targetUserId) : null,
+    enabled: !!userId && !!targetUserId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Admin: Get genealogy tree for any user
+export function useAdminGenealogy(targetUserId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'genealogy', targetUserId],
+    queryFn: () => userId && targetUserId ? adminGenealogyApi.getTree(userId, targetUserId) : null,
+    enabled: !!userId && !!user?.isAdmin && !!targetUserId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Admin: Get all root coaches
+export function useAdminGenealogyRoots() {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'genealogy', 'roots'],
+    queryFn: () => userId ? adminGenealogyApi.getRoots(userId) : [],
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// =========================================
+// Points Ledger hooks
+// =========================================
+
+// Get current user's point transaction history
+export function useMyPointsHistory() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['points', 'history', userId],
+    queryFn: () => userId ? pointsApi.getMyHistory(userId) : [],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Get point settings (public)
+export function usePointSettings() {
+  return useQuery({
+    queryKey: ['settings', 'points'],
+    queryFn: pointsApi.getPointSettings,
+    staleTime: 1000 * 60 * 30, // 30 minutes - settings rarely change
+  });
+}
+
+// Admin: Get point transactions for any user
+export function useAdminUserPointsHistory(targetUserId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'points', 'history', targetUserId],
+    queryFn: () => userId && targetUserId ? adminPointsApi.getUserHistory(userId, targetUserId) : [],
+    enabled: !!userId && !!user?.isAdmin && !!targetUserId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Admin: Get recent point transactions (global)
+export function useAdminRecentPointsTransactions(limit?: number) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'points', 'recent', limit],
+    queryFn: () => userId ? adminPointsApi.getRecentTransactions(userId, limit) : [],
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Admin: Adjust user points
+export function useAdminAdjustPoints() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (data: { userId: string; points: number; description: string; projectId?: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminPointsApi.adjustPoints(userId, data);
+    },
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'points'] });
+      queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
+      toast.success(`Points adjusted successfully! New balance: ${result.user.points}`);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to adjust points');
+    }
+  });
+}
+
+// Admin: Update point settings
+export function useAdminUpdatePointSettings() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (updates: {
+      referralPointsCoach?: number;
+      referralPointsChallenger?: number;
+      dailyHabitPoints?: number;
+      biometricSubmissionPoints?: number;
+    }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminPointsApi.updatePointSettings(userId, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Point settings updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update point settings');
     }
   });
 }

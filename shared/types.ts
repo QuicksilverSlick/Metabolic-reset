@@ -109,6 +109,11 @@ export interface SystemSettings {
   groupAVideoUrl: string; // Orientation video URL for Group A (Protocol)
   groupBVideoUrl: string; // Orientation video URL for Group B (DIY)
   kitOrderUrl: string; // URL to order the nutrition kit
+  // Configurable point values
+  referralPointsCoach: number; // Points for coach when they refer someone (default: 1)
+  referralPointsChallenger: number; // Points for challenger when they refer someone (default: 5)
+  dailyHabitPoints: number; // Points per daily habit completed (default: 1)
+  biometricSubmissionPoints: number; // Points for biometric submission (default: 25)
 }
 // DTOs
 export interface RegisterRequest {
@@ -286,4 +291,53 @@ export interface VerifyOtpResponse {
   message: string;
   user?: User; // If verified and user exists
   isNewUser?: boolean; // If no user found with this phone
+}
+
+// Point Transaction types for audit log
+export type PointTransactionType =
+  | 'referral_coach'      // Coach referred someone
+  | 'referral_challenger' // Challenger referred someone
+  | 'daily_habit'         // Completed daily habit
+  | 'biometric_submit'    // Submitted biometrics
+  | 'admin_adjustment'    // Admin manually adjusted points
+  | 'bonus';              // Bonus points (admin awarded)
+
+// Points Ledger - audit log for all point transactions
+export interface PointsLedger {
+  id: string;
+  projectId: string | null; // Project context (null for global)
+  userId: string; // User who received/lost points
+  transactionType: PointTransactionType;
+  points: number; // Can be negative for deductions
+  previousBalance: number; // Balance before transaction
+  newBalance: number; // Balance after transaction
+  relatedUserId: string | null; // For referrals, the referred user ID
+  relatedEntityId: string | null; // Related score/biometric ID if applicable
+  description: string; // Human-readable description
+  adminId: string | null; // Admin who made the adjustment (if admin_adjustment)
+  createdAt: number;
+}
+
+// Genealogy tree node for visualization
+export interface GenealogyNode {
+  userId: string;
+  name: string;
+  role: UserRole;
+  avatarUrl?: string;
+  points: number;
+  referralCode: string;
+  joinedAt: number;
+  children: GenealogyNode[];
+  // Stats
+  directReferrals: number;
+  totalDownline: number; // Total users in their entire downline
+  teamPoints: number; // Total points of their entire downline
+}
+
+// Admin-configurable point settings update request
+export interface UpdatePointSettingsRequest {
+  referralPointsCoach?: number;
+  referralPointsChallenger?: number;
+  dailyHabitPoints?: number;
+  biometricSubmissionPoints?: number;
 }

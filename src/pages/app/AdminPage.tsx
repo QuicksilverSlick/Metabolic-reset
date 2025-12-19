@@ -17,7 +17,12 @@ import {
   useAdminUpdateBugReport,
   useAdminDeleteBugReport,
   useSystemSettings,
-  useUpdateSystemSettings
+  useUpdateSystemSettings,
+  useAdminGenealogyRoots,
+  useAdminGenealogy,
+  usePointSettings,
+  useAdminUpdatePointSettings,
+  useAdminAdjustPoints
 } from '@/hooks/use-queries';
 import { Navigate } from 'react-router-dom';
 import {
@@ -64,7 +69,9 @@ import {
   Link as LinkIcon,
   Save,
   Filter,
-  XCircle
+  XCircle,
+  GitBranch,
+  Coins
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -173,11 +180,22 @@ export function AdminPage() {
   const { data: systemSettings, isLoading: settingsLoading } = useSystemSettings();
   const updateSettingsMutation = useUpdateSystemSettings();
 
+  // Point settings queries
+  const { data: pointSettings, isLoading: pointSettingsLoading } = usePointSettings();
+  const updatePointSettingsMutation = useAdminUpdatePointSettings();
+
   // Settings form state
   const [settingsGroupAVideo, setSettingsGroupAVideo] = useState('');
   const [settingsGroupBVideo, setSettingsGroupBVideo] = useState('');
   const [settingsKitOrderUrl, setSettingsKitOrderUrl] = useState('');
   const [settingsInitialized, setSettingsInitialized] = useState(false);
+
+  // Point settings form state
+  const [referralPointsCoach, setReferralPointsCoach] = useState(1);
+  const [referralPointsChallenger, setReferralPointsChallenger] = useState(5);
+  const [dailyHabitPoints, setDailyHabitPoints] = useState(1);
+  const [biometricSubmissionPoints, setBiometricSubmissionPoints] = useState(25);
+  const [pointSettingsInitialized, setPointSettingsInitialized] = useState(false);
 
   // Initialize settings form when data loads
   React.useEffect(() => {
@@ -188,6 +206,17 @@ export function AdminPage() {
       setSettingsInitialized(true);
     }
   }, [systemSettings, settingsInitialized]);
+
+  // Initialize point settings when data loads
+  React.useEffect(() => {
+    if (pointSettings && !pointSettingsInitialized) {
+      setReferralPointsCoach(pointSettings.referralPointsCoach || 1);
+      setReferralPointsChallenger(pointSettings.referralPointsChallenger || 5);
+      setDailyHabitPoints(pointSettings.dailyHabitPoints || 1);
+      setBiometricSubmissionPoints(pointSettings.biometricSubmissionPoints || 25);
+      setPointSettingsInitialized(true);
+    }
+  }, [pointSettings, pointSettingsInitialized]);
 
   // Form state for edit dialog
   const [editPoints, setEditPoints] = useState(0);
@@ -1296,7 +1325,7 @@ export function AdminPage() {
                   </p>
                 </div>
 
-                {/* Save Button */}
+                {/* Save Onboarding Settings Button */}
                 <div className="pt-4 border-t">
                   <Button
                     onClick={() => {
@@ -1314,7 +1343,173 @@ export function AdminPage() {
                     ) : (
                       <Save className="h-4 w-4 mr-2" />
                     )}
-                    Save Settings
+                    Save Onboarding Settings
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Point Settings Card */}
+      {activeTab === 'settings' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5 text-gold-500" />
+              Point Values Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure the point values awarded for different activities in the challenge.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {pointSettingsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+              </div>
+            ) : (
+              <>
+                {/* Referral Points Section */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Referral Points
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="referral-coach" className="text-sm">
+                        Coach Referral Bonus
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="referral-coach"
+                          type="number"
+                          min="0"
+                          value={referralPointsCoach}
+                          onChange={(e) => setReferralPointsCoach(parseInt(e.target.value) || 0)}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-500">points per referral</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Points a coach earns when someone joins using their referral code.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="referral-challenger" className="text-sm">
+                        Challenger Referral Bonus
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="referral-challenger"
+                          type="number"
+                          min="0"
+                          value={referralPointsChallenger}
+                          onChange={(e) => setReferralPointsChallenger(parseInt(e.target.value) || 0)}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-500">points per referral</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Points a challenger earns when someone joins using their referral code.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Points Section */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Award className="h-4 w-4" />
+                    Activity Points
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="daily-habit" className="text-sm">
+                        Daily Habit Points
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="daily-habit"
+                          type="number"
+                          min="0"
+                          value={dailyHabitPoints}
+                          onChange={(e) => setDailyHabitPoints(parseInt(e.target.value) || 0)}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-500">points per habit</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Points earned for each daily habit completed (water, steps, sleep, lesson).
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="biometric" className="text-sm">
+                        Biometric Submission Points
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="biometric"
+                          type="number"
+                          min="0"
+                          value={biometricSubmissionPoints}
+                          onChange={(e) => setBiometricSubmissionPoints(parseInt(e.target.value) || 0)}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-500">points per submission</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Points earned for each weekly biometric weigh-in submission.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Values Display */}
+                <div className="bg-slate-50 dark:bg-navy-800 rounded-lg p-4">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase mb-3">Current Active Values</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-navy-900 dark:text-white">{pointSettings?.referralPointsCoach || 1}</div>
+                      <div className="text-xs text-slate-500">Coach Referral</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-navy-900 dark:text-white">{pointSettings?.referralPointsChallenger || 5}</div>
+                      <div className="text-xs text-slate-500">Challenger Referral</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-navy-900 dark:text-white">{pointSettings?.dailyHabitPoints || 1}</div>
+                      <div className="text-xs text-slate-500">Daily Habit</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-navy-900 dark:text-white">{pointSettings?.biometricSubmissionPoints || 25}</div>
+                      <div className="text-xs text-slate-500">Biometric</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Point Settings Button */}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      updatePointSettingsMutation.mutate({
+                        referralPointsCoach,
+                        referralPointsChallenger,
+                        dailyHabitPoints,
+                        biometricSubmissionPoints
+                      });
+                    }}
+                    disabled={updatePointSettingsMutation.isPending}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                  >
+                    {updatePointSettingsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Point Settings
                   </Button>
                 </div>
               </>

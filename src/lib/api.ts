@@ -23,7 +23,9 @@ import {
   VerifyOtpRequest,
   VerifyOtpResponse,
   CohortType,
-  SystemSettings
+  SystemSettings,
+  GenealogyNode,
+  PointsLedger
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -467,6 +469,85 @@ export const adminBugApi = {
   deleteBug: (adminUserId: string, bugId: string) =>
     api<{ message: string }>(`/api/admin/bugs/${bugId}`, {
       method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+};
+
+// Genealogy API - for viewing referral trees
+export const genealogyApi = {
+  // Get current user's genealogy tree (their downline)
+  getMyTree: (userId: string) =>
+    api<GenealogyNode>('/api/genealogy/me', { headers: { 'X-User-ID': userId } }),
+
+  // Get genealogy tree for specific user (coach can see own recruits, admin can see anyone)
+  getTree: (userId: string, targetUserId: string) =>
+    api<GenealogyNode>(`/api/genealogy/${targetUserId}`, { headers: { 'X-User-ID': userId } }),
+};
+
+// Points Ledger API - for viewing point transaction history
+export const pointsApi = {
+  // Get current user's point transaction history
+  getMyHistory: (userId: string) =>
+    api<PointsLedger[]>('/api/points/history', { headers: { 'X-User-ID': userId } }),
+
+  // Get current point settings (public)
+  getPointSettings: () =>
+    api<{
+      referralPointsCoach: number;
+      referralPointsChallenger: number;
+      dailyHabitPoints: number;
+      biometricSubmissionPoints: number;
+    }>('/api/settings/points'),
+};
+
+// Admin Genealogy API - for admin genealogy management
+export const adminGenealogyApi = {
+  // Get full genealogy for any user
+  getTree: (adminUserId: string, targetUserId: string) =>
+    api<GenealogyNode>(`/api/admin/genealogy/${targetUserId}`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Get all root coaches
+  getRoots: (adminUserId: string) =>
+    api<{
+      userId: string;
+      name: string;
+      role: string;
+      avatarUrl?: string;
+      points: number;
+      referralCode: string;
+      joinedAt: number;
+      directReferrals: number;
+    }[]>('/api/admin/genealogy/roots', { headers: { 'X-User-ID': adminUserId } }),
+};
+
+// Admin Points API - for admin point management
+export const adminPointsApi = {
+  // Get point transactions for any user
+  getUserHistory: (adminUserId: string, targetUserId: string) =>
+    api<PointsLedger[]>(`/api/admin/points/${targetUserId}/history`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Get recent point transactions (global)
+  getRecentTransactions: (adminUserId: string, limit?: number) =>
+    api<PointsLedger[]>(`/api/admin/points/recent${limit ? `?limit=${limit}` : ''}`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Manually adjust user points
+  adjustPoints: (adminUserId: string, data: { userId: string; points: number; description: string; projectId?: string }) =>
+    api<{ transaction: PointsLedger; user: User }>('/api/admin/points/adjust', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Update point settings
+  updatePointSettings: (adminUserId: string, updates: {
+    referralPointsCoach?: number;
+    referralPointsChallenger?: number;
+    dailyHabitPoints?: number;
+    biometricSubmissionPoints?: number;
+  }) =>
+    api<SystemSettings>('/api/admin/settings/points', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
       headers: { 'X-User-ID': adminUserId }
     }),
 };

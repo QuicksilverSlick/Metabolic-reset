@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -447,7 +447,12 @@ export class SystemSettingsEntity extends Entity<SystemSettings> {
     id: "global",
     groupAVideoUrl: "https://descriptusercontent.com/published/9e3d87f9-a6f6-4088-932e-87d618f6fafa/original.mp4",
     groupBVideoUrl: "https://descriptusercontent.com/published/6117b02a-9c38-4ac2-b79a-b4f0e2708367/original.mp4",
-    kitOrderUrl: "https://www.optavia.com/us/en/coach/craveoptimalhealth/sc/30164167-000070009"
+    kitOrderUrl: "https://www.optavia.com/us/en/coach/craveoptimalhealth/sc/30164167-000070009",
+    // Default point values
+    referralPointsCoach: 1,
+    referralPointsChallenger: 5,
+    dailyHabitPoints: 1,
+    biometricSubmissionPoints: 25
   };
 
   // Get global settings (singleton pattern)
@@ -462,5 +467,163 @@ export class SystemSettingsEntity extends Entity<SystemSettings> {
     await entity.patch(updates);
     return entity.getState();
   }
+}
+
+// Points Ledger Entity - audit log for all point transactions
+export class PointsLedgerEntity extends IndexedEntity<PointsLedger> {
+  static readonly entityName = "points-ledger";
+  static readonly indexName = "points-ledgers";
+  static readonly initialState: PointsLedger = {
+    id: "",
+    projectId: null,
+    userId: "",
+    transactionType: "daily_habit",
+    points: 0,
+    previousBalance: 0,
+    newBalance: 0,
+    relatedUserId: null,
+    relatedEntityId: null,
+    description: "",
+    adminId: null,
+    createdAt: 0
+  };
+
+  // Create a new point transaction with audit logging
+  static async recordTransaction(
+    env: Env,
+    params: {
+      projectId: string | null;
+      userId: string;
+      transactionType: PointTransactionType;
+      points: number;
+      relatedUserId?: string | null;
+      relatedEntityId?: string | null;
+      description: string;
+      adminId?: string | null;
+    }
+  ): Promise<PointsLedger> {
+    // Get current user balance
+    const userEntity = new UserEntity(env, params.userId);
+    const user = await userEntity.getState();
+    const previousBalance = user.points || 0;
+    const newBalance = previousBalance + params.points;
+
+    const ledgerId = crypto.randomUUID();
+    const now = Date.now();
+
+    const transaction: PointsLedger = {
+      id: ledgerId,
+      projectId: params.projectId,
+      userId: params.userId,
+      transactionType: params.transactionType,
+      points: params.points,
+      previousBalance,
+      newBalance,
+      relatedUserId: params.relatedUserId || null,
+      relatedEntityId: params.relatedEntityId || null,
+      description: params.description,
+      adminId: params.adminId || null,
+      createdAt: now
+    };
+
+    // Save the transaction
+    await PointsLedgerEntity.create(env, transaction);
+
+    // Update user points
+    await userEntity.patch({ points: newBalance });
+
+    // Also update project enrollment points if projectId provided
+    if (params.projectId) {
+      await ProjectEnrollmentEntity.addPoints(env, params.projectId, params.userId, params.points);
+    }
+
+    // Index by user for quick lookups
+    const userLedgerIndex = new Index(env, `points-ledger:${params.userId}`);
+    await userLedgerIndex.add(ledgerId);
+
+    return transaction;
+  }
+
+  // Get all transactions for a user
+  static async findByUser(env: Env, userId: string): Promise<PointsLedger[]> {
+    const userLedgerIndex = new Index(env, `points-ledger:${userId}`);
+    const ledgerIds = await userLedgerIndex.list();
+
+    const transactions = await Promise.all(ledgerIds.map(async (id) => {
+      const entity = new PointsLedgerEntity(env, id);
+      return entity.getState();
+    }));
+
+    // Sort by createdAt descending
+    return transactions
+      .filter(t => t.id)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Get recent transactions (for admin view)
+  static async getRecent(env: Env, limit: number = 50): Promise<PointsLedger[]> {
+    const { items } = await PointsLedgerEntity.list(env);
+    return items
+      .filter(t => t.id)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
+  }
+}
+
+// Referral Tree Index - tracks who referred whom for genealogy
+export class ReferralTreeIndex extends Index<string> {
+  constructor(env: Env, userId: string) {
+    super(env, `referrals:${userId}`);
+  }
+}
+
+// Helper function to build genealogy tree
+export async function buildGenealogyTree(
+  env: Env,
+  rootUserId: string,
+  maxDepth: number = 10
+): Promise<GenealogyNode | null> {
+  const userEntity = new UserEntity(env, rootUserId);
+  const user = await userEntity.getState();
+  if (!user.id) return null;
+
+  async function buildNode(userId: string, depth: number): Promise<GenealogyNode> {
+    const nodeUserEntity = new UserEntity(env, userId);
+    const nodeUser = await nodeUserEntity.getState();
+
+    // Get direct referrals (recruits)
+    const recruitIndex = new Index(env, `recruits:${userId}`);
+    const recruitIds = await recruitIndex.list();
+
+    // Build children recursively (with depth limit)
+    const children: GenealogyNode[] = [];
+    let totalDownline = 0;
+    let teamPoints = 0;
+
+    if (depth < maxDepth) {
+      for (const recruitId of recruitIds) {
+        const childNode = await buildNode(recruitId, depth + 1);
+        children.push(childNode);
+        totalDownline += 1 + childNode.totalDownline;
+        teamPoints += childNode.points + childNode.teamPoints;
+      }
+    }
+
+    return {
+      userId: nodeUser.id,
+      name: nodeUser.name,
+      role: nodeUser.role,
+      avatarUrl: nodeUser.avatarUrl,
+      points: nodeUser.points,
+      referralCode: nodeUser.referralCode,
+      joinedAt: nodeUser.createdAt,
+      children,
+      directReferrals: recruitIds.length,
+      totalDownline,
+      teamPoints
+    };
+  }
+
+  return buildNode(rootUserId, 0);
 }
 
