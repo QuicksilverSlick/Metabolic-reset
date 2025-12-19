@@ -2196,25 +2196,42 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         filename: string;
         contentType: string;
         fileSize: number;
-        category?: 'bugs' | 'avatars'; // Optional category, defaults to 'bugs'
+        category?: 'bugs' | 'avatars' | 'content'; // Optional category, defaults to 'bugs'
       };
 
       // Validate content type based on category
       const uploadCategory = category || 'bugs';
-      const allowedTypes = uploadCategory === 'avatars'
-        ? ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] // Avatars: images only
-        : ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/webm', 'video/mp4', 'video/quicktime']; // Bugs: images + videos
-
-      if (!allowedTypes.includes(contentType)) {
-        return bad(c, uploadCategory === 'avatars'
-          ? 'Invalid file type. Only images are allowed for avatars.'
-          : 'Invalid file type. Only images and videos are allowed.');
+      let allowedTypes: string[];
+      if (uploadCategory === 'avatars') {
+        allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']; // Avatars: images only
+      } else if (uploadCategory === 'content') {
+        allowedTypes = [
+          'image/png', 'image/jpeg', 'image/gif', 'image/webp', // Thumbnails
+          'video/mp4', 'video/webm', 'video/quicktime', // Videos
+          'application/pdf', // Resources
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+      } else {
+        allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/webm', 'video/mp4', 'video/quicktime']; // Bugs: images + videos
       }
 
-      // Limit file size (5MB for avatars, 50MB for bug images, 100MB for videos)
+      if (!allowedTypes.includes(contentType)) {
+        const errorMsg = uploadCategory === 'avatars'
+          ? 'Invalid file type. Only images are allowed for avatars.'
+          : uploadCategory === 'content'
+          ? 'Invalid file type. Only images, videos, and PDFs are allowed for course content.'
+          : 'Invalid file type. Only images and videos are allowed.';
+        return bad(c, errorMsg);
+      }
+
+      // Limit file size based on category
       let maxSize: number;
       if (uploadCategory === 'avatars') {
         maxSize = 5 * 1024 * 1024; // 5MB for avatars
+      } else if (uploadCategory === 'content') {
+        // Course content: 500MB for videos, 50MB for other files
+        maxSize = contentType.startsWith('video/') ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
       } else {
         maxSize = contentType.startsWith('video/') ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
       }
@@ -2257,14 +2274,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Validate file type
       const allowedTypes = [
         'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-        'video/webm', 'video/mp4', 'video/quicktime'
+        'video/webm', 'video/mp4', 'video/quicktime',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ];
       if (!allowedTypes.includes(file.type)) {
         return bad(c, 'Invalid file type');
       }
 
-      // Validate key belongs to user (bugs/ or avatars/ prefix)
-      const validPrefixes = [`bugs/${userId}/`, `avatars/${userId}/`];
+      // Validate key belongs to user (bugs/, avatars/, or content/ prefix)
+      const validPrefixes = [`bugs/${userId}/`, `avatars/${userId}/`, `content/${userId}/`];
       if (!validPrefixes.some(prefix => key.startsWith(prefix))) {
         return bad(c, 'Invalid upload key');
       }

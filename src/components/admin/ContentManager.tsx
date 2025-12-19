@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   useProjects,
   useAdminProjectContent,
@@ -25,8 +25,13 @@ import {
   GripVertical,
   X,
   Check,
-  Play
+  Play,
+  Upload,
+  Image
 } from 'lucide-react';
+import { uploadApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/auth-store';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,6 +77,7 @@ export function ContentManager() {
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'analytics'>('content');
+  const userId = useAuthStore(s => s.user?.id);
 
   // Content editing state
   const [contentDialogOpen, setContentDialogOpen] = useState(false);
@@ -80,6 +86,14 @@ export function ContentManager() {
   const [contentToDelete, setContentToDelete] = useState<CourseContent | null>(null);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [targetProjectId, setTargetProjectId] = useState<string>('');
+
+  // File upload state
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [isUploadingResource, setIsUploadingResource] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const resourceInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formDay, setFormDay] = useState(1);
@@ -244,6 +258,84 @@ export function ContentManager() {
     const updated = [...formQuizQuestions];
     updated[qIndex].options[oIndex] = value;
     setFormQuizQuestions(updated);
+  };
+
+  // File upload handlers
+  const handleFileUpload = async (
+    file: File,
+    type: 'video' | 'thumbnail' | 'resource',
+    setUploading: (v: boolean) => void,
+    setUrl: (url: string) => void
+  ) => {
+    if (!userId) {
+      toast.error('You must be logged in to upload files');
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes: Record<string, string[]> = {
+      video: ['video/mp4', 'video/webm', 'video/quicktime'],
+      thumbnail: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+      resource: ['application/pdf', 'image/png', 'image/jpeg', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    };
+
+    if (!allowedTypes[type].includes(file.type)) {
+      toast.error(`Invalid file type for ${type}`);
+      return;
+    }
+
+    // Validate file size
+    const maxSize = type === 'video' ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(`File too large. Maximum size is ${maxSize / 1024 / 1024}MB`);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Get presigned URL
+      const { key } = await uploadApi.getPresignedUrl(
+        userId,
+        file.name,
+        file.type,
+        file.size,
+        'content'
+      );
+
+      // Upload the file
+      const result = await uploadApi.uploadFile(userId, key, file, file.type);
+      setUrl(result.publicUrl);
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully`);
+    } catch (error) {
+      console.error(`${type} upload failed:`, error);
+      toast.error(`Failed to upload ${type}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'video', setIsUploadingVideo, setFormVideoUrl);
+    }
+    if (videoInputRef.current) videoInputRef.current.value = '';
+  };
+
+  const handleThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'thumbnail', setIsUploadingThumbnail, setFormThumbnailUrl);
+    }
+    if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+  };
+
+  const handleResourceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'resource', setIsUploadingResource, setFormResourceUrl);
+    }
+    if (resourceInputRef.current) resourceInputRef.current.value = '';
   };
 
   // Group content by day
@@ -567,13 +659,35 @@ export function ContentManager() {
             {formType === 'video' && (
               <>
                 <div>
-                  <Label>Video URL (Cloudflare Stream)</Label>
-                  <Input
-                    value={formVideoUrl}
-                    onChange={(e) => setFormVideoUrl(e.target.value)}
-                    placeholder="https://customer-xxxxx.cloudflarestream.com/..."
-                    className="mt-1"
-                  />
+                  <Label>Video File</Label>
+                  <div className="mt-1 flex gap-2">
+                    <Input
+                      value={formVideoUrl}
+                      onChange={(e) => setFormVideoUrl(e.target.value)}
+                      placeholder="https://... or upload a video"
+                      className="flex-1"
+                    />
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      onChange={handleVideoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => videoInputRef.current?.click()}
+                      disabled={isUploadingVideo}
+                    >
+                      {isUploadingVideo ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Upload MP4, WebM, or MOV (max 500MB)</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -587,28 +701,76 @@ export function ContentManager() {
                     />
                   </div>
                   <div>
-                    <Label>Thumbnail URL (optional)</Label>
-                    <Input
-                      value={formThumbnailUrl}
-                      onChange={(e) => setFormThumbnailUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="mt-1"
-                    />
+                    <Label>Thumbnail Image (optional)</Label>
+                    <div className="mt-1 flex gap-2">
+                      <Input
+                        value={formThumbnailUrl}
+                        onChange={(e) => setFormThumbnailUrl(e.target.value)}
+                        placeholder="https://... or upload"
+                        className="flex-1"
+                      />
+                      <input
+                        ref={thumbnailInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/gif,image/webp"
+                        onChange={handleThumbnailUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        disabled={isUploadingThumbnail}
+                      >
+                        {isUploadingThumbnail ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Image className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
+                {formThumbnailUrl && (
+                  <div className="mt-2">
+                    <img src={formThumbnailUrl} alt="Thumbnail preview" className="h-20 w-auto rounded border" />
+                  </div>
+                )}
               </>
             )}
 
             {/* Resource-specific fields */}
             {formType === 'resource' && (
               <div>
-                <Label>Resource URL</Label>
-                <Input
-                  value={formResourceUrl}
-                  onChange={(e) => setFormResourceUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="mt-1"
-                />
+                <Label>Resource File</Label>
+                <div className="mt-1 flex gap-2">
+                  <Input
+                    value={formResourceUrl}
+                    onChange={(e) => setFormResourceUrl(e.target.value)}
+                    placeholder="https://... or upload a file"
+                    className="flex-1"
+                  />
+                  <input
+                    ref={resourceInputRef}
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg,.doc,.docx"
+                    onChange={handleResourceUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => resourceInputRef.current?.click()}
+                    disabled={isUploadingResource}
+                  >
+                    {isUploadingResource ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Upload PDF, images, or Word docs (max 50MB)</p>
               </div>
             )}
 

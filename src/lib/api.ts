@@ -446,10 +446,10 @@ export const bugApi = {
     api<BugReport[]>('/api/bugs/mine', { headers: { 'X-User-ID': userId } }),
 };
 
-// Media Upload API - for uploading screenshots and videos
+// Media Upload API - for uploading screenshots, videos, and course content
 export const uploadApi = {
   // Get presigned URL for upload
-  getPresignedUrl: (userId: string, filename: string, contentType: string, fileSize: number, category?: 'bugs' | 'avatars') =>
+  getPresignedUrl: (userId: string, filename: string, contentType: string, fileSize: number, category?: 'bugs' | 'avatars' | 'content') =>
     api<{ uploadUrl: string; key: string; publicUrl: string }>('/api/upload/presigned-url', {
       method: 'POST',
       body: JSON.stringify({ filename, contentType, fileSize, category }),
