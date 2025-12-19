@@ -189,13 +189,13 @@ export function RosterPage() {
               <p className="text-slate-600 dark:text-slate-300 mb-3">
                 Send this link to potential recruits. They'll take the metabolic age quiz and be attributed to you as leads.
               </p>
-              <div className="flex flex-col sm:flex-row items-center gap-3">
-                <code className="flex-1 bg-navy-900 dark:bg-navy-950 text-slate-300 px-4 py-2 rounded-lg text-sm font-mono overflow-hidden overflow-ellipsis max-w-full">
+              <div className="flex flex-col items-stretch gap-3 w-full">
+                <code className="bg-navy-900 dark:bg-navy-950 text-slate-300 px-4 py-3 rounded-lg text-xs sm:text-sm font-mono break-all w-full block">
                   {generateQuizLink(activeEnrollment?.projectId || openProjects?.[0]?.id)}
                 </code>
                 <Button
                   onClick={handleQuickCopy}
-                  className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
+                  className="bg-blue-500 hover:bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all w-full sm:w-auto sm:self-start"
                 >
                   {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
                   {copiedLink ? 'Copied!' : 'Copy Link'}

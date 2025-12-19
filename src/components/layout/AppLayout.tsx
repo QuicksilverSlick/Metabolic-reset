@@ -70,7 +70,7 @@ export function AppLayout({ children, container = false, className, contentClass
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
       <SidebarInset className={`bg-slate-100 dark:bg-navy-900 transition-colors duration-300 ${className || ''}`}>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 px-4 shadow-sm transition-colors duration-300">
+        <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 px-4 shadow-sm transition-colors duration-300">
           <SidebarTrigger className="-ml-1 text-navy-900 dark:text-white" />
           <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-2" />
           <div className="flex-1 flex justify-between items-center">

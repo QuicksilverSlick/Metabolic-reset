@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/auth-store";
@@ -37,7 +38,15 @@ export function AppSidebar(): JSX.Element {
   const logout = useAuthStore(s => s.logout);
   const user = useAuthStore(s => s.user);
   const role = user?.role;
+  const { isMobile, setOpenMobile } = useSidebar();
   const isActive = (path: string) => location.pathname === path;
+
+  // Close mobile sidebar when navigating
+  const handleMobileNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
   return (
     <Sidebar className="border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-navy-900 text-navy-900 dark:text-white transition-colors" variant="sidebar">
       <SidebarHeader className="bg-white dark:bg-navy-900 border-b border-slate-200 dark:border-slate-800 p-4 transition-colors">
@@ -58,7 +67,7 @@ export function AppSidebar(): JSX.Element {
                 isActive={isActive('/app')}
                 className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
-                <Link to="/app">
+                <Link to="/app" onClick={handleMobileNavigation}>
                   <LayoutDashboard className="h-5 w-5" />
                   <span className="font-medium">Dashboard</span>
                 </Link>
@@ -70,7 +79,7 @@ export function AppSidebar(): JSX.Element {
                 isActive={isActive('/app/biometrics')}
                 className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
-                <Link to="/app/biometrics">
+                <Link to="/app/biometrics" onClick={handleMobileNavigation}>
                   <Scale className="h-5 w-5" />
                   <span className="font-medium">Weekly Study</span>
                 </Link>
@@ -82,7 +91,7 @@ export function AppSidebar(): JSX.Element {
                 isActive={isActive('/app/projects')}
                 className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
-                <Link to="/app/projects">
+                <Link to="/app/projects" onClick={handleMobileNavigation}>
                   <FolderKanban className="h-5 w-5" />
                   <span className="font-medium">My Projects</span>
                 </Link>
@@ -95,7 +104,7 @@ export function AppSidebar(): JSX.Element {
                   isActive={isActive('/app/roster')}
                   className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
                 >
-                  <Link to="/app/roster">
+                  <Link to="/app/roster" onClick={handleMobileNavigation}>
                     <Users className="h-5 w-5" />
                     <span className="font-medium">Team Roster</span>
                   </Link>
@@ -109,7 +118,7 @@ export function AppSidebar(): JSX.Element {
                   isActive={isActive('/app/admin')}
                   className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
                 >
-                  <Link to="/app/admin">
+                  <Link to="/app/admin" onClick={handleMobileNavigation}>
                     <ShieldCheck className="h-5 w-5" />
                     <span className="font-medium">Admin</span>
                   </Link>
@@ -127,7 +136,7 @@ export function AppSidebar(): JSX.Element {
                 isActive={isActive('/app/profile')}
                 className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
               >
-                <Link to="/app/profile" className="flex items-center gap-3">
+                <Link to="/app/profile" onClick={handleMobileNavigation} className="flex items-center gap-3">
                   <Avatar className="h-6 w-6 border border-slate-200 dark:border-slate-700">
                     {user?.avatarUrl ? (
                       <AvatarImage src={user.avatarUrl} alt={user.name} />

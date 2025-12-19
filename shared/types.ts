@@ -59,6 +59,8 @@ export interface User {
   isAdmin?: boolean; // Admin flag for system administrators
   stripeCustomerId?: string;
   avatarUrl?: string; // User profile photo URL
+  deletedAt?: number; // Unix timestamp for soft delete (30-day recovery window)
+  deletedBy?: string; // Admin user ID who performed the deletion
 }
 export interface DailyScore {
   id: string; // Format: projectId:userId:YYYY-MM-DD
@@ -316,6 +318,16 @@ export interface PointsLedger {
   description: string; // Human-readable description
   adminId: string | null; // Admin who made the adjustment (if admin_adjustment)
   createdAt: number;
+}
+
+// Referral activity with enriched user details
+export interface ReferralActivity extends PointsLedger {
+  referredUser: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    role: UserRole;
+  } | null;
 }
 
 // Genealogy tree node for visualization

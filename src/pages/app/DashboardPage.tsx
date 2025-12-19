@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek, useOpenProjects, useBiometricsHistory, useScoreHistory } from '@/hooks/use-queries';
+import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek, useOpenProjects, useBiometricsHistory, useScoreHistory, useReferralHistory, useSystemSettings } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { getChallengeProgress, getTodayInTimezone } from '@/lib/utils';
@@ -67,6 +67,8 @@ export function DashboardPage() {
   // Fetch activity history
   const { data: biometricsHistory } = useBiometricsHistory();
   const { data: scoreHistory } = useScoreHistory(14); // Last 14 days
+  const { data: referralHistory } = useReferralHistory();
+  const { data: systemSettings } = useSystemSettings();
 
   // State for referral project selector dialog
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
@@ -391,9 +393,16 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="relative z-10 space-y-4">
             <div className="text-sm font-medium text-gold-600 dark:text-gold-400">
-              {user?.role === 'challenger'
-                ? 'Earn 10 Points for every friend you recruit!'
-                : 'Earn 1 Point per recruit. Build your roster.'}
+              {(() => {
+                const isCoach = user?.role === 'coach';
+                const points = isCoach
+                  ? (systemSettings?.referralPointsCoach || 1)
+                  : (systemSettings?.referralPointsChallenger || 5);
+                const pointText = points === 1 ? 'Point' : 'Points';
+                return isCoach
+                  ? `Earn ${points} ${pointText} per referral. Build your group.`
+                  : `Earn ${points} ${pointText} per referral. Build your group.`;
+              })()}
             </div>
             <div className="bg-slate-100 dark:bg-navy-950/50 p-3 rounded-lg border border-slate-200 dark:border-navy-700 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -531,12 +540,68 @@ export function DashboardPage() {
       </div>
 
       {/* Activity History Section */}
-      {((biometricsHistory && biometricsHistory.length > 0) || (scoreHistory && scoreHistory.length > 0)) && (
+      {((biometricsHistory && biometricsHistory.length > 0) || (scoreHistory && scoreHistory.length > 0) || (referralHistory && referralHistory.length > 0)) && (
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <History className="h-6 w-6 text-gold-500" />
             <h2 className="text-xl font-display font-bold text-navy-900 dark:text-white">Activity History</h2>
           </div>
+
+          {/* Referral Activity */}
+          {referralHistory && referralHistory.length > 0 && (
+            <Card className="border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-navy-900 dark:text-white text-lg">
+                  <Users className="h-5 w-5 text-gold-500" />
+                  Referral Rewards
+                </CardTitle>
+                <CardDescription className="text-slate-500 dark:text-slate-400">
+                  Points earned from your referrals
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {referralHistory.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {activity.referredUser?.avatarUrl ? (
+                          <img
+                            src={activity.referredUser.avatarUrl}
+                            alt={activity.referredUser.name}
+                            className="h-10 w-10 rounded-full object-cover border-2 border-green-500"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center border-2 border-green-500">
+                            <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold text-navy-900 dark:text-white">
+                            {activity.referredUser?.name || 'Referred User'}
+                          </div>
+                          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(activity.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600 dark:text-green-400">+{activity.points}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">points</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Biometric Submissions History */}

@@ -12,6 +12,7 @@ import {
 } from "react-router-dom";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
+import { ScrollToTop } from '@/components/ScrollToTop';
 import '@/index.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
@@ -46,118 +47,123 @@ function RegisterRedirect() {
   return <Navigate to={`/quiz${params ? `?${params}` : ''}`} replace />;
 }
 
+// Root layout that wraps all routes with ScrollToTop
+function RootLayout() {
+  return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+    </>
+  );
+}
+
 const queryClient = new QueryClient();
 
 const router = createBrowserRouter([
   {
-    path: "/",
-    element: <HomePage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/quiz",
-    element: <QuizPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    // Redirect /register to /quiz (preserving query params)
-    path: "/register",
-    element: <RegisterRedirect />,
-  },
-  {
-    // Registration page (accessed after quiz + OTP verification for new users)
-    path: "/registration",
-    element: <RegistrationPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/coach",
-    element: <CoachOnboardingPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/login",
-    element: <OtpLoginPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/login/legacy",
-    element: <LoginPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  // Onboarding routes (full-screen, no AppLayout)
-  {
-    path: "/app/onboarding/cohort",
-    element: <CohortSelectionPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/app/onboarding/profile",
-    element: <ProfilePhotoPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/app/onboarding/verify",
-    element: <PhoneVerificationPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/app/onboarding/video",
-    element: <VideoOrientationPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/app/onboarding/kit",
-    element: <KitConfirmationPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/app",
-    element: (
-      <AppLayout container>
-        <Outlet />
-        <Toaster richColors closeButton />
-      </AppLayout>
-    ),
+    // Root layout wraps all routes with ScrollToTop for consistent behavior
+    element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
       {
-        index: true,
-        element: <DashboardPage />,
+        path: "/",
+        element: <HomePage />,
       },
       {
-        path: "biometrics",
-        element: <BiometricsPage />,
+        path: "/quiz",
+        element: <QuizPage />,
       },
       {
-        path: "profile",
-        element: <ProfilePage />
+        // Redirect /register to /quiz (preserving query params)
+        path: "/register",
+        element: <RegisterRedirect />,
       },
       {
-        path: "roster",
-        element: <RosterPage />
+        // Registration page (accessed after quiz + OTP verification for new users)
+        path: "/registration",
+        element: <RegistrationPage />,
       },
       {
-        path: "assign",
-        element: <AssignCaptainPage />
+        path: "/coach",
+        element: <CoachOnboardingPage />,
       },
       {
-        path: "admin",
-        element: <AdminPage />
+        path: "/login",
+        element: <OtpLoginPage />,
       },
       {
-        path: "projects",
-        element: <MyProjectsPage />
+        path: "/login/legacy",
+        element: <LoginPage />,
+      },
+      // Onboarding routes (full-screen, no AppLayout)
+      {
+        path: "/app/onboarding/cohort",
+        element: <CohortSelectionPage />,
       },
       {
-        path: "enroll/:projectId",
-        element: <EnrollProjectPage />
+        path: "/app/onboarding/profile",
+        element: <ProfilePhotoPage />,
+      },
+      {
+        path: "/app/onboarding/verify",
+        element: <PhoneVerificationPage />,
+      },
+      {
+        path: "/app/onboarding/video",
+        element: <VideoOrientationPage />,
+      },
+      {
+        path: "/app/onboarding/kit",
+        element: <KitConfirmationPage />,
+      },
+      {
+        path: "/app",
+        element: (
+          <AppLayout container>
+            <Outlet />
+            <Toaster richColors closeButton />
+          </AppLayout>
+        ),
+        children: [
+          {
+            index: true,
+            element: <DashboardPage />,
+          },
+          {
+            path: "biometrics",
+            element: <BiometricsPage />,
+          },
+          {
+            path: "profile",
+            element: <ProfilePage />
+          },
+          {
+            path: "roster",
+            element: <RosterPage />
+          },
+          {
+            path: "assign",
+            element: <AssignCaptainPage />
+          },
+          {
+            path: "admin",
+            element: <AdminPage />
+          },
+          {
+            path: "projects",
+            element: <MyProjectsPage />
+          },
+          {
+            path: "enroll/:projectId",
+            element: <EnrollProjectPage />
+          }
+        ]
+      },
+      {
+        path: "*",
+        element: <NotFoundPage />,
       }
     ]
-  },
-  {
-    path: "*",
-    element: <NotFoundPage />,
   }
 ]);
 

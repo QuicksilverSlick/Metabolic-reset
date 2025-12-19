@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings } from '@shared/types';
@@ -101,6 +101,17 @@ export function useScoreHistory(limit?: number) {
     queryFn: () => userId ? scoreApi.getScoreHistory(userId, limit) : [],
     enabled: !!userId,
     staleTime: 1000 * 60 * 2, // 2 minutes - scores change more frequently
+  });
+}
+
+// Get referral activity history for the current user
+export function useReferralHistory() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['referrals', 'history', userId],
+    queryFn: () => userId ? referralApi.getReferralHistory(userId) : [],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
@@ -254,6 +265,77 @@ export function useAdminUserDetails(targetUserId: string | null) {
       return adminApi.getUser(userId, targetUserId);
     },
     enabled: !!userId && !!user?.isAdmin && !!targetUserId,
+  });
+}
+
+// Get deleted users (admin)
+export function useAdminDeletedUsers() {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'deleted-users'],
+    queryFn: () => userId ? adminApi.getDeletedUsers(userId) : [],
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
+// Soft delete a user (admin)
+export function useAdminDeleteUser() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (targetUserId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminApi.deleteUser(userId, targetUserId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'deleted-users'] });
+      toast.success('User deleted. Can be restored within 30 days.');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
+    }
+  });
+}
+
+// Restore a deleted user (admin)
+export function useAdminRestoreUser() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (targetUserId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminApi.restoreUser(userId, targetUserId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'deleted-users'] });
+      toast.success('User restored successfully');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to restore user');
+    }
+  });
+}
+
+// Permanently delete a user (admin)
+export function useAdminPermanentDeleteUser() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (targetUserId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminApi.permanentlyDeleteUser(userId, targetUserId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'deleted-users'] });
+      toast.success('User permanently deleted');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to permanently delete user');
+    }
   });
 }
 

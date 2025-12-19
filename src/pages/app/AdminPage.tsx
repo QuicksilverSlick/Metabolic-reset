@@ -22,7 +22,11 @@ import {
   useAdminGenealogy,
   usePointSettings,
   useAdminUpdatePointSettings,
-  useAdminAdjustPoints
+  useAdminAdjustPoints,
+  useAdminDeletedUsers,
+  useAdminDeleteUser,
+  useAdminRestoreUser,
+  useAdminPermanentDeleteUser
 } from '@/hooks/use-queries';
 import { Navigate } from 'react-router-dom';
 import {
@@ -71,7 +75,15 @@ import {
   Filter,
   XCircle,
   GitBranch,
-  Coins
+  Coins,
+  Undo2,
+  AlertTriangle,
+  MoreVertical,
+  Phone,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,7 +107,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole } from '@shared/types';
+import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole, GenealogyNode } from '@shared/types';
+import { GenealogyTree, GenealogyList } from '@/components/ui/genealogy-tree';
 import {
   Select,
   SelectContent,
@@ -111,6 +124,24 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 export function AdminPage() {
   const currentUser = useAuthStore(s => s.user);
@@ -119,6 +150,10 @@ export function AdminPage() {
   const { data: users, isLoading, error } = useAdminUsers();
   const updateUserMutation = useAdminUpdateUser();
   const bootstrapMutation = useBootstrapAdmin();
+  const { data: deletedUsers, isLoading: deletedUsersLoading } = useAdminDeletedUsers();
+  const deleteUserMutation = useAdminDeleteUser();
+  const restoreUserMutation = useAdminRestoreUser();
+  const permanentDeleteMutation = useAdminPermanentDeleteUser();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'name' | 'points' | 'createdAt'>('createdAt');
@@ -130,7 +165,18 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs' | 'settings' | 'genealogy' | 'deleted'>('users');
+
+  // Delete user state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
+  const [userToPermanentDelete, setUserToPermanentDelete] = useState<(User & { daysRemaining: number }) | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [deletedUsersPage, setDeletedUsersPage] = useState(1);
 
   // Advanced user filter state
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -144,6 +190,10 @@ export function AdminPage() {
   const [bugDetailSheetOpen, setBugDetailSheetOpen] = useState(false);
   const [bugStatusFilter, setBugStatusFilter] = useState<BugStatus | 'all'>('all');
   const [adminNotes, setAdminNotes] = useState('');
+
+  // Genealogy state
+  const [selectedGenealogyUserId, setSelectedGenealogyUserId] = useState<string | null>(null);
+  const [genealogyViewMode, setGenealogyViewMode] = useState<'tree' | 'list'>('list');
 
   // Project management state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -183,6 +233,10 @@ export function AdminPage() {
   // Point settings queries
   const { data: pointSettings, isLoading: pointSettingsLoading } = usePointSettings();
   const updatePointSettingsMutation = useAdminUpdatePointSettings();
+
+  // Genealogy queries
+  const { data: genealogyRoots, isLoading: genealogyRootsLoading } = useAdminGenealogyRoots();
+  const { data: selectedGenealogy, isLoading: selectedGenealogyLoading } = useAdminGenealogy(selectedGenealogyUserId);
 
   // Settings form state
   const [settingsGroupAVideo, setSettingsGroupAVideo] = useState('');
@@ -354,6 +408,53 @@ export function AdminPage() {
       targetUserId: user.id,
       updates: { isAdmin: !user.isAdmin },
     });
+  };
+
+  // Delete user functions
+  const openDeleteDialog = (user: User) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id, {
+        onSuccess: () => {
+          setDeleteDialogOpen(false);
+          setUserToDelete(null);
+        }
+      });
+    }
+  };
+
+  const handleRestoreUser = (userId: string) => {
+    restoreUserMutation.mutate(userId);
+  };
+
+  const openPermanentDeleteDialog = (user: User & { daysRemaining: number }) => {
+    setUserToPermanentDelete(user);
+    setPermanentDeleteDialogOpen(true);
+  };
+
+  const handlePermanentDelete = () => {
+    if (userToPermanentDelete) {
+      permanentDeleteMutation.mutate(userToPermanentDelete.id, {
+        onSuccess: () => {
+          setPermanentDeleteDialogOpen(false);
+          setUserToPermanentDelete(null);
+        }
+      });
+    }
+  };
+
+  // Helper to get user initials
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   // Project management functions
@@ -536,6 +637,7 @@ export function AdminPage() {
     setStatusFilter('all');
     setCaptainFilter('all');
     setPointsFilter('all');
+    setCurrentPage(1);
   };
 
   // Filter and sort users
@@ -587,6 +689,24 @@ export function AdminPage() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
 
+  // Pagination calculations for users
+  const totalFilteredUsers = filteredUsers.length;
+  const totalPages = Math.ceil(totalFilteredUsers / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter, captainFilter, pointsFilter, pageSize]);
+
+  // Pagination for deleted users
+  const totalDeletedPages = Math.ceil((deletedUsers?.length || 0) / pageSize);
+  const deletedStartIndex = (deletedUsersPage - 1) * pageSize;
+  const deletedEndIndex = deletedStartIndex + pageSize;
+  const paginatedDeletedUsers = deletedUsers?.slice(deletedStartIndex, deletedEndIndex) || [];
+
   const stats = {
     totalUsers: users?.length || 0,
     totalPoints: users?.reduce((sum, u) => sum + (u.points || 0), 0) || 0,
@@ -596,6 +716,7 @@ export function AdminPage() {
     activeProjects: projects?.filter(p => p.status === 'active').length || 0,
     totalBugs: bugReports?.length || 0,
     openBugs: bugReports?.filter(b => b.status === 'open').length || 0,
+    deletedUsers: deletedUsers?.length || 0,
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -769,6 +890,17 @@ export function AdminPage() {
           )}
         </button>
         <button
+          onClick={() => setActiveTab('genealogy')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'genealogy'
+              ? 'border-gold-500 text-gold-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <GitBranch className="h-4 w-4 inline mr-2" />
+          Genealogy
+        </button>
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'settings'
@@ -778,6 +910,22 @@ export function AdminPage() {
         >
           <Settings className="h-4 w-4 inline mr-2" />
           Settings
+        </button>
+        <button
+          onClick={() => setActiveTab('deleted')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'deleted'
+              ? 'border-gold-500 text-gold-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Trash2 className="h-4 w-4 inline mr-2" />
+          Deleted
+          {stats.deletedUsers > 0 && (
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
+              {stats.deletedUsers}
+            </span>
+          )}
         </button>
       </div>
 
@@ -915,7 +1063,8 @@ export function AdminPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View - Hidden on mobile */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -925,7 +1074,7 @@ export function AdminPage() {
                     >
                       Name <SortIcon field="name" />
                     </TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>Contact</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Group Leader</TableHead>
                     <TableHead
@@ -935,22 +1084,32 @@ export function AdminPage() {
                       Points <SortIcon field="points" />
                     </TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Admin</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {paginatedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {user.name}
+                          <Avatar className="h-8 w-8">
+                            {user.avatarUrl ? (
+                              <AvatarImage src={user.avatarUrl} alt={user.name} />
+                            ) : null}
+                            <AvatarFallback className="bg-gold-100 text-gold-700 text-xs">
+                              {getInitials(user.name || 'U')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{user.name}</span>
                           {user.isAdmin && (
                             <ShieldCheck className="h-4 w-4 text-green-600" />
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-500">{user.email}</TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        <div>{user.email}</div>
+                        <div className="text-xs text-slate-400">{user.phone}</div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={user.role === 'coach' ? 'default' : 'secondary'}>
                           {user.role === 'coach' ? 'Coach' : 'Challenger'}
@@ -984,59 +1143,249 @@ export function AdminPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant={user.isAdmin ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleAdmin(user)}
-                          disabled={updateUserMutation.isPending || user.id === currentUser?.id}
-                          className={user.isAdmin
-                            ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "hover:bg-green-50 hover:text-green-700 hover:border-green-300"
-                          }
-                        >
-                          {user.isAdmin ? (
-                            <>
-                              <ShieldCheck className="h-3 w-3 mr-1" />
-                              Admin
-                            </>
-                          ) : (
-                            <>
-                              <ShieldOff className="h-3 w-3 mr-1" />
-                              Make Admin
-                            </>
-                          )}
-                        </Button>
-                      </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDetailSheet(user)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            Edit
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openDetailSheet(user)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleToggleAdmin(user)}
+                              disabled={user.id === currentUser?.id}
+                            >
+                              {user.isAdmin ? (
+                                <>
+                                  <ShieldOff className="h-4 w-4 mr-2" />
+                                  Remove Admin
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="h-4 w-4 mr-2" />
+                                  Make Admin
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => openDeleteDialog(user)}
+                              disabled={user.id === currentUser?.id}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  No users found matching your search.
-                </div>
-              )}
             </div>
+
+            {/* Mobile Card View - Visible only on mobile */}
+            <div className="md:hidden space-y-3">
+              {paginatedUsers.map((user) => (
+                <Card key={user.id} className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      {/* User Info */}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="h-12 w-12 shrink-0">
+                          {user.avatarUrl ? (
+                            <AvatarImage src={user.avatarUrl} alt={user.name} />
+                          ) : null}
+                          <AvatarFallback className="bg-gold-100 text-gold-700">
+                            {getInitials(user.name || 'U')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-navy-900 dark:text-white truncate">
+                              {user.name}
+                            </p>
+                            {user.isAdmin && (
+                              <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                          <p className="text-xs text-slate-400">{user.phone}</p>
+                        </div>
+                      </div>
+
+                      {/* Actions Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="shrink-0">
+                            <MoreVertical className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openDetailSheet(user)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleToggleAdmin(user)}
+                            disabled={user.id === currentUser?.id}
+                          >
+                            {user.isAdmin ? (
+                              <>
+                                <ShieldOff className="h-4 w-4 mr-2" />
+                                Remove Admin
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-4 w-4 mr-2" />
+                                Make Admin
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => openDeleteDialog(user)}
+                            disabled={user.id === currentUser?.id}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Status Row */}
+                    <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-navy-700">
+                      <Badge variant={user.role === 'coach' ? 'default' : 'secondary'}>
+                        {user.role === 'coach' ? 'Coach' : 'Challenger'}
+                      </Badge>
+                      {user.isActive !== false ? (
+                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                          Inactive
+                        </Badge>
+                      )}
+                      <div className="ml-auto flex items-center gap-1 text-sm font-mono text-gold-600">
+                        <Award className="h-4 w-4" />
+                        {user.points || 0} pts
+                      </div>
+                    </div>
+
+                    {/* Group Leader */}
+                    <div className="text-xs text-slate-500 mt-2">
+                      <span className="font-medium">Group Leader: </span>
+                      {user.captainId ? (
+                        user.captainId === user.id ? (
+                          <span className="text-gold-600">Self</span>
+                        ) : (
+                          captains.find(c => c.id === user.captainId)?.name || 'Unknown'
+                        )
+                      ) : (
+                        <span className="text-red-500">None (Orphan)</span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {filteredUsers.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-slate-200 dark:border-navy-700">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span>
+                    Showing {startIndex + 1}-{Math.min(endIndex, totalFilteredUsers)} of {totalFilteredUsers} users
+                  </span>
+                  <span className="hidden sm:inline">•</span>
+                  <div className="hidden sm:flex items-center gap-2">
+                    <span>Per page:</span>
+                    <Select
+                      value={pageSize.toString()}
+                      onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[70px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="flex items-center gap-1 px-2">
+                    <span className="text-sm font-medium">
+                      Page {currentPage} of {totalPages || 1}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-8 text-slate-500">
+                No users found matching your search.
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1244,6 +1593,129 @@ export function AdminPage() {
                     : `No ${bugStatusFilter === 'in_progress' ? 'in progress' : bugStatusFilter} bugs.`}
                 </p>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Genealogy Tab */}
+      {activeTab === 'genealogy' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GitBranch className="h-5 w-5" />
+                  Referral Genealogy
+                </CardTitle>
+                <CardDescription>
+                  View the complete referral tree for any coach or user.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={genealogyViewMode === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGenealogyViewMode('list')}
+                >
+                  <Users className="h-4 w-4 mr-1" />
+                  List
+                </Button>
+                <Button
+                  variant={genealogyViewMode === 'tree' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGenealogyViewMode('tree')}
+                >
+                  <GitBranch className="h-4 w-4 mr-1" />
+                  Tree
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {genealogyRootsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+              </div>
+            ) : (
+              <>
+                {/* User Selector */}
+                <div className="space-y-2">
+                  <Label>Select User to View Tree</Label>
+                  <Select
+                    value={selectedGenealogyUserId || ''}
+                    onValueChange={(value) => setSelectedGenealogyUserId(value || null)}
+                  >
+                    <SelectTrigger className="w-full sm:w-80">
+                      <SelectValue placeholder="Select a user to view their tree..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(genealogyRoots) && genealogyRoots.map((root) => (
+                        <SelectItem key={root.userId} value={root.userId}>
+                          <div className="flex items-center gap-2">
+                            <span>{root.name}</span>
+                            {root.directReferrals > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {root.directReferrals} referrals
+                              </Badge>
+                            )}
+                            <Badge variant="secondary" className="text-xs capitalize">
+                              {root.role}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    {Array.isArray(genealogyRoots) ? genealogyRoots.length : 0} users (sorted by referral count)
+                  </p>
+                </div>
+
+                {/* Genealogy Display */}
+                {selectedGenealogyUserId && (
+                  <>
+                    {selectedGenealogyLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+                      </div>
+                    ) : selectedGenealogy ? (
+                      genealogyViewMode === 'tree' ? (
+                        <GenealogyTree
+                          data={selectedGenealogy}
+                          showStats={true}
+                          onNodeClick={(node) => {
+                            // Could open user details or navigate
+                            console.log('Clicked node:', node);
+                          }}
+                        />
+                      ) : (
+                        <GenealogyList
+                          data={selectedGenealogy}
+                          maxDepth={10}
+                          onNodeClick={(node) => {
+                            // Could open user details
+                            console.log('Clicked node:', node);
+                          }}
+                        />
+                      )
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                        <p>No genealogy data found for this user.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {!selectedGenealogyUserId && (
+                  <div className="text-center py-12 text-slate-500">
+                    <GitBranch className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+                    <p className="text-lg font-medium">Select a coach to view their referral tree</p>
+                    <p className="text-sm mt-1">Choose from the dropdown above to explore the genealogy.</p>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -2226,6 +2698,251 @@ export function AdminPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Deleted Users Tab */}
+      {activeTab === 'deleted' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                  Deleted Users
+                </CardTitle>
+                <CardDescription>
+                  Users deleted within the last 30 days can be restored. After 30 days, they are permanently removed.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {deletedUsersLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
+              </div>
+            ) : deletedUsers && deletedUsers.length > 0 ? (
+              <div className="space-y-3">
+                {paginatedDeletedUsers.map((user) => (
+                  <Card key={user.id} className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        {/* User Info */}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Avatar className="h-12 w-12 shrink-0 opacity-75">
+                            {user.avatarUrl ? (
+                              <AvatarImage src={user.avatarUrl} alt={user.name} />
+                            ) : null}
+                            <AvatarFallback className="bg-red-100 text-red-700">
+                              {getInitials(user.name || 'U')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-navy-900 dark:text-white truncate">
+                                {user.name}
+                              </p>
+                              {user.isAdmin && (
+                                <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                            <p className="text-xs text-slate-400">{user.phone}</p>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          {user.canRestore ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRestoreUser(user.id)}
+                                disabled={restoreUserMutation.isPending}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 border-green-300"
+                              >
+                                <Undo2 className="h-4 w-4 mr-1" />
+                                Restore
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openPermanentDeleteDialog(user)}
+                                disabled={permanentDeleteMutation.isPending}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-100 text-xs"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete Forever
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="text-red-600 border-red-300">
+                              Expired
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Deletion Info */}
+                      <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-red-200 dark:border-red-700 text-xs text-slate-500">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Deleted: {user.deletedAt ? new Date(user.deletedAt).toLocaleDateString() : 'Unknown'}
+                        </div>
+                        {user.canRestore && (
+                          <div className="flex items-center gap-1 text-amber-600 font-medium">
+                            <Clock className="h-3 w-3" />
+                            {user.daysRemaining} day{user.daysRemaining !== 1 ? 's' : ''} to restore
+                          </div>
+                        )}
+                        <Badge variant={user.role === 'coach' ? 'default' : 'secondary'} className="ml-auto">
+                          {user.role === 'coach' ? 'Coach' : 'Challenger'}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Pagination Controls for Deleted Users */}
+                {deletedUsers.length > pageSize && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-red-200 dark:border-red-700">
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <span>
+                        Showing {deletedStartIndex + 1}-{Math.min(deletedEndIndex, deletedUsers.length)} of {deletedUsers.length} deleted users
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeletedUsersPage(1)}
+                        disabled={deletedUsersPage === 1}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeletedUsersPage(p => Math.max(1, p - 1))}
+                        disabled={deletedUsersPage === 1}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="flex items-center gap-1 px-2">
+                        <span className="text-sm font-medium">
+                          Page {deletedUsersPage} of {totalDeletedPages || 1}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeletedUsersPage(p => Math.min(totalDeletedPages, p + 1))}
+                        disabled={deletedUsersPage >= totalDeletedPages}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeletedUsersPage(totalDeletedPages)}
+                        disabled={deletedUsersPage >= totalDeletedPages}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                <Trash2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <p>No deleted users.</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Users you delete will appear here for 30 days.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Delete User
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
+              </p>
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-amber-800 dark:text-amber-200 text-sm">
+                <strong>This user can be restored within 30 days.</strong>
+                <br />
+                After 30 days, the deletion becomes permanent.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={deleteUserMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteUserMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Permanently Delete User
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to <strong>permanently</strong> delete <strong>{userToPermanentDelete?.name}</strong>?
+              </p>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 text-red-800 dark:text-red-200 text-sm">
+                <strong>This action cannot be undone.</strong>
+                <br />
+                All user data will be permanently removed from the system.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDelete}
+              disabled={permanentDeleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {permanentDeleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

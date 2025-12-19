@@ -124,6 +124,7 @@ export const biometricApi = {
       headers: { 'X-User-ID': userId }
     }),
 };
+
 export const rosterApi = {
   getTeamRoster: (userId: string) =>
     api<User[]>('/api/roster', { headers: { 'X-User-ID': userId } }),
@@ -210,13 +211,41 @@ export const adminApi = {
       method: 'DELETE',
       headers: { 'X-User-ID': adminUserId }
     }),
+  // Soft delete a user (30-day recovery window)
+  deleteUser: (adminUserId: string, targetUserId: string) =>
+    api<{ message: string; deletedAt: number; userId: string }>(`/api/admin/users/${targetUserId}`, {
+      method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Restore a soft-deleted user
+  restoreUser: (adminUserId: string, targetUserId: string) =>
+    api<{ message: string; userId: string }>(`/api/admin/users/${targetUserId}/restore`, {
+      method: 'POST',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Get all deleted users
+  getDeletedUsers: (adminUserId: string) =>
+    api<(User & { daysRemaining: number; canRestore: boolean })[]>('/api/admin/users/deleted/list', {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Permanently delete a user (no recovery)
+  permanentlyDeleteUser: (adminUserId: string, targetUserId: string) =>
+    api<{ message: string; userId: string }>(`/api/admin/users/${targetUserId}/permanent`, {
+      method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };
 
-// Referral API - for looking up referrer info
+// Referral API - for looking up referrer info and history
 export const referralApi = {
   // Get referrer info by code (public, no auth)
   getReferrer: (code: string) =>
     api<{ name: string; role: string } | null>(`/api/referrer/${code}`),
+  // Get referral history for current user (authenticated)
+  getReferralHistory: (userId: string) =>
+    api<import('@shared/types').ReferralActivity[]>('/api/referrals/history', {
+      headers: { 'X-User-ID': userId }
+    }),
 };
 
 // Quiz Leads API - for capturing and managing quiz funnel leads

@@ -96,20 +96,33 @@ export class UserEntity extends IndexedEntity<User> {
     if (state.userId) {
       const userEntity = new UserEntity(env, state.userId);
       const userState = await userEntity.getState();
-      if (userState.id) return userState;
+      // If user exists and is NOT deleted, return them
+      if (userState.id && !userState.deletedAt) {
+        return userState;
+      }
+      // User is deleted or doesn't exist - fall through to search for active user
     }
 
-    // Fallback: Search all users by phone (for users registered before OTP system)
-    // This handles legacy users who don't have a PhoneMapping record
+    // Fallback: Search all users by phone (for legacy users or when mapping points to deleted user)
+    // Find the ACTIVE user with this phone number
     const { items: allUsers } = await UserEntity.list(env);
+    let activeUser: User | null = null;
+
     for (const user of allUsers) {
       if (!user.id || !user.phone) continue;
       const userDigits = user.phone.replace(/\D/g, '').slice(-10);
       if (userDigits === digits) {
-        // Found a match - create the PhoneMapping for future lookups
-        await mapping.save({ userId: user.id });
-        return user;
+        // Skip deleted users - we want the active one
+        if (user.deletedAt) continue;
+        activeUser = user;
+        break;
       }
+    }
+
+    if (activeUser) {
+      // Update the PhoneMapping to point to the active user
+      await mapping.save({ userId: activeUser.id });
+      return activeUser;
     }
 
     return null;

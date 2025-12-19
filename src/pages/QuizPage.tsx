@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -573,6 +573,11 @@ export function QuizPage() {
       setQuestions([...maleQuestions, ...universalQuestions]);
     }
   }, [selectedSex]);
+
+  // Scroll to top when phase or question changes (mobile UX best practice)
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [phase, currentQuestion]);
 
   const totalQuestions = questions.length;
   const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;

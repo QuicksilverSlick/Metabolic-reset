@@ -97,6 +97,50 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!name || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
+
+      // Normalize phone number for checking
+      const phoneDigits = phone.replace(/\D/g, '').slice(-10);
+      if (phoneDigits.length !== 10) {
+        return c.json({ error: 'Invalid phone number format' }, 400);
+      }
+      const normalizedPhone = `+1${phoneDigits}`;
+
+      // CHECK FOR DUPLICATE PHONE (Primary - Phone is the login mechanism)
+      const existingUserByPhone = await UserEntity.findByPhone(c.env, normalizedPhone);
+      if (existingUserByPhone) {
+        // Check if this is a deleted user trying to re-register
+        if (existingUserByPhone.deletedAt) {
+          return c.json({
+            error: 'An account with this phone number was recently deactivated. Please contact support to restore your account.'
+          }, 409);
+        }
+        return c.json({
+          error: 'An account with this phone number already exists. Please login instead.'
+        }, 409);
+      }
+
+      // CHECK FOR DUPLICATE EMAIL (if provided)
+      if (email) {
+        const normalizedEmail = email.toLowerCase().trim();
+        const emailMapping = new EmailMapping(c.env, normalizedEmail);
+        const emailMappingState = await emailMapping.getState();
+        if (emailMappingState.userId) {
+          // Verify the user exists and is not deleted
+          const existingUserByEmail = new UserEntity(c.env, emailMappingState.userId);
+          const existingUser = await existingUserByEmail.getState();
+          if (existingUser.id) {
+            if (existingUser.deletedAt) {
+              return c.json({
+                error: 'An account with this email was recently deactivated. Please contact support or use a different email.'
+              }, 409);
+            }
+            return c.json({
+              error: 'An account with this email already exists. Please use a different email or login with your existing account.'
+            }, 409);
+          }
+        }
+      }
+
       let recruiterId = null;
       let captainId = null;
       let referrerRole = null;
@@ -130,12 +174,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       // Handle Phone Mapping for OTP login lookup
-      const phoneDigits = phone.replace(/\D/g, '').slice(-10);
-      if (phoneDigits.length === 10) {
-        const normalizedPhone = `+1${phoneDigits}`;
-        const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
-        await phoneMapping.save({ userId: userId });
-      }
+      const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
+      await phoneMapping.save({ userId: userId });
 
       // If user is a coach, they are their own captain
       if (role === 'coach') {
@@ -160,38 +200,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const captainIndex = new CaptainIndex(c.env);
         await captainIndex.add(userId);
       }
-      // Handle Recruitment Logic
-      if (recruiterId && referrerRole) {
-        // Get configurable point values from system settings
-        const settings = await SystemSettingsEntity.getGlobal(c.env);
-        const points = referrerRole === 'challenger'
-          ? (settings.referralPointsChallenger || 5)
-          : (settings.referralPointsCoach || 1);
 
-        // Add to Ledger (legacy)
-        await ReferralLedgerEntity.create(c.env, {
-          id: crypto.randomUUID(),
-          projectId: enrollProjectId || '',
-          recruiterId: recruiterId,
-          newRecruitId: userId,
-          pointsAmount: points,
-          createdAt: now
-        });
-
-        // Award points with audit logging
-        await PointsLedgerEntity.recordTransaction(c.env, {
-          projectId: enrollProjectId || null,
-          userId: recruiterId,
-          transactionType: referrerRole === 'challenger' ? 'referral_challenger' : 'referral_coach',
-          points: points,
-          relatedUserId: userId,
-          description: `Referral bonus for ${name} joining`
-        });
-
-        // Index the recruit for the recruiter (for Roster view / genealogy)
-        const recruitIndex = new Index(c.env, `recruits:${recruiterId}`);
-        await recruitIndex.add(userId);
-      }
       // Update System Stats
       await SystemStatsEntity.incrementUsers(c.env);
 
@@ -231,6 +240,39 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         // Index project's enrollment for looking up participants
         const projectEnrollmentsIndex = new Index(c.env, `project_enrollments:${enrollProjectId}`);
         await projectEnrollmentsIndex.add(userId);
+      }
+
+      // Handle Referral Points - Award AFTER payment/enrollment is complete
+      if (recruiterId && referrerRole) {
+        // Get configurable point values from system settings
+        const settings = await SystemSettingsEntity.getGlobal(c.env);
+        const points = referrerRole === 'challenger'
+          ? (settings.referralPointsChallenger || 5)
+          : (settings.referralPointsCoach || 1);
+
+        // Add to Ledger (legacy)
+        await ReferralLedgerEntity.create(c.env, {
+          id: crypto.randomUUID(),
+          projectId: enrollProjectId || '',
+          recruiterId: recruiterId,
+          newRecruitId: userId,
+          pointsAmount: points,
+          createdAt: now
+        });
+
+        // Award points with audit logging
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: enrollProjectId || null,
+          userId: recruiterId,
+          transactionType: referrerRole === 'challenger' ? 'referral_challenger' : 'referral_coach',
+          points: points,
+          relatedUserId: userId,
+          description: `Referral bonus for ${name} joining`
+        });
+
+        // Index the recruit for the recruiter (for Roster view / genealogy)
+        const recruitIndex = new Index(c.env, `recruits:${recruiterId}`);
+        await recruitIndex.add(userId);
       }
 
       // Trigger GHL Webhook (Fire and Forget)
@@ -561,6 +603,86 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       return ok(c, scores);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get referral activity history for the current user
+  app.get('/api/referrals/history', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      // Get current user to determine their role for point calculation
+      const currentUserEntity = new UserEntity(c.env, userId);
+      const currentUser = await currentUserEntity.getState();
+      const isCoach = currentUser.role === 'coach';
+
+      // Get system settings for point values
+      const settings = await SystemSettingsEntity.getGlobal(c.env);
+      const defaultPoints = isCoach
+        ? (settings.referralPointsCoach || 1)
+        : (settings.referralPointsChallenger || 5);
+
+      // Strategy: Get referrals from recruits index (most reliable source)
+      // This ensures we show ALL referrals, including those before PointsLedger was implemented
+      const recruitIndex = new Index(c.env, `recruits:${userId}`);
+      const recruitIds = await recruitIndex.list();
+
+      // Build referral activity from recruits
+      const referralActivities = await Promise.all(
+        recruitIds.map(async (recruitId) => {
+          const recruitEntity = new UserEntity(c.env, recruitId);
+          const recruit = await recruitEntity.getState();
+
+          if (!recruit.id) return null;
+
+          // Try to find corresponding PointsLedger entry for accurate points
+          let pointsAwarded = defaultPoints;
+          let createdAt = recruit.createdAt || Date.now();
+
+          // Check PointsLedger for this specific referral
+          const transactions = await PointsLedgerEntity.findByUser(c.env, userId);
+          const matchingTransaction = transactions.find(
+            t => (t.transactionType === 'referral_coach' || t.transactionType === 'referral_challenger')
+              && t.relatedUserId === recruitId
+          );
+
+          if (matchingTransaction) {
+            pointsAwarded = matchingTransaction.points;
+            createdAt = matchingTransaction.createdAt;
+          }
+
+          return {
+            id: `referral-${recruitId}`,
+            projectId: null,
+            userId: userId,
+            transactionType: isCoach ? 'referral_coach' : 'referral_challenger',
+            points: pointsAwarded,
+            previousBalance: 0,
+            newBalance: 0,
+            relatedUserId: recruitId,
+            relatedEntityId: null,
+            description: `Referral bonus for ${recruit.name} joining`,
+            adminId: null,
+            createdAt: createdAt,
+            referredUser: {
+              id: recruit.id,
+              name: recruit.name,
+              avatarUrl: recruit.avatarUrl || null,
+              role: recruit.role
+            }
+          };
+        })
+      );
+
+      // Filter out nulls and sort by createdAt descending
+      const validActivities = referralActivities
+        .filter(a => a !== null)
+        .sort((a, b) => b!.createdAt - a!.createdAt);
+
+      return ok(c, validActivities);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -910,6 +1032,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const user = await UserEntity.findByPhone(c.env, normalizedPhone);
 
       if (user) {
+        // Check if user is deleted (soft-deleted users cannot login)
+        if (user.deletedAt) {
+          return c.json({
+            error: 'This account has been deactivated. Please contact support if you believe this is an error.'
+          }, 403);
+        }
+
+        // Check if user is inactive
+        if (user.isActive === false) {
+          return c.json({
+            error: 'This account is inactive. Please contact support.'
+          }, 403);
+        }
+
         // Existing user - return user data for login
         return ok(c, {
           success: true,
@@ -1267,6 +1403,202 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       return ok(c, await userEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Soft delete a user (admin only) - 30 day recovery window
+  app.delete('/api/admin/users/:userId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+
+      // Prevent admin from deleting themselves
+      if (targetUserId === admin.id) {
+        return bad(c, 'Cannot delete your own account');
+      }
+
+      const userEntity = new UserEntity(c.env, targetUserId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Check if already deleted
+      if (user.deletedAt) {
+        return bad(c, 'User is already deleted');
+      }
+
+      // Soft delete: set deletedAt timestamp and deletedBy
+      await userEntity.patch({
+        deletedAt: Date.now(),
+        deletedBy: admin.id,
+        isActive: false
+      });
+
+      // Remove from active indexes but keep user data
+      const adminIndex = new AdminIndex(c.env);
+      const captainIndex = new CaptainIndex(c.env);
+
+      if (user.isAdmin) {
+        await adminIndex.remove(targetUserId);
+      }
+      if (user.role === 'coach') {
+        await captainIndex.remove(targetUserId);
+      }
+
+      // Add to deleted users index for easy listing
+      const deletedIndex = new Index(c.env, 'deleted-users');
+      await deletedIndex.add(targetUserId);
+
+      return ok(c, {
+        message: 'User deleted successfully. Can be restored within 30 days.',
+        deletedAt: Date.now(),
+        userId: targetUserId
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Restore a soft-deleted user (admin only)
+  app.post('/api/admin/users/:userId/restore', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const userEntity = new UserEntity(c.env, targetUserId);
+      const user = await userEntity.getState();
+
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Check if user was deleted
+      if (!user.deletedAt) {
+        return bad(c, 'User is not deleted');
+      }
+
+      // Check if within 30-day recovery window
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      if (Date.now() - user.deletedAt > thirtyDaysMs) {
+        return bad(c, 'Recovery window expired. User was deleted more than 30 days ago.');
+      }
+
+      // Restore user: clear deletedAt and deletedBy, set isActive
+      await userEntity.patch({
+        deletedAt: undefined,
+        deletedBy: undefined,
+        isActive: true
+      });
+
+      // Re-add to indexes
+      if (user.isAdmin) {
+        const adminIndex = new AdminIndex(c.env);
+        await adminIndex.add(targetUserId);
+      }
+      if (user.role === 'coach') {
+        const captainIndex = new CaptainIndex(c.env);
+        await captainIndex.add(targetUserId);
+      }
+
+      // Remove from deleted users index
+      const deletedIndex = new Index(c.env, 'deleted-users');
+      await deletedIndex.remove(targetUserId);
+
+      return ok(c, {
+        message: 'User restored successfully',
+        userId: targetUserId
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get all deleted users (admin only)
+  app.get('/api/admin/users/deleted/list', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const deletedIndex = new Index(c.env, 'deleted-users');
+      const deletedIds = await deletedIndex.list();
+
+      const deletedUsers = await Promise.all(deletedIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        const user = await userEntity.getState();
+
+        // Calculate days remaining for recovery
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const deletedAt = user.deletedAt || 0;
+        const expiresAt = deletedAt + thirtyDaysMs;
+        const daysRemaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));
+
+        return {
+          ...user,
+          daysRemaining,
+          canRestore: daysRemaining > 0
+        };
+      }));
+
+      // Filter out any users that don't exist and sort by deletion date
+      const validDeleted = deletedUsers
+        .filter(u => u.id)
+        .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+
+      return ok(c, validDeleted);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Permanently delete a user (admin only) - only works on soft-deleted users after confirmation
+  app.delete('/api/admin/users/:userId/permanent', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const userEntity = new UserEntity(c.env, targetUserId);
+      const user = await userEntity.getState();
+
+      if (!user.id) return notFound(c, 'User not found');
+
+      // Only allow permanent deletion of already soft-deleted users
+      if (!user.deletedAt) {
+        return bad(c, 'User must be soft-deleted first before permanent deletion');
+      }
+
+      // Remove from all indexes
+      const userIndex = new Index(c.env, 'users');
+      const deletedIndex = new Index(c.env, 'deleted-users');
+
+      await userIndex.remove(targetUserId);
+      await deletedIndex.remove(targetUserId);
+
+      // Remove phone and email mappings
+      if (user.phone) {
+        const phoneMapping = new PhoneMapping(c.env);
+        await phoneMapping.remove(user.phone);
+      }
+      if (user.email) {
+        const emailMapping = new EmailMapping(c.env);
+        await emailMapping.remove(user.email);
+      }
+
+      // Remove referral code mapping
+      if (user.referralCode) {
+        const referralMapping = new ReferralCodeMapping(c.env);
+        await referralMapping.remove(user.referralCode);
+      }
+
+      // Note: We don't delete the UserEntity itself as Durable Objects persist
+      // But the user will no longer be accessible through any index
+
+      return ok(c, {
+        message: 'User permanently deleted',
+        userId: targetUserId
+      });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -2381,39 +2713,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
-  // Admin: Get full genealogy for any user
-  app.get('/api/admin/genealogy/:userId', async (c) => {
-    try {
-      const admin = await requireAdmin(c);
-      if (!admin) return c.json({ error: 'Admin access required' }, 403);
-
-      const targetUserId = c.req.param('userId');
-      const tree = await buildGenealogyTree(c.env, targetUserId);
-      if (!tree) return notFound(c, 'User not found');
-
-      return ok(c, tree);
-    } catch (e: any) {
-      return c.json({ error: e.message }, 500);
-    }
-  });
-
-  // Admin: Get all "root" coaches (coaches with no captain except themselves)
+  // Admin: Get all users that can be viewed in genealogy (all users, sorted by referral count)
+  // NOTE: This route MUST be defined before /api/admin/genealogy/:userId to avoid "roots" being matched as a userId
   app.get('/api/admin/genealogy/roots', async (c) => {
     try {
       const admin = await requireAdmin(c);
       if (!admin) return c.json({ error: 'Admin access required' }, 403);
 
-      const captainIndex = new CaptainIndex(c.env);
-      const captainIds = await captainIndex.list();
+      // Get all users from the main users index
+      const { items: allUsers } = await UserEntity.list(c.env);
 
-      // Get all coach trees (lightweight - just root level info)
-      const roots = await Promise.all(captainIds.map(async (id) => {
-        const userEntity = new UserEntity(c.env, id);
-        const user = await userEntity.getState();
-        if (!user.id) return null;
-
+      // Get all users with their referral counts
+      const roots = await Promise.all(allUsers.filter(u => u.id).map(async (user) => {
         // Count direct recruits
-        const recruitIndex = new Index(c.env, `recruits:${id}`);
+        const recruitIndex = new Index(c.env, `recruits:${user.id}`);
         const recruits = await recruitIndex.list();
 
         return {
@@ -2428,7 +2741,33 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         };
       }));
 
-      return ok(c, roots.filter(r => r !== null));
+      // Sort by direct referrals (most first), then by name
+      const sortedRoots = roots
+        .filter(r => r !== null)
+        .sort((a, b) => {
+          if (b.directReferrals !== a.directReferrals) {
+            return b.directReferrals - a.directReferrals;
+          }
+          return a.name.localeCompare(b.name);
+        });
+
+      return ok(c, sortedRoots);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get full genealogy for any user
+  app.get('/api/admin/genealogy/:userId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const tree = await buildGenealogyTree(c.env, targetUserId);
+      if (!tree) return notFound(c, 'User not found');
+
+      return ok(c, tree);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
