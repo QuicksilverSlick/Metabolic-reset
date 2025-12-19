@@ -62,7 +62,9 @@ import {
   Image,
   Settings,
   Link as LinkIcon,
-  Save
+  Save,
+  Filter,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,7 +88,14 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory } from '@shared/types';
+import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole } from '@shared/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -115,6 +124,13 @@ export function AdminPage() {
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs' | 'settings'>('users');
+
+  // Advanced user filter state
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('all');
+  const [captainFilter, setCaptainFilter] = useState<string>('all');
+  const [pointsFilter, setPointsFilter] = useState<'all' | '0' | '1-50' | '51-100' | '100+'>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Bug management state
   const [selectedBug, setSelectedBug] = useState<BugReport | null>(null);
@@ -478,15 +494,53 @@ export function AdminPage() {
     bugStatusFilter === 'all' ? true : bug.status === bugStatusFilter
   );
 
+  // Get unique captains (coaches) for the filter dropdown
+  const captains = (users || []).filter(u => u.role === 'coach');
+
+  // Check if any filters are active
+  const hasActiveFilters = roleFilter !== 'all' || statusFilter !== 'all' || captainFilter !== 'all' || pointsFilter !== 'all';
+
+  // Reset all filters
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setCaptainFilter('all');
+    setPointsFilter('all');
+  };
+
   // Filter and sort users
   const filteredUsers = (users || [])
     .filter(user => {
+      // Text search filter
       const search = searchTerm.toLowerCase();
-      return (
+      const matchesSearch = !search || (
         user.name?.toLowerCase().includes(search) ||
         user.email?.toLowerCase().includes(search) ||
-        user.phone?.includes(search)
+        user.phone?.includes(search) ||
+        user.referralCode?.toLowerCase().includes(search)
       );
+
+      // Role filter
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+
+      // Status filter
+      const matchesStatus = statusFilter === 'all' ||
+        (statusFilter === 'active' && user.isActive !== false) ||
+        (statusFilter === 'inactive' && user.isActive === false);
+
+      // Captain filter - users whose captainId matches the selected captain
+      const matchesCaptain = captainFilter === 'all' || user.captainId === captainFilter;
+
+      // Points filter
+      let matchesPoints = true;
+      const points = user.points || 0;
+      if (pointsFilter === '0') matchesPoints = points === 0;
+      else if (pointsFilter === '1-50') matchesPoints = points >= 1 && points <= 50;
+      else if (pointsFilter === '51-100') matchesPoints = points >= 51 && points <= 100;
+      else if (pointsFilter === '100+') matchesPoints = points > 100;
+
+      return matchesSearch && matchesRole && matchesStatus && matchesCaptain && matchesPoints;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -702,17 +756,133 @@ export function AdminPage() {
       {activeTab === 'users' && (
         <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <CardTitle>All Users</CardTitle>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex flex-col gap-4">
+              {/* Header Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <CardTitle>All Users</CardTitle>
+                  <Badge variant="outline" className="text-slate-500">
+                    {filteredUsers.length} of {users?.length || 0}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search name, email, phone, code..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-8"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    variant={showFilters ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={hasActiveFilters && !showFilters ? "border-gold-500 text-gold-600" : ""}
+                  >
+                    <Filter className="h-4 w-4 mr-1" />
+                    Filters
+                    {hasActiveFilters && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-gold-100 text-gold-700 rounded-full">!</span>
+                    )}
+                  </Button>
+                </div>
               </div>
+
+              {/* Advanced Filters Row */}
+              {showFilters && (
+                <div className="flex flex-wrap items-center gap-3 p-4 bg-slate-50 dark:bg-navy-950 rounded-lg border border-slate-200 dark:border-navy-700">
+                  {/* Role Filter */}
+                  <div className="flex flex-col gap-1 min-w-[140px]">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Role</label>
+                    <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as UserRole | 'all')}>
+                      <SelectTrigger className="h-9 bg-white dark:bg-navy-900">
+                        <SelectValue placeholder="All Roles" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        <SelectItem value="coach">Coaches</SelectItem>
+                        <SelectItem value="challenger">Challengers</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="flex flex-col gap-1 min-w-[140px]">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Status</label>
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'active' | 'inactive' | 'all')}>
+                      <SelectTrigger className="h-9 bg-white dark:bg-navy-900">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Captain/Group Leader Filter */}
+                  <div className="flex flex-col gap-1 min-w-[180px]">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Group Leader</label>
+                    <Select value={captainFilter} onValueChange={setCaptainFilter}>
+                      <SelectTrigger className="h-9 bg-white dark:bg-navy-900">
+                        <SelectValue placeholder="All Leaders" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Leaders</SelectItem>
+                        {captains.map((captain) => (
+                          <SelectItem key={captain.id} value={captain.id}>
+                            {captain.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Points Filter */}
+                  <div className="flex flex-col gap-1 min-w-[140px]">
+                    <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Points Range</label>
+                    <Select value={pointsFilter} onValueChange={(v) => setPointsFilter(v as typeof pointsFilter)}>
+                      <SelectTrigger className="h-9 bg-white dark:bg-navy-900">
+                        <SelectValue placeholder="All Points" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Points</SelectItem>
+                        <SelectItem value="0">0 Points</SelectItem>
+                        <SelectItem value="1-50">1-50 Points</SelectItem>
+                        <SelectItem value="51-100">51-100 Points</SelectItem>
+                        <SelectItem value="100+">100+ Points</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  {hasActiveFilters && (
+                    <div className="flex flex-col gap-1 justify-end">
+                      <label className="text-xs font-medium text-transparent">Clear</label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Clear All
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -728,6 +898,7 @@ export function AdminPage() {
                     </TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Group Leader</TableHead>
                     <TableHead
                       className="cursor-pointer hover:bg-slate-50 dark:hover:bg-navy-800 text-right"
                       onClick={() => handleSort('points')}
@@ -755,6 +926,18 @@ export function AdminPage() {
                         <Badge variant={user.role === 'coach' ? 'default' : 'secondary'}>
                           {user.role === 'coach' ? 'Coach' : 'Challenger'}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {user.captainId ? (
+                          user.captainId === user.id ? (
+                            <span className="text-gold-600 font-medium">Self</span>
+                          ) : (
+                            captains.find(c => c.id === user.captainId)?.name ||
+                            <span className="text-slate-400">Unknown</span>
+                          )
+                        ) : (
+                          <span className="text-red-500">None (Orphan)</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {user.points || 0}
