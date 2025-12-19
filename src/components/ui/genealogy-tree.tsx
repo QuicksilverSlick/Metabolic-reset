@@ -421,7 +421,7 @@ export function GenealogyTree({ data, className, onNodeClick, showStats = true }
               renderCustomNodeElement={(props) => (
                 <CustomNode {...props} onNodeSelect={handleNodeClick} />
               )}
-              pathClassFunc={() => 'stroke-[#93c5fd] stroke-[3px] fill-none'}
+              pathClassFunc={() => 'stroke-[#f5c542] stroke-[3px] fill-none opacity-80'}
             />
           </div>
         </CardContent>
