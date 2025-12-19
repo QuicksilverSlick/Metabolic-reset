@@ -252,7 +252,8 @@ export function DashboardPage() {
   if (weekInfo && project) {
     // Use project-based calculation
     day = weekInfo.dayOfChallenge;
-    progressPercentage = (day / 28) * 100;
+    // Handle pre-start: clamp to 0 if project hasn't started
+    progressPercentage = day > 0 ? (day / 28) * 100 : 0;
   } else if (user?.createdAt) {
     // Fallback to user registration date calculation
     const progress = getChallengeProgress(user.createdAt);
@@ -262,7 +263,9 @@ export function DashboardPage() {
     day = 1;
     progressPercentage = 0;
   }
+  // Clamp values for display
   const dayDisplay = day > 28 ? 28 : (day < 1 ? 0 : day);
+  const progressDisplay = Math.max(0, Math.min(100, progressPercentage));
   return (
     <div className="space-y-8">
       {/* Kit Reminder Banner for Group A */}
@@ -310,12 +313,16 @@ export function DashboardPage() {
         <div className="flex flex-wrap gap-4">
             {/* Progress Card */}
             <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-navy-800 flex items-center gap-4 min-w-[200px] transition-colors">
-                <CircularProgress value={progressPercentage} size={50} strokeWidth={5}>
-                    <span className="text-[10px] font-bold text-navy-900 dark:text-white">{Math.round(progressPercentage)}%</span>
+                <CircularProgress value={progressDisplay} size={50} strokeWidth={5}>
+                    <span className="text-[10px] font-bold text-navy-900 dark:text-white">{Math.round(progressDisplay)}%</span>
                 </CircularProgress>
                 <div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Day {dayDisplay} of 28</div>
-                    <div className="text-sm font-medium text-navy-900 dark:text-white">Keep going!</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
+                      {dayDisplay > 0 ? `Day ${dayDisplay} of 28` : 'Starts Soon'}
+                    </div>
+                    <div className="text-sm font-medium text-navy-900 dark:text-white">
+                      {dayDisplay > 0 ? 'Keep going!' : 'Get ready!'}
+                    </div>
                 </div>
             </div>
             {/* Points Card */}
