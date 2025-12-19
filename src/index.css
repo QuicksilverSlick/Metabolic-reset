@@ -141,6 +141,14 @@
   }
 }
 
+/* react-d3-tree connector line styles */
+.rd3t-link {
+  stroke: #f5c542 !important;
+  stroke-width: 3px !important;
+  stroke-opacity: 0.9 !important;
+  fill: none !important;
+}
+
 /* Custom animations */
 @layer utilities {
   /* Hide scrollbar but keep functionality */
