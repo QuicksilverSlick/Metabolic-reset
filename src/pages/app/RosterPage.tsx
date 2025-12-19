@@ -261,25 +261,42 @@ export function RosterPage() {
 
       {/* Tabs for Leads, Recruits, and Genealogy */}
       <Tabs defaultValue="leads" className="space-y-6">
-        <TabsList className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800 transition-colors">
-          <TabsTrigger value="leads" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-            <Target className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Quiz Leads</span>
-            <span className="sm:hidden">Leads</span>
-            <span className="ml-1">({leadCount})</span>
-          </TabsTrigger>
-          <TabsTrigger value="recruits" className="data-[state=active]:bg-gold-500 data-[state=active]:text-navy-900">
-            <Users className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Team Recruits</span>
-            <span className="sm:hidden">Team</span>
-            <span className="ml-1">({recruitCount})</span>
-          </TabsTrigger>
-          <TabsTrigger value="genealogy" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            <GitBranch className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Genealogy</span>
-            <span className="sm:hidden">Tree</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Mobile Scrollable Tab Container */}
+        <div className="relative">
+          {/* Scroll fade indicator - left */}
+          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-slate-100 dark:from-navy-900 to-transparent z-10 pointer-events-none md:hidden" />
+          {/* Scroll fade indicator - right */}
+          <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-slate-100 dark:from-navy-900 to-transparent z-10 pointer-events-none md:hidden" />
+
+          <div
+            className="overflow-x-auto scrollbar-hide snap-x snap-mandatory touch-pan-x"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}
+          >
+            <TabsList className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800 transition-colors inline-flex w-auto min-w-full md:w-auto">
+              <TabsTrigger value="leads" className="flex-shrink-0 snap-start data-[state=active]:bg-blue-500 data-[state=active]:text-white whitespace-nowrap">
+                <Target className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Quiz Leads</span>
+                <span className="sm:hidden">Leads</span>
+                <span className="ml-1">({leadCount})</span>
+              </TabsTrigger>
+              <TabsTrigger value="recruits" className="flex-shrink-0 snap-start data-[state=active]:bg-gold-500 data-[state=active]:text-navy-900 whitespace-nowrap">
+                <Users className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Team Recruits</span>
+                <span className="sm:hidden">Team</span>
+                <span className="ml-1">({recruitCount})</span>
+              </TabsTrigger>
+              <TabsTrigger value="genealogy" className="flex-shrink-0 snap-start data-[state=active]:bg-green-500 data-[state=active]:text-white whitespace-nowrap">
+                <GitBranch className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Genealogy</span>
+                <span className="sm:hidden">Tree</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
         {/* Leads Tab */}
         <TabsContent value="leads">
