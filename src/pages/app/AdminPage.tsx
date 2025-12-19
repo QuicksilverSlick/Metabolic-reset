@@ -849,84 +849,98 @@ export function AdminPage() {
         </Card>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-slate-200 dark:border-navy-700">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'users'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
+      {/* Tab Navigation - Mobile Scrollable */}
+      <div className="relative border-b border-slate-200 dark:border-navy-700">
+        {/* Scroll fade indicator - left */}
+        <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-white dark:from-navy-900 to-transparent z-10 pointer-events-none md:hidden" />
+        {/* Scroll fade indicator - right */}
+        <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-white dark:from-navy-900 to-transparent z-10 pointer-events-none md:hidden" />
+
+        <div
+          className="flex gap-1 overflow-x-auto scrollbar-hide px-1 -mx-1 snap-x snap-mandatory touch-pan-x"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
         >
-          <Users className="h-4 w-4 inline mr-2" />
-          Users
-        </button>
-        <button
-          onClick={() => setActiveTab('projects')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'projects'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <FolderKanban className="h-4 w-4 inline mr-2" />
-          Reset Projects
-        </button>
-        <button
-          onClick={() => setActiveTab('bugs')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'bugs'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Bug className="h-4 w-4 inline mr-2" />
-          Bug Reports
-          {stats.openBugs > 0 && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
-              {stats.openBugs}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('genealogy')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'genealogy'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <GitBranch className="h-4 w-4 inline mr-2" />
-          Genealogy
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'settings'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Settings className="h-4 w-4 inline mr-2" />
-          Settings
-        </button>
-        <button
-          onClick={() => setActiveTab('deleted')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'deleted'
-              ? 'border-gold-500 text-gold-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Trash2 className="h-4 w-4 inline mr-2" />
-          Deleted
-          {stats.deletedUsers > 0 && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
-              {stats.deletedUsers}
-            </span>
-          )}
-        </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Users className="h-4 w-4 inline mr-1.5" />
+            Users
+          </button>
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'projects'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <FolderKanban className="h-4 w-4 inline mr-1.5" />
+            Projects
+          </button>
+          <button
+            onClick={() => setActiveTab('bugs')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'bugs'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Bug className="h-4 w-4 inline mr-1.5" />
+            Bugs
+            {stats.openBugs > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 rounded-full">
+                {stats.openBugs}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('genealogy')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'genealogy'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <GitBranch className="h-4 w-4 inline mr-1.5" />
+            Genealogy
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'settings'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Settings className="h-4 w-4 inline mr-1.5" />
+            Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('deleted')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'deleted'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Trash2 className="h-4 w-4 inline mr-1.5" />
+            Deleted
+            {stats.deletedUsers > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 rounded-full">
+                {stats.deletedUsers}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Users Tab */}
