@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { useUser, useUpdateProfile } from '@/hooks/use-queries';
+import { useUser, useUpdateProfile, useOpenProjects, useMyActiveEnrollment } from '@/hooks/use-queries';
 import { useAuthStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, Link } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadApi } from '@/lib/api';
 
@@ -15,8 +16,12 @@ export function ProfilePage() {
   const logout = useAuthStore(s => s.logout);
   const userId = useAuthStore(s => s.userId);
   const updateProfile = useUpdateProfile();
+  const { data: openProjects } = useOpenProjects();
+  const { data: activeEnrollment } = useMyActiveEnrollment();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Get user initials for avatar fallback
   const getInitials = (name: string) => {
@@ -81,9 +86,39 @@ export function ProfilePage() {
     );
   }
   if (!user) return null;
-  const copyReferralCode = () => {
-    navigator.clipboard.writeText(user.referralCode);
-    toast.success('Referral code copied to clipboard!');
+
+  // Generate quiz link with referral code and optional project
+  const generateQuizLink = (projectId?: string | null) => {
+    if (!user?.referralCode) return '';
+    const params = new URLSearchParams();
+    params.set('ref', user.referralCode);
+    if (projectId) {
+      params.set('project', projectId);
+    }
+    return `${window.location.origin}/quiz?${params.toString()}`;
+  };
+
+  const copyQuizLink = (projectId?: string | null) => {
+    if (!user?.referralCode) return;
+    const link = generateQuizLink(projectId);
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    toast.success('Quiz link copied to clipboard!');
+    setProjectSelectorOpen(false);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  // Quick copy: use active enrollment project or show selector
+  const handleQuickCopy = () => {
+    if (activeEnrollment?.projectId) {
+      copyQuizLink(activeEnrollment.projectId);
+    } else if (openProjects && openProjects.length === 1) {
+      copyQuizLink(openProjects[0].id);
+    } else if (openProjects && openProjects.length > 1) {
+      setProjectSelectorOpen(true);
+    } else {
+      copyQuizLink(null);
+    }
   };
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -213,16 +248,17 @@ export function ProfilePage() {
                 <div className="font-bold text-navy-900 dark:text-white">{user.points}</div>
               </div>
             </div>
+            {/* Quiz Link Section */}
             <div className="pt-4 border-t border-slate-100 dark:border-navy-800">
-              <Label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Referral Code</Label>
-              <div className="mt-1 flex gap-2">
-                <div className="flex-1 bg-slate-100 dark:bg-navy-950 rounded px-3 py-2 font-mono font-bold text-center text-navy-900 dark:text-white border border-slate-200 dark:border-navy-800">
-                  {user.referralCode}
-                </div>
-                <Button variant="outline" size="icon" onClick={copyReferralCode} className="border-slate-200 dark:border-navy-700 dark:text-slate-300 dark:hover:bg-navy-800">
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
+              <Label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quiz Link</Label>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-2">Share this link to capture leads</p>
+              <Button
+                onClick={handleQuickCopy}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
+              >
+                {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Link className="h-4 w-4 mr-2" />}
+                {copiedLink ? 'Copied!' : 'Copy Quiz Link'}
+              </Button>
             </div>
           </CardContent>
           <CardFooter>
@@ -233,6 +269,59 @@ export function ProfilePage() {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Project Selector Dialog */}
+      <Dialog open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-700">
+          <DialogHeader>
+            <DialogTitle className="text-navy-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-gold-500" />
+              Select a Project
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
+              Choose which project you want to refer leads to. They'll complete the metabolic quiz and can join your selected project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {openProjects?.map((proj) => (
+              <button
+                key={proj.id}
+                onClick={() => copyQuizLink(proj.id)}
+                className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-800 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:bg-slate-100 dark:hover:bg-navy-800/80 transition-all text-left group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-navy-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {proj.name}
+                    </div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      Starts {new Date(proj.startDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <Copy className="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" />
+                </div>
+              </button>
+            ))}
+            {/* Option to copy without project */}
+            <button
+              onClick={() => copyQuizLink(null)}
+              className="w-full p-4 rounded-xl border-2 border-dashed border-slate-200 dark:border-navy-700 bg-slate-50/50 dark:bg-navy-900/50 hover:border-blue-500/30 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                    General Referral Link
+                  </div>
+                  <div className="text-sm text-slate-400 dark:text-slate-500">
+                    Let them choose their project later
+                  </div>
+                </div>
+                <Copy className="h-5 w-5 text-slate-400 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

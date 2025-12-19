@@ -97,6 +97,8 @@ export const otpApi = {
 export const scoreApi = {
   getDailyScore: (userId: string, date: string) =>
     api<DailyScore | null>(`/api/scores?date=${date}`, { headers: { 'X-User-ID': userId } }),
+  getScoreHistory: (userId: string, limit?: number) =>
+    api<DailyScore[]>(`/api/scores/history${limit ? `?limit=${limit}` : ''}`, { headers: { 'X-User-ID': userId } }),
   submitScore: (userId: string, data: ScoreSubmitRequest) =>
     api<DailyScore>('/api/scores', {
       method: 'POST',
@@ -107,6 +109,10 @@ export const scoreApi = {
 export const biometricApi = {
   getBiometrics: (userId: string, weekNumber: number) =>
     api<WeeklyBiometric | null>(`/api/biometrics/${weekNumber}`, {
+      headers: { 'X-User-ID': userId }
+    }),
+  getBiometricsHistory: (userId: string) =>
+    api<WeeklyBiometric[]>('/api/biometrics/history', {
       headers: { 'X-User-ID': userId }
     }),
   submitBiometrics: (userId: string, data: BiometricSubmitRequest) =>

@@ -1,31 +1,85 @@
 import React, { useState } from 'react';
-import { useTeamRoster, useUser, useCaptainLeads, useTeamMemberBiometrics } from '@/hooks/use-queries';
+import { useTeamRoster, useUser, useCaptainLeads, useTeamMemberBiometrics, useOpenProjects, useMyActiveEnrollment } from '@/hooks/use-queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Users, AlertCircle, Trophy, CheckCircle2, Star, Target, Phone, Calendar, Activity, Copy, Check, Link, ChevronRight, Scale, Heart, X, TrendingDown, TrendingUp, Image } from 'lucide-react';
+import { Loader2, Users, AlertCircle, Trophy, CheckCircle2, Star, Target, Phone, Calendar, Activity, Copy, Check, Link, ChevronRight, Scale, Heart, X, TrendingDown, TrendingUp, Image, Sparkles, Brain, Moon, Clock, Flame, Dumbbell, Zap, ThermometerSun } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import type { QuizLead } from '@shared/types';
+// Quiz questions for displaying answers
+const quizQuestions: Record<string, { question: string; category: string; icon: React.ComponentType<{ className?: string }> }> = {
+  f1: { question: 'How would you describe your menstrual cycle regularity and associated symptoms?', category: 'Hormonal Balance', icon: Heart },
+  f2: { question: 'Where do you tend to store excess weight?', category: 'Body Composition', icon: Scale },
+  f3: { question: 'Do you experience hot flashes, night sweats, or difficulty regulating body temperature?', category: 'Metabolic Symptoms', icon: ThermometerSun },
+  m1: { question: 'How would you describe your muscle recovery and strength maintenance?', category: 'Hormonal Health', icon: Dumbbell },
+  m2: { question: 'Where do you tend to accumulate stubborn fat?', category: 'Body Composition', icon: Scale },
+  m3: { question: 'How would you rate your overall energy, motivation, and drive throughout the day?', category: 'Energy & Drive', icon: Zap },
+  u4: { question: 'How often do you experience energy crashes or brain fog between 2-4 PM?', category: 'Energy & Glucose', icon: Zap },
+  u5: { question: 'How do you feel when you wake up in the morning?', category: 'Sleep & Recovery', icon: Moon },
+  u6: { question: 'Can you comfortably go 4-5 hours between meals without feeling shaky, irritable, or "hangry"?', category: 'Hunger & Satiety', icon: Clock },
+  u7: { question: 'How often do you experience strong cravings for sugar, carbs, or processed foods?', category: 'Cravings', icon: Flame },
+  u8: { question: 'Do you track your body composition metrics (body fat %, visceral fat, lean mass)?', category: 'Visceral Fat Awareness', icon: Activity },
+  u9: { question: 'How soon after waking do you consume 25-30g of protein?', category: 'Protein Timing', icon: Dumbbell },
+  u10: { question: 'How would you describe your stress levels and their impact on your weight?', category: 'Stress & Cortisol', icon: Brain },
+};
+
+// Get score label and color based on points
+const getScoreLabel = (points: number): { label: string; color: string } => {
+  if (points === 10) return { label: 'Optimal', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' };
+  if (points === 7) return { label: 'Good', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' };
+  if (points === 4) return { label: 'Fair', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' };
+  return { label: 'Needs Work', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' };
+};
+
 export function RosterPage() {
   const { data: user, isLoading: userLoading } = useUser();
   const { data: roster, isLoading: rosterLoading } = useTeamRoster();
   const { data: leads, isLoading: leadsLoading } = useCaptainLeads();
+  const { data: openProjects } = useOpenProjects();
+  const { data: activeEnrollment } = useMyActiveEnrollment();
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedRecruitId, setSelectedRecruitId] = useState<string | null>(null);
   const [selectedScreenshot, setSelectedScreenshot] = useState<{ url: string; label: string } | null>(null);
+  const [selectedLead, setSelectedLead] = useState<QuizLead | null>(null);
+  const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const { data: biometricsData, isLoading: biometricsLoading } = useTeamMemberBiometrics(selectedRecruitId);
 
-  const copyQuizLink = () => {
-    if (user?.referralCode) {
-      const quizUrl = `${window.location.origin}/quiz?ref=${user.referralCode}`;
-      navigator.clipboard.writeText(quizUrl);
-      setCopiedLink(true);
-      toast.success('Quiz link copied to clipboard!');
-      setTimeout(() => setCopiedLink(false), 2000);
+  // Generate quiz link with referral code and optional project
+  const generateQuizLink = (projectId?: string | null) => {
+    if (!user?.referralCode) return '';
+    const params = new URLSearchParams();
+    params.set('ref', user.referralCode);
+    if (projectId) {
+      params.set('project', projectId);
+    }
+    return `${window.location.origin}/quiz?${params.toString()}`;
+  };
+
+  const copyQuizLink = (projectId?: string | null) => {
+    if (!user?.referralCode) return;
+    const link = generateQuizLink(projectId);
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    toast.success('Quiz link copied to clipboard!');
+    setProjectSelectorOpen(false);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  // Quick copy: use active enrollment project or show selector
+  const handleQuickCopy = () => {
+    if (activeEnrollment?.projectId) {
+      copyQuizLink(activeEnrollment.projectId);
+    } else if (openProjects && openProjects.length === 1) {
+      copyQuizLink(openProjects[0].id);
+    } else if (openProjects && openProjects.length > 1) {
+      setProjectSelectorOpen(true);
+    } else {
+      copyQuizLink(null);
     }
   };
 
@@ -134,10 +188,10 @@ export function RosterPage() {
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <code className="flex-1 bg-navy-900 dark:bg-navy-950 text-slate-300 px-4 py-2 rounded-lg text-sm font-mono overflow-hidden overflow-ellipsis max-w-full">
-                  {window.location.origin}/quiz?ref={user.referralCode}
+                  {generateQuizLink(activeEnrollment?.projectId || openProjects?.[0]?.id)}
                 </code>
                 <Button
-                  onClick={copyQuizLink}
+                  onClick={handleQuickCopy}
                   className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
                 >
                   {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
@@ -148,6 +202,59 @@ export function RosterPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Project Selector Dialog */}
+      <Dialog open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-700">
+          <DialogHeader>
+            <DialogTitle className="text-navy-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-gold-500" />
+              Select a Project
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
+              Choose which project you want to refer leads to. They'll complete the metabolic quiz and can join your selected project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {openProjects?.map((proj) => (
+              <button
+                key={proj.id}
+                onClick={() => copyQuizLink(proj.id)}
+                className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-800 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:bg-slate-100 dark:hover:bg-navy-800/80 transition-all text-left group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-navy-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {proj.name}
+                    </div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                      Starts {new Date(proj.startDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <Copy className="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" />
+                </div>
+              </button>
+            ))}
+            {/* Option to copy without project */}
+            <button
+              onClick={() => copyQuizLink(null)}
+              className="w-full p-4 rounded-xl border-2 border-dashed border-slate-200 dark:border-navy-700 bg-slate-50/50 dark:bg-navy-900/50 hover:border-blue-500/30 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                    General Referral Link
+                  </div>
+                  <div className="text-sm text-slate-400 dark:text-slate-500">
+                    Let them choose their project later
+                  </div>
+                </div>
+                <Copy className="h-5 w-5 text-slate-400 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Tabs for Leads and Recruits */}
       <Tabs defaultValue="leads" className="space-y-6">
@@ -199,6 +306,7 @@ export function RosterPage() {
                             <a
                               href={`tel:${lead.phone}`}
                               className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <Phone className="h-3 w-3" />
                               {lead.phone}
@@ -210,7 +318,7 @@ export function RosterPage() {
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900 shrink-0 ml-2'
                               : 'text-slate-600 dark:text-slate-400 border-slate-200 dark:border-navy-700 shrink-0 ml-2'}
                           >
-                            {lead.convertedToUserId ? 'Converted' : 'Pending'}
+                            {lead.convertedToUserId ? 'Enrolled' : 'Pending'}
                           </Badge>
                         </div>
                         <div className="grid grid-cols-3 gap-3 mb-3">
@@ -240,10 +348,20 @@ export function RosterPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1 pt-2 border-t border-slate-100 dark:border-navy-700">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1 pt-2 border-t border-slate-100 dark:border-navy-700 mb-3">
                           <Calendar className="h-3 w-3" />
                           Captured {new Date(lead.capturedAt).toLocaleDateString()}
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLead(lead)}
+                          className="w-full text-blue-500 border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        >
+                          <Activity className="h-4 w-4 mr-2" />
+                          View Quiz Answers
+                          <ChevronRight className="h-4 w-4 ml-auto" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -259,7 +377,8 @@ export function RosterPage() {
                           <TableHead className="text-slate-500 dark:text-slate-400">Metabolic Age</TableHead>
                           <TableHead className="text-slate-500 dark:text-slate-400">Quiz Score</TableHead>
                           <TableHead className="text-slate-500 dark:text-slate-400">Status</TableHead>
-                          <TableHead className="text-right text-slate-500 dark:text-slate-400">Captured</TableHead>
+                          <TableHead className="text-slate-500 dark:text-slate-400">Captured</TableHead>
+                          <TableHead className="text-right text-slate-500 dark:text-slate-400">Answers</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -299,11 +418,23 @@ export function RosterPage() {
                                   ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900'
                                   : 'text-slate-600 dark:text-slate-400 border-slate-200 dark:border-navy-700'}
                               >
-                                {lead.convertedToUserId ? 'Converted' : 'Pending'}
+                                {lead.convertedToUserId ? 'Enrolled' : 'Pending'}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right text-slate-500 dark:text-slate-400">
+                            <TableCell className="text-slate-500 dark:text-slate-400">
                               {new Date(lead.capturedAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedLead(lead)}
+                                className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              >
+                                <Activity className="h-4 w-4 mr-1" />
+                                View
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -776,6 +907,148 @@ export function RosterPage() {
                 alt={`${selectedScreenshot.label} weigh-in screenshot`}
                 className="max-w-full max-h-full object-contain rounded-lg"
               />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quiz Answers Detail Dialog - Full Screen */}
+      <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
+        <DialogContent className="w-screen h-screen max-w-none max-h-none m-0 p-0 rounded-none bg-white dark:bg-navy-900 flex flex-col transition-colors">
+          {/* Fixed Header */}
+          <div className="sticky top-0 z-10 bg-white dark:bg-navy-900 border-b border-slate-200 dark:border-navy-800 px-4 py-4 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                  <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg sm:text-xl font-bold text-navy-900 dark:text-white">
+                    {selectedLead?.name}'s Quiz Results
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+                    Metabolic age quiz answers and scores
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedLead(null)}
+                className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-navy-800 animate-pulse-subtle ring-2 ring-slate-200 dark:ring-navy-700 ring-offset-2 ring-offset-white dark:ring-offset-navy-900 transition-all hover:ring-blue-400 dark:hover:ring-blue-500 hover:animate-none"
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            {selectedLead && (
+              <div className="space-y-6 max-w-4xl mx-auto">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Actual Age</div>
+                    <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{selectedLead.age}</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">years</div>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Metabolic Age</div>
+                    <div className={`text-xl sm:text-2xl font-bold ${
+                      selectedLead.metabolicAge - selectedLead.age >= 10 ? 'text-red-600 dark:text-red-400' :
+                      selectedLead.metabolicAge - selectedLead.age >= 5 ? 'text-orange-600 dark:text-orange-400' :
+                      'text-green-600 dark:text-green-400'
+                    }`}>{selectedLead.metabolicAge}</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">+{selectedLead.metabolicAge - selectedLead.age} years</div>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Quiz Score</div>
+                    <div className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white">{selectedLead.quizScore}/50</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">{Math.round((selectedLead.quizScore / 50) * 100)}%</div>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Status</div>
+                    <Badge
+                      className={`mt-1 ${selectedLead.convertedToUserId
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900'
+                        : 'bg-slate-100 dark:bg-navy-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-navy-600'}`}
+                    >
+                      {selectedLead.convertedToUserId ? 'Enrolled' : 'Pending'}
+                    </Badge>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">{selectedLead.sex}</div>
+                  </div>
+                </div>
+
+                {/* Result Type Badge */}
+                <div className="flex items-center gap-3">
+                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Result Type:</div>
+                  <Badge className={`capitalize ${
+                    selectedLead.resultType === 'fatigue' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                    selectedLead.resultType === 'instability' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' :
+                    selectedLead.resultType === 'plateau' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                    'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  }`}>
+                    {selectedLead.resultType === 'fatigue' ? 'Metabolic Fatigue' :
+                     selectedLead.resultType === 'instability' ? 'Glucose Instability' :
+                     selectedLead.resultType === 'plateau' ? 'Cortisol Plateau' : 'Optimized'}
+                  </Badge>
+                </div>
+
+                {/* Quiz Answers */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Quiz Answers</h3>
+                  <div className="space-y-3">
+                    {Object.entries(selectedLead.quizAnswers || {}).map(([questionId, points]) => {
+                      const questionData = quizQuestions[questionId];
+                      if (!questionData) return null;
+                      const scoreInfo = getScoreLabel(points as number);
+                      const Icon = questionData.icon;
+                      return (
+                        <div key={questionId} className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-navy-700 flex items-center justify-center shrink-0">
+                              <Icon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase">{questionData.category}</span>
+                                <Badge className={scoreInfo.color}>
+                                  {points}/10 - {scoreInfo.label}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-navy-900 dark:text-white">
+                                {questionData.question}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Contact</div>
+                      <a href={`tel:${selectedLead.phone}`} className="flex items-center gap-2 text-blue-500 hover:text-blue-600">
+                        <Phone className="h-4 w-4" />
+                        {selectedLead.phone}
+                      </a>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Captured</div>
+                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(selectedLead.capturedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </DialogContent>

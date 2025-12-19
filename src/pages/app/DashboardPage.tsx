@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
   Droplets,
@@ -17,13 +17,20 @@ import {
   Trophy,
   Sparkles,
   ExternalLink,
-  Check
+  Check,
+  History,
+  Image,
+  Calendar,
+  Award,
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
-import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek, useOpenProjects } from '@/hooks/use-queries';
+import { useUser, useDailyScore, useSubmitScore, useTeamRoster, useMyActiveEnrollment, useProject, useProjectWeek, useOpenProjects, useBiometricsHistory, useScoreHistory } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { getChallengeProgress, getTodayInTimezone } from '@/lib/utils';
@@ -57,9 +64,29 @@ export function DashboardPage() {
   // Fetch open projects for referral link selector
   const { data: openProjects } = useOpenProjects();
 
+  // Fetch activity history
+  const { data: biometricsHistory } = useBiometricsHistory();
+  const { data: scoreHistory } = useScoreHistory(14); // Last 14 days
+
   // State for referral project selector dialog
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [selectedReferralProject, setSelectedReferralProject] = useState<string | null>(null);
+
+  // State for activity history
+  const [selectedBiometric, setSelectedBiometric] = useState<{
+    id: string;
+    weekNumber: number;
+    weight: number;
+    bodyFat: number;
+    visceralFat: number;
+    leanMass: number;
+    metabolicAge: number;
+    screenshotUrl: string;
+    pointsAwarded: number;
+    submittedAt: number;
+    cohortId?: string | null;
+  } | null>(null);
+  const [showAllScores, setShowAllScores] = useState(false);
 
   // Refs for habit card elements to trigger confetti from their position
   const habitRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -453,34 +480,38 @@ export function DashboardPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleToggle(habit.id)}
                 disabled={submitScore.isPending}
-                className={`relative p-6 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-40 overflow-hidden ${
+                className={`relative p-6 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between h-40 ${
                   isDone
-                    ? 'bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-500 dark:to-gold-600 border-gold-400 dark:border-gold-300 shadow-lg ring-2 ring-gold-400/50 dark:ring-gold-400/30'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-gold-300 dark:hover:border-gold-500/50 hover:shadow-md'
+                    ? 'bg-gold-500/20 dark:bg-gold-500/15 backdrop-blur-xl border-gold-400/50 dark:border-gold-500/40'
+                    : 'bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-700 hover:border-gold-300 dark:hover:border-gold-500/50 hover:shadow-md'
                 }`}
               >
-                {/* Subtle shimmer effect on completed cards */}
-                {isDone && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold-200/30 dark:via-white/15 to-transparent animate-shimmer pointer-events-none z-0" />
-                )}
-                {/* Icon circle - positioned above shimmer */}
-                <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDone ? 'bg-gold-500 dark:bg-white/90 shadow-sm' : habit.bg}`}>
-                  <Icon className={`h-5 w-5 transition-colors ${isDone ? 'text-white dark:text-gold-600' : habit.color}`} />
+                {/* Icon circle */}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                  isDone
+                    ? 'bg-gold-500/25 dark:bg-gold-500/30 backdrop-blur-sm'
+                    : habit.bg
+                }`}>
+                  <Icon className={`h-5 w-5 transition-colors ${
+                    isDone
+                      ? 'text-gold-500 dark:text-gold-400'
+                      : `${habit.color} opacity-90`
+                  }`} />
                 </div>
-                {/* Text content - positioned above shimmer */}
-                <div className="relative z-10">
-                  <div className={`font-bold text-lg transition-colors ${isDone ? 'text-gold-700 dark:text-white dark:drop-shadow-sm' : 'text-navy-900 dark:text-white'}`}>
+                {/* Text content */}
+                <div>
+                  <div className={`font-bold text-lg transition-colors ${isDone ? 'text-navy-900 dark:text-white' : 'text-navy-900 dark:text-white'}`}>
                     {habit.label}
                   </div>
-                  <div className={`text-sm mt-1 font-medium transition-colors ${isDone ? 'text-gold-600 dark:text-white/90' : 'text-slate-500 dark:text-slate-400'}`}>
+                  <div className={`text-sm mt-1 font-medium transition-colors ${isDone ? 'text-gold-600 dark:text-gold-400' : 'text-slate-500 dark:text-slate-400'}`}>
                     {isDone ? '✓ Completed' : '+1 Point'}
                   </div>
                 </div>
-                {/* Checkmark badge - positioned above shimmer */}
+                {/* Checkmark badge */}
                 {isDone && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <div className="w-7 h-7 bg-gold-500 dark:bg-white rounded-full flex items-center justify-center shadow-md">
-                      <svg className="w-4 h-4 text-white dark:text-gold-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="absolute top-4 right-4">
+                    <div className="w-7 h-7 bg-gold-500/80 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -491,6 +522,255 @@ export function DashboardPage() {
           })}
         </div>
       </div>
+
+      {/* Activity History Section */}
+      {((biometricsHistory && biometricsHistory.length > 0) || (scoreHistory && scoreHistory.length > 0)) && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <History className="h-6 w-6 text-gold-500" />
+            <h2 className="text-xl font-display font-bold text-navy-900 dark:text-white">Activity History</h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Biometric Submissions History */}
+            {biometricsHistory && biometricsHistory.length > 0 && (
+              <Card className="border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)]">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-navy-900 dark:text-white text-lg">
+                    <Scale className="h-5 w-5 text-gold-500" />
+                    Biometric Submissions
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-slate-400">
+                    Your weekly weigh-in history
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {biometricsHistory.map((bio) => (
+                    <motion.button
+                      key={bio.id}
+                      onClick={() => setSelectedBiometric(bio)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="w-full p-4 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-800 hover:border-gold-300 dark:hover:border-gold-500/50 hover:bg-slate-100 dark:hover:bg-navy-700 transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-gold-100 dark:bg-gold-900/30 flex items-center justify-center">
+                            <Image className="h-5 w-5 text-gold-600 dark:text-gold-400" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-navy-900 dark:text-white">
+                              Week {bio.weekNumber} {bio.weekNumber === 0 ? '(Initial)' : ''}
+                            </div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(bio.submittedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="font-bold text-gold-500">+{bio.pointsAwarded}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">points</div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-gold-500 transition-colors" />
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Daily Habits History */}
+            {scoreHistory && scoreHistory.length > 0 && (
+              <Card className="border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)]">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-navy-900 dark:text-white text-lg">
+                    <Award className="h-5 w-5 text-gold-500" />
+                    Daily Habits Log
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-slate-400">
+                    Your recent daily habit completions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {(showAllScores ? scoreHistory : scoreHistory.slice(0, 5)).map((score) => {
+                    const completedCount = Object.values(score.habits).filter(Boolean).length;
+                    const allComplete = completedCount === 4;
+                    return (
+                      <div
+                        key={score.id}
+                        className={`p-3 rounded-xl border transition-all ${
+                          allComplete
+                            ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                            : 'border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                              allComplete
+                                ? 'bg-green-500 dark:bg-green-600'
+                                : 'bg-slate-200 dark:bg-navy-700'
+                            }`}>
+                              {allComplete ? (
+                                <Check className="h-4 w-4 text-white" />
+                              ) : (
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{completedCount}/4</span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-navy-900 dark:text-white">
+                                {new Date(score.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {score.habits.water && <Droplets className="h-3 w-3 text-blue-500" />}
+                                {score.habits.steps && <Footprints className="h-3 w-3 text-gold-500" />}
+                                {score.habits.sleep && <Moon className="h-3 w-3 text-indigo-500" />}
+                                {score.habits.lesson && <PlayCircle className="h-3 w-3 text-green-500" />}
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`font-bold ${score.totalPoints > 0 ? 'text-gold-500' : 'text-slate-400'}`}>
+                            +{score.totalPoints}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {scoreHistory.length > 5 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllScores(!showAllScores)}
+                      className="w-full mt-2 text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+                    >
+                      {showAllScores ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                          Show All ({scoreHistory.length} days)
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Biometric Detail Modal */}
+      <AnimatePresence>
+        {selectedBiometric && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setSelectedBiometric(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-navy-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-white dark:bg-navy-900 border-b border-slate-200 dark:border-navy-700 p-4 flex items-center justify-between z-10">
+                <div>
+                  <h3 className="text-xl font-bold text-navy-900 dark:text-white">
+                    Week {selectedBiometric.weekNumber} Biometrics
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Submitted {new Date(selectedBiometric.submittedAt).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedBiometric(null)}
+                  className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-navy-800 transition-colors"
+                >
+                  <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Points Badge */}
+                <div className="flex items-center justify-center">
+                  <div className="bg-gold-100 dark:bg-gold-900/30 px-6 py-3 rounded-full flex items-center gap-2">
+                    <Award className="h-5 w-5 text-gold-600 dark:text-gold-400" />
+                    <span className="text-lg font-bold text-gold-600 dark:text-gold-400">
+                      +{selectedBiometric.pointsAwarded} Points Earned
+                    </span>
+                  </div>
+                </div>
+
+                {/* Measurements Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-navy-800 text-center">
+                    <div className="text-2xl font-bold text-navy-900 dark:text-white">{selectedBiometric.weight}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Weight (lbs)</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-navy-800 text-center">
+                    <div className="text-2xl font-bold text-navy-900 dark:text-white">{selectedBiometric.bodyFat}%</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Body Fat</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-navy-800 text-center">
+                    <div className="text-2xl font-bold text-navy-900 dark:text-white">{selectedBiometric.visceralFat}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Visceral Fat</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-navy-800 text-center">
+                    <div className="text-2xl font-bold text-navy-900 dark:text-white">{selectedBiometric.leanMass}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Lean Mass (lbs)</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-navy-800 text-center col-span-2 sm:col-span-1">
+                    <div className="text-2xl font-bold text-navy-900 dark:text-white">{selectedBiometric.metabolicAge}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Metabolic Age</div>
+                  </div>
+                </div>
+
+                {/* Screenshot */}
+                {selectedBiometric.screenshotUrl && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-navy-900 dark:text-white uppercase tracking-wider">Proof Screenshot</h4>
+                    <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-navy-700">
+                      <img
+                        src={selectedBiometric.screenshotUrl}
+                        alt="Biometrics screenshot"
+                        className="w-full h-auto max-h-96 object-contain bg-slate-100 dark:bg-navy-800"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Cohort Badge */}
+                {selectedBiometric.cohortId && (
+                  <div className="flex items-center justify-center">
+                    <Badge variant="outline" className={`${
+                      selectedBiometric.cohortId === 'GROUP_A'
+                        ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                    }`}>
+                      {selectedBiometric.cohortId === 'GROUP_A' ? 'Protocol Group' : 'DIY Group'}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bug Report Button - Fixed position */}
       <BugReportDialog />

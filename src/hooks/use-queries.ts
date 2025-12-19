@@ -64,6 +64,7 @@ export function useSubmitScore() {
     onSuccess: (data) => {
       queryClient.setQueryData(['score', data.date, userId], data);
       queryClient.invalidateQueries({ queryKey: ['user'] }); // Points update
+      queryClient.invalidateQueries({ queryKey: ['scores', 'history'] }); // Update activity history
       toast.success('Progress saved!');
     },
     onError: (error) => {
@@ -78,6 +79,28 @@ export function useWeeklyBiometrics(weekNumber: number) {
     queryKey: ['biometrics', weekNumber, userId],
     queryFn: () => userId ? biometricApi.getBiometrics(userId, weekNumber) : null,
     enabled: !!userId && weekNumber > 0,
+  });
+}
+
+// Get all biometrics history for the current user
+export function useBiometricsHistory() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['biometrics', 'history', userId],
+    queryFn: () => userId ? biometricApi.getBiometricsHistory(userId) : [],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Get daily score history for the current user
+export function useScoreHistory(limit?: number) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['scores', 'history', userId, limit],
+    queryFn: () => userId ? scoreApi.getScoreHistory(userId, limit) : [],
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes - scores change more frequently
   });
 }
 

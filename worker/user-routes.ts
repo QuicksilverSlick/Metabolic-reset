@@ -382,6 +382,37 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
   // --- Biometrics ---
+  // Get all biometrics history for the current user
+  // IMPORTANT: This route MUST be defined before /:weekNumber to avoid matching 'history' as a week number
+  app.get('/api/biometrics/history', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      // Fetch biometrics for weeks 0-5 (initial + 4 weeks + buffer)
+      const biometrics = [];
+      for (let week = 0; week <= 5; week++) {
+        const biometricId = `${userId}:week${week}`;
+        const bioEntity = new WeeklyBiometricEntity(c.env, biometricId);
+        // Only include records that actually exist (were submitted)
+        if (await bioEntity.exists()) {
+          const data = await bioEntity.getState();
+          // Double-check: only include if submittedAt is valid (not 0/epoch)
+          if (data.submittedAt > 0) {
+            biometrics.push(data);
+          }
+        }
+      }
+
+      // Sort by submittedAt descending (most recent first)
+      biometrics.sort((a, b) => b.submittedAt - a.submittedAt);
+
+      return ok(c, biometrics);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // Get biometrics for a specific week (to check if already submitted)
   app.get('/api/biometrics/:weekNumber', async (c) => {
     try {
@@ -425,6 +456,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       // Save Biometric Data
+      // Preserve existing pointsAwarded on update, only set 25 for new submissions
       await bioEntity.save({
         id: biometricId,
         projectId: projectId || existing.projectId || '',
@@ -436,7 +468,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         leanMass: Number(leanMass),
         metabolicAge: Number(metabolicAge),
         screenshotUrl,
-        pointsAwarded: isNewSubmission ? 25 : 0,
+        pointsAwarded: isNewSubmission ? 25 : existing.pointsAwarded,
         submittedAt: Date.now(),
         cohortId // Snapshot of cohort at submission time
       });
@@ -459,6 +491,39 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return c.json({ error: e.message }, 500);
     }
   });
+
+  // Get recent daily scores history for the current user
+  app.get('/api/scores/history', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const limit = parseInt(c.req.query('limit') || '14'); // Default to 2 weeks
+
+      // Get recent dates (last N days)
+      const scores = [];
+      const today = new Date();
+
+      for (let i = 0; i < limit; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        const scoreId = `${userId}:${dateStr}`;
+        const scoreEntity = new DailyScoreEntity(c.env, scoreId);
+        const data = await scoreEntity.getState();
+
+        if (data.id && data.totalPoints > 0) {
+          scores.push(data);
+        }
+      }
+
+      return ok(c, scores);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // --- Roster Management ---
   app.get('/api/roster', async (c) => {
     try {
