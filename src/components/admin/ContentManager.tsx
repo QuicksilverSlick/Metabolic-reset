@@ -284,10 +284,10 @@ export function ContentManager() {
       return;
     }
 
-    // Validate file size
-    const maxSize = type === 'video' ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+    // Validate file size (95MB max for videos due to Cloudflare Workers limit)
+    const maxSize = type === 'video' ? 95 * 1024 * 1024 : 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error(`File too large. Maximum size is ${maxSize / 1024 / 1024}MB`);
+      toast.error(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB. For larger videos, consider using Cloudflare Stream.`);
       return;
     }
 
@@ -687,7 +687,7 @@ export function ContentManager() {
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Upload MP4, WebM, or MOV (max 500MB)</p>
+                  <p className="text-xs text-slate-500 mt-1">Upload MP4, WebM, or MOV (max 95MB). For larger videos, use Cloudflare Stream URL.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

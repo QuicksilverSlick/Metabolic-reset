@@ -872,10 +872,19 @@ export class EnrollmentProgressIndex extends Index<string> {
 }
 
 // Helper function to calculate current day based on enrollment date
-export function calculateCurrentDay(enrolledAt: number, projectStartDate: string): number {
+export function calculateCurrentDay(enrolledAt: number, projectStartDate: string, isAdmin: boolean = false): number {
   const projectStart = new Date(projectStartDate);
   const now = new Date();
   const enrollmentDate = new Date(enrolledAt);
+
+  // For admins testing before project starts, use days since enrollment
+  // This allows admins to preview content during setup
+  if (isAdmin && now < projectStart) {
+    const diffTime = now.getTime() - enrollmentDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    // Admins can see up to all 28 days for testing
+    return Math.max(1, Math.min(28, diffDays));
+  }
 
   // User's day 1 is the later of: project start or their enrollment date
   const userStartDate = enrollmentDate > projectStart ? enrollmentDate : projectStart;

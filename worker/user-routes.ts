@@ -2226,14 +2226,16 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       // Limit file size based on category
+      // NOTE: Cloudflare Workers have a 100MB request body limit
+      // For videos larger than 95MB, consider using Cloudflare Stream or external hosting
       let maxSize: number;
       if (uploadCategory === 'avatars') {
         maxSize = 5 * 1024 * 1024; // 5MB for avatars
       } else if (uploadCategory === 'content') {
-        // Course content: 500MB for videos, 50MB for other files
-        maxSize = contentType.startsWith('video/') ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
+        // Course content: 95MB for videos (under CF limit), 50MB for other files
+        maxSize = contentType.startsWith('video/') ? 95 * 1024 * 1024 : 50 * 1024 * 1024;
       } else {
-        maxSize = contentType.startsWith('video/') ? 100 * 1024 * 1024 : 50 * 1024 * 1024;
+        maxSize = contentType.startsWith('video/') ? 95 * 1024 * 1024 : 50 * 1024 * 1024;
       }
 
       if (fileSize > maxSize) {
@@ -3257,8 +3259,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const project = await projectEntity.getState();
       if (!project.id) return notFound(c, 'Project not found');
 
-      // Calculate current day
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+      // Calculate current day - admins can preview content before project starts
+      const isAdmin = user.isAdmin === true;
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin);
 
       // Get all content for project
       const content = await CourseContentEntity.findByProject(c.env, activeEnrollment.projectId);
@@ -3326,6 +3329,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Invalid day number');
       }
 
+      // Get user info to check admin status
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return c.json({ error: 'User not found' }, 404);
+      const isAdmin = user.isAdmin === true;
+
       // Get user's active enrollment
       const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
       const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
@@ -3339,8 +3348,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const project = await projectEntity.getState();
       if (!project.id) return notFound(c, 'Project not found');
 
-      // Check if day is unlocked
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+      // Check if day is unlocked - admins can preview content before project starts
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin);
       const isUnlocked = isContentUnlocked(dayNumber, currentDay);
 
       // Get content for this day
