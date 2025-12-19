@@ -551,65 +551,71 @@ export function GenealogyList({
     <div className={cn('', className)}>
       <div
         className={cn(
-          'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
+          'p-3 rounded-lg cursor-pointer transition-colors',
           'hover:bg-navy-700/50',
           depth === 0 && 'bg-navy-800 border border-navy-700'
         )}
-        style={{ marginLeft: depth * 24 }}
+        style={{ marginLeft: depth * 16 }}
         onClick={() => onNodeClick?.(data)}
       >
-        {hasChildren && depth < maxDepth ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="p-1 hover:bg-navy-600 rounded"
-          >
-            {expanded ? (
-              <ChevronDown className="h-4 w-4 text-slate-400" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            )}
-          </button>
-        ) : (
-          <div className="w-6" />
-        )}
+        {/* Main row with avatar, name, and points */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {hasChildren && depth < maxDepth ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(!expanded);
+              }}
+              className="p-1 hover:bg-navy-600 rounded flex-shrink-0"
+            >
+              {expanded ? (
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              )}
+            </button>
+          ) : (
+            <div className="w-6 flex-shrink-0" />
+          )}
 
-        <Avatar className="h-10 w-10 border-2 border-gold/30">
-          {data.avatarUrl ? (
-            <AvatarImage src={data.avatarUrl} alt={data.name} />
-          ) : null}
-          <AvatarFallback className="bg-navy-700 text-white text-sm">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+          <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-gold/30 flex-shrink-0">
+            {data.avatarUrl ? (
+              <AvatarImage src={data.avatarUrl} alt={data.name} />
+            ) : null}
+            <AvatarFallback className="bg-navy-700 text-white text-xs sm:text-sm">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-white truncate">{data.name}</span>
-            {isCoach && (
-              <Badge variant="outline" className="text-gold border-gold text-xs">
-                Coach
-              </Badge>
-            )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="font-medium text-white text-sm sm:text-base truncate max-w-[120px] sm:max-w-none">{data.name}</span>
+              {isCoach && (
+                <Badge variant="outline" className="text-gold border-gold text-[10px] sm:text-xs px-1.5 py-0">
+                  Coach
+                </Badge>
+              )}
+            </div>
+            <div className="text-[11px] sm:text-xs text-slate-400 truncate">
+              {data.referralCode}
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span>{data.referralCode}</span>
-            <span>•</span>
-            <span>{data.directReferrals} direct</span>
-            {data.totalDownline > 0 && (
-              <>
-                <span>•</span>
-                <span>{data.totalDownline} total</span>
-              </>
-            )}
+
+          <div className="text-right flex-shrink-0 ml-1">
+            <div className="text-gold font-semibold text-sm sm:text-base">{data.points}</div>
+            <div className="text-[10px] sm:text-xs text-slate-400">points</div>
           </div>
         </div>
 
-        <div className="text-right">
-          <div className="text-gold font-semibold">{data.points}</div>
-          <div className="text-xs text-slate-400">points</div>
+        {/* Stats row - shown below on mobile for better spacing */}
+        <div className="flex items-center gap-2 mt-1.5 ml-[52px] sm:ml-[60px] text-[11px] sm:text-xs text-slate-400">
+          <span>{data.directReferrals} direct</span>
+          {data.totalDownline > 0 && (
+            <>
+              <span className="text-slate-600">•</span>
+              <span>{data.totalDownline} total</span>
+            </>
+          )}
         </div>
       </div>
 
