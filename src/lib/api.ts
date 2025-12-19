@@ -25,7 +25,14 @@ import {
   CohortType,
   SystemSettings,
   GenealogyNode,
-  PointsLedger
+  PointsLedger,
+  CourseContent,
+  CreateCourseContentRequest,
+  UpdateCourseContentRequest,
+  UserProgress,
+  CourseOverview,
+  DayContentWithProgress,
+  QuizResultResponse
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -579,4 +586,107 @@ export const adminPointsApi = {
       body: JSON.stringify(updates),
       headers: { 'X-User-ID': adminUserId }
     }),
+};
+
+// Admin Course Content API - for managing LMS content
+export const adminContentApi = {
+  // Get all content for a project
+  getProjectContent: (adminUserId: string, projectId: string) =>
+    api<CourseContent[]>(`/api/admin/projects/${projectId}/content`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Get single content item
+  getContent: (adminUserId: string, contentId: string) =>
+    api<CourseContent>(`/api/admin/content/${contentId}`, { headers: { 'X-User-ID': adminUserId } }),
+
+  // Create new content
+  createContent: (adminUserId: string, data: CreateCourseContentRequest) =>
+    api<CourseContent>('/api/admin/content', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Update content
+  updateContent: (adminUserId: string, contentId: string, updates: UpdateCourseContentRequest) =>
+    api<CourseContent>(`/api/admin/content/${contentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Delete content
+  deleteContent: (adminUserId: string, contentId: string) =>
+    api<{ deleted: boolean }>(`/api/admin/content/${contentId}`, {
+      method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Reorder content within a day
+  reorderContent: (adminUserId: string, projectId: string, dayNumber: number, contentIds: string[]) =>
+    api<{ reordered: boolean }>(`/api/admin/projects/${projectId}/content/reorder`, {
+      method: 'POST',
+      body: JSON.stringify({ dayNumber, contentIds }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Copy content from one project to another
+  copyContent: (adminUserId: string, sourceProjectId: string, targetProjectId: string) =>
+    api<{ copiedCount: number; contentIds: string[] }>(`/api/admin/projects/${sourceProjectId}/content/copy/${targetProjectId}`, {
+      method: 'POST',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Get content analytics
+  getContentAnalytics: (adminUserId: string, projectId: string) =>
+    api<{
+      contentId: string;
+      title: string;
+      dayNumber: number;
+      contentType: string;
+      totalEnrollments: number;
+      completedCount: number;
+      inProgressCount: number;
+      completionRate: number;
+      avgQuizScore: number | null;
+      avgWatchPercentage: number | null;
+    }[]>(`/api/admin/projects/${projectId}/content/analytics`, { headers: { 'X-User-ID': adminUserId } }),
+};
+
+// User Course API - for viewing and completing course content
+export const courseApi = {
+  // Get course overview
+  getOverview: (userId: string) =>
+    api<{ hasEnrollment: boolean; overview?: CourseOverview }>('/api/course/overview', { headers: { 'X-User-ID': userId } }),
+
+  // Get day's content with progress
+  getDayContent: (userId: string, dayNumber: number) =>
+    api<DayContentWithProgress>(`/api/course/day/${dayNumber}`, { headers: { 'X-User-ID': userId } }),
+
+  // Update video progress
+  updateVideoProgress: (userId: string, contentId: string, watchedPercentage: number, lastPosition: number) =>
+    api<{ progress: UserProgress; justCompleted: boolean; pointsAwarded: number }>('/api/course/video/progress', {
+      method: 'POST',
+      body: JSON.stringify({ contentId, watchedPercentage, lastPosition }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Mark video complete
+  completeVideo: (userId: string, contentId: string) =>
+    api<{ progress: UserProgress; alreadyCompleted: boolean; pointsAwarded: number }>('/api/course/video/complete', {
+      method: 'POST',
+      body: JSON.stringify({ contentId }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Submit quiz answers
+  submitQuiz: (userId: string, contentId: string, answers: Record<string, number>) =>
+    api<QuizResultResponse>('/api/course/quiz/submit', {
+      method: 'POST',
+      body: JSON.stringify({ contentId, answers }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get all progress
+  getProgress: (userId: string) =>
+    api<{ hasEnrollment: boolean; progress: UserProgress[] }>('/api/course/progress', { headers: { 'X-User-ID': userId } }),
 };

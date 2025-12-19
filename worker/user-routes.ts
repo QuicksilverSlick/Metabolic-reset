@@ -22,9 +22,14 @@ import {
   OtpEntity,
   SystemSettingsEntity,
   PointsLedgerEntity,
-  buildGenealogyTree
+  buildGenealogyTree,
+  CourseContentEntity,
+  UserProgressEntity,
+  ProjectContentIndex,
+  calculateCurrentDay,
+  isContentUnlocked
 } from './entities';
-import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings } from "@shared/types";
+import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -2899,6 +2904,818 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         dailyHabitPoints: settings.dailyHabitPoints,
         biometricSubmissionPoints: settings.biometricSubmissionPoints
       });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ============================================================================
+  // LMS / Course Content Management Routes (Admin)
+  // ============================================================================
+
+  // Admin: Get all course content for a project
+  app.get('/api/admin/projects/:projectId/content', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const projectId = c.req.param('projectId');
+      const content = await CourseContentEntity.findByProject(c.env, projectId);
+      return ok(c, content);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get single content item
+  app.get('/api/admin/content/:contentId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const contentId = c.req.param('contentId');
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+
+      if (!content.id) return notFound(c, 'Content not found');
+      return ok(c, content);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Create new course content
+  app.post('/api/admin/content', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json() as CreateCourseContentRequest;
+      const { projectId, dayNumber, contentType, title, description, order, videoUrl, videoDuration, thumbnailUrl, quizData, resourceUrl, points, isRequired } = body;
+
+      if (!projectId || !title || !contentType) {
+        return bad(c, 'Project ID, title, and content type are required');
+      }
+
+      // Validate day number
+      if (dayNumber < 1 || dayNumber > 28) {
+        return bad(c, 'Day number must be between 1 and 28');
+      }
+
+      // Verify project exists
+      const projectEntity = new ResetProjectEntity(c.env, projectId);
+      const project = await projectEntity.getState();
+      if (!project.id) return notFound(c, 'Project not found');
+
+      // Validate content type specific requirements
+      if (contentType === 'video' && !videoUrl) {
+        return bad(c, 'Video URL is required for video content');
+      }
+      if (contentType === 'quiz' && (!quizData || !quizData.questions || quizData.questions.length === 0)) {
+        return bad(c, 'Quiz must have at least one question');
+      }
+
+      const contentId = crypto.randomUUID();
+      const now = Date.now();
+
+      // Determine order if not provided
+      let finalOrder = order ?? 0;
+      if (finalOrder === 0) {
+        const dayContent = await CourseContentEntity.findByProjectAndDay(c.env, projectId, dayNumber);
+        finalOrder = dayContent.length + 1;
+      }
+
+      const courseContent: CourseContent = {
+        id: contentId,
+        projectId,
+        dayNumber,
+        contentType,
+        title,
+        description: description || '',
+        order: finalOrder,
+        videoUrl: videoUrl || '',
+        videoDuration: videoDuration || 0,
+        thumbnailUrl: thumbnailUrl || '',
+        quizData: quizData,
+        resourceUrl: resourceUrl || '',
+        points: points ?? 10,
+        isRequired: isRequired ?? true,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      await CourseContentEntity.create(c.env, courseContent);
+
+      // Add to project content index
+      const projectContentIndex = new ProjectContentIndex(c.env, projectId);
+      await projectContentIndex.add(contentId);
+
+      return ok(c, courseContent);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Update course content
+  app.patch('/api/admin/content/:contentId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const contentId = c.req.param('contentId');
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+
+      if (!content.id) return notFound(c, 'Content not found');
+
+      const updates = await c.req.json() as UpdateCourseContentRequest;
+      const patch: Partial<CourseContent> = { updatedAt: Date.now() };
+
+      if (updates.dayNumber !== undefined) {
+        if (updates.dayNumber < 1 || updates.dayNumber > 28) {
+          return bad(c, 'Day number must be between 1 and 28');
+        }
+        patch.dayNumber = updates.dayNumber;
+      }
+      if (updates.contentType !== undefined) patch.contentType = updates.contentType;
+      if (updates.title !== undefined) patch.title = updates.title;
+      if (updates.description !== undefined) patch.description = updates.description;
+      if (updates.order !== undefined) patch.order = updates.order;
+      if (updates.videoUrl !== undefined) patch.videoUrl = updates.videoUrl;
+      if (updates.videoDuration !== undefined) patch.videoDuration = updates.videoDuration;
+      if (updates.thumbnailUrl !== undefined) patch.thumbnailUrl = updates.thumbnailUrl;
+      if (updates.quizData !== undefined) patch.quizData = updates.quizData;
+      if (updates.resourceUrl !== undefined) patch.resourceUrl = updates.resourceUrl;
+      if (updates.points !== undefined) patch.points = updates.points;
+      if (updates.isRequired !== undefined) patch.isRequired = updates.isRequired;
+
+      await contentEntity.patch(patch);
+      return ok(c, await contentEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Delete course content
+  app.delete('/api/admin/content/:contentId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const contentId = c.req.param('contentId');
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+
+      if (!content.id) return notFound(c, 'Content not found');
+
+      // Remove from project content index
+      const projectContentIndex = new ProjectContentIndex(c.env, content.projectId);
+      await projectContentIndex.remove(contentId);
+
+      // Delete content
+      await CourseContentEntity.delete(c.env, contentId);
+
+      return ok(c, { deleted: true });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Reorder content within a day
+  app.post('/api/admin/projects/:projectId/content/reorder', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const projectId = c.req.param('projectId');
+      const { dayNumber, contentIds } = await c.req.json() as { dayNumber: number; contentIds: string[] };
+
+      if (!dayNumber || !contentIds || !Array.isArray(contentIds)) {
+        return bad(c, 'Day number and content IDs array are required');
+      }
+
+      // Update order for each content item
+      for (let i = 0; i < contentIds.length; i++) {
+        const contentEntity = new CourseContentEntity(c.env, contentIds[i]);
+        const content = await contentEntity.getState();
+        if (content.id && content.projectId === projectId && content.dayNumber === dayNumber) {
+          await contentEntity.patch({ order: i + 1, updatedAt: Date.now() });
+        }
+      }
+
+      return ok(c, { reordered: true });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Copy content from one project to another
+  app.post('/api/admin/projects/:sourceProjectId/content/copy/:targetProjectId', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const sourceProjectId = c.req.param('sourceProjectId');
+      const targetProjectId = c.req.param('targetProjectId');
+
+      // Verify both projects exist
+      const sourceEntity = new ResetProjectEntity(c.env, sourceProjectId);
+      const targetEntity = new ResetProjectEntity(c.env, targetProjectId);
+      const source = await sourceEntity.getState();
+      const target = await targetEntity.getState();
+
+      if (!source.id) return notFound(c, 'Source project not found');
+      if (!target.id) return notFound(c, 'Target project not found');
+
+      // Get all source content
+      const sourceContent = await CourseContentEntity.findByProject(c.env, sourceProjectId);
+
+      // Copy each content item
+      const now = Date.now();
+      const copiedIds: string[] = [];
+      const targetContentIndex = new ProjectContentIndex(c.env, targetProjectId);
+
+      for (const content of sourceContent) {
+        const newId = crypto.randomUUID();
+        const copiedContent: CourseContent = {
+          ...content,
+          id: newId,
+          projectId: targetProjectId,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        await CourseContentEntity.create(c.env, copiedContent);
+        await targetContentIndex.add(newId);
+        copiedIds.push(newId);
+      }
+
+      return ok(c, { copiedCount: copiedIds.length, contentIds: copiedIds });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Get content analytics for a project
+  app.get('/api/admin/projects/:projectId/content/analytics', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const projectId = c.req.param('projectId');
+      const content = await CourseContentEntity.findByProject(c.env, projectId);
+      const enrollments = await ProjectEnrollmentEntity.findByProject(c.env, projectId);
+
+      // Get progress for each content item
+      const analytics = await Promise.all(content.map(async (item) => {
+        const progressRecords = await UserProgressEntity.findByContent(c.env, item.id);
+        const completed = progressRecords.filter(p => p.status === 'completed').length;
+        const inProgress = progressRecords.filter(p => p.status === 'in_progress').length;
+
+        // For quizzes, calculate average score
+        let avgQuizScore = null;
+        if (item.contentType === 'quiz') {
+          const quizScores = progressRecords.filter(p => p.quizScore !== undefined).map(p => p.quizScore!);
+          if (quizScores.length > 0) {
+            avgQuizScore = Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length);
+          }
+        }
+
+        // For videos, calculate average watch percentage
+        let avgWatchPercentage = null;
+        if (item.contentType === 'video') {
+          const watchPercentages = progressRecords.filter(p => p.watchedPercentage > 0).map(p => p.watchedPercentage);
+          if (watchPercentages.length > 0) {
+            avgWatchPercentage = Math.round(watchPercentages.reduce((a, b) => a + b, 0) / watchPercentages.length);
+          }
+        }
+
+        return {
+          contentId: item.id,
+          title: item.title,
+          dayNumber: item.dayNumber,
+          contentType: item.contentType,
+          totalEnrollments: enrollments.length,
+          completedCount: completed,
+          inProgressCount: inProgress,
+          completionRate: enrollments.length > 0 ? Math.round((completed / enrollments.length) * 100) : 0,
+          avgQuizScore,
+          avgWatchPercentage
+        };
+      }));
+
+      return ok(c, analytics);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ============================================================================
+  // LMS / Course Content Routes (User)
+  // ============================================================================
+
+  // User: Get course overview for their active enrollment
+  app.get('/api/course/overview', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return c.json({ error: 'User not found' }, 404);
+
+      // Get active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return ok(c, { hasEnrollment: false });
+      }
+
+      // Get project for start date
+      const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
+      const project = await projectEntity.getState();
+      if (!project.id) return notFound(c, 'Project not found');
+
+      // Calculate current day
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+
+      // Get all content for project
+      const content = await CourseContentEntity.findByProject(c.env, activeEnrollment.projectId);
+
+      // Get user's progress
+      const enrollmentId = activeEnrollment.id;
+      const progressRecords = await UserProgressEntity.findByEnrollment(c.env, enrollmentId);
+      const progressMap = new Map(progressRecords.map(p => [p.contentId, p]));
+
+      // Calculate stats
+      let completedCount = 0;
+      let availableCount = 0;
+      let lockedCount = 0;
+      let earnedPoints = 0;
+      let totalPoints = 0;
+      let nextUnlockDay = currentDay + 1;
+
+      for (const item of content) {
+        totalPoints += item.points;
+        const isUnlocked = isContentUnlocked(item.dayNumber, currentDay);
+        const progress = progressMap.get(item.id);
+
+        if (progress?.status === 'completed') {
+          completedCount++;
+          earnedPoints += progress.pointsAwarded;
+        } else if (isUnlocked) {
+          availableCount++;
+        } else {
+          lockedCount++;
+          if (item.dayNumber > currentDay && item.dayNumber < nextUnlockDay) {
+            nextUnlockDay = item.dayNumber;
+          }
+        }
+      }
+
+      // Find next unlocking content
+      const nextUnlockContent = content.find(c => c.dayNumber === nextUnlockDay);
+
+      const overview: CourseOverview = {
+        totalContent: content.length,
+        completedContent: completedCount,
+        availableContent: availableCount,
+        lockedContent: lockedCount,
+        totalPoints,
+        earnedPoints,
+        currentDay,
+        nextUnlockDay: nextUnlockDay <= 28 ? nextUnlockDay : 28,
+        nextUnlockContent
+      };
+
+      return ok(c, { hasEnrollment: true, overview });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // User: Get content for a specific day with progress
+  app.get('/api/course/day/:dayNumber', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const dayNumber = parseInt(c.req.param('dayNumber'));
+      if (isNaN(dayNumber) || dayNumber < 1 || dayNumber > 28) {
+        return bad(c, 'Invalid day number');
+      }
+
+      // Get user's active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return c.json({ error: 'No active enrollment found' }, 404);
+      }
+
+      // Get project for start date
+      const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
+      const project = await projectEntity.getState();
+      if (!project.id) return notFound(c, 'Project not found');
+
+      // Check if day is unlocked
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+      const isUnlocked = isContentUnlocked(dayNumber, currentDay);
+
+      // Get content for this day
+      const dayContent = await CourseContentEntity.findByProjectAndDay(c.env, activeEnrollment.projectId, dayNumber);
+
+      // Get progress records
+      const enrollmentId = activeEnrollment.id;
+      const contentWithProgress = await Promise.all(dayContent.map(async (content) => {
+        const progress = await UserProgressEntity.findByEnrollmentAndContent(c.env, enrollmentId, content.id);
+
+        // For quizzes, check prerequisites (must complete all required videos for that week first)
+        let prerequisitesMet = true;
+        if (content.contentType === 'quiz' && isUnlocked) {
+          // Week calculation: Day 1-7 = Week 1, Day 8-14 = Week 2, etc.
+          const weekStart = Math.floor((dayNumber - 1) / 7) * 7 + 1;
+          const requiredContent = await CourseContentEntity.findRequiredContent(
+            c.env,
+            activeEnrollment.projectId,
+            weekStart,
+            dayNumber - 1
+          );
+
+          for (const req of requiredContent) {
+            if (req.contentType !== 'quiz') {
+              const reqProgress = await UserProgressEntity.findByEnrollmentAndContent(c.env, enrollmentId, req.id);
+              if (!reqProgress || reqProgress.status !== 'completed') {
+                prerequisitesMet = false;
+                break;
+              }
+            }
+          }
+        }
+
+        return {
+          content,
+          progress,
+          prerequisitesMet
+        };
+      }));
+
+      // Calculate unlock date
+      const projectStart = new Date(project.startDate);
+      const enrollmentDate = new Date(activeEnrollment.enrolledAt);
+      const userStartDate = enrollmentDate > projectStart ? enrollmentDate : projectStart;
+      const unlockDate = new Date(userStartDate);
+      unlockDate.setDate(unlockDate.getDate() + dayNumber - 1);
+
+      const response: DayContentWithProgress = {
+        dayNumber,
+        isUnlocked,
+        unlockDate: unlockDate.toISOString().split('T')[0],
+        content: contentWithProgress
+      };
+
+      return ok(c, response);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // User: Update video progress
+  app.post('/api/course/video/progress', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const { contentId, watchedPercentage, lastPosition } = await c.req.json() as {
+        contentId: string;
+        watchedPercentage: number;
+        lastPosition: number;
+      };
+
+      if (!contentId || watchedPercentage === undefined) {
+        return bad(c, 'Content ID and watched percentage are required');
+      }
+
+      // Get user's active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return c.json({ error: 'No active enrollment found' }, 404);
+      }
+
+      // Verify content exists and is video type
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+      if (!content.id) return notFound(c, 'Content not found');
+      if (content.contentType !== 'video') return bad(c, 'Content is not a video');
+      if (content.projectId !== activeEnrollment.projectId) return bad(c, 'Content not in your enrolled project');
+
+      // Check if day is unlocked
+      const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
+      const project = await projectEntity.getState();
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+
+      if (!isContentUnlocked(content.dayNumber, currentDay)) {
+        return c.json({ error: 'Content is not yet unlocked' }, 403);
+      }
+
+      // Get or create progress record
+      const enrollmentId = activeEnrollment.id;
+      let progress = await UserProgressEntity.getOrCreate(
+        c.env,
+        enrollmentId,
+        contentId,
+        userId,
+        activeEnrollment.projectId,
+        'in_progress' as ContentStatus
+      );
+
+      // Check if this will complete the video (90% threshold)
+      const wasCompleted = progress.status === 'completed';
+      const willComplete = watchedPercentage >= 90 && !wasCompleted;
+
+      // Update progress
+      progress = await UserProgressEntity.updateVideoProgress(
+        c.env,
+        progress.id,
+        watchedPercentage,
+        lastPosition || 0
+      );
+
+      // Award points if just completed
+      if (willComplete) {
+        await UserProgressEntity.markCompleted(c.env, progress.id, content.points);
+        await UserEntity.addPoints(c.env, userId, content.points);
+        await ProjectEnrollmentEntity.addPoints(c.env, activeEnrollment.projectId, userId, content.points);
+
+        // Record in points ledger
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: activeEnrollment.projectId,
+          userId,
+          transactionType: 'daily_habit', // Using existing type for video completion
+          points: content.points,
+          description: `Completed video: ${content.title}`
+        });
+
+        progress = await new UserProgressEntity(c.env, progress.id).getState();
+      }
+
+      return ok(c, {
+        progress,
+        justCompleted: willComplete,
+        pointsAwarded: willComplete ? content.points : 0
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // User: Mark video as complete (fallback for when video ends)
+  app.post('/api/course/video/complete', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const { contentId } = await c.req.json() as { contentId: string };
+      if (!contentId) return bad(c, 'Content ID is required');
+
+      // Get user's active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return c.json({ error: 'No active enrollment found' }, 404);
+      }
+
+      // Verify content
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+      if (!content.id) return notFound(c, 'Content not found');
+      if (content.contentType !== 'video') return bad(c, 'Content is not a video');
+
+      // Get or create progress
+      const enrollmentId = activeEnrollment.id;
+      let progress = await UserProgressEntity.getOrCreate(
+        c.env,
+        enrollmentId,
+        contentId,
+        userId,
+        activeEnrollment.projectId,
+        'in_progress' as ContentStatus
+      );
+
+      // If already completed, return current state
+      if (progress.status === 'completed') {
+        return ok(c, { progress, alreadyCompleted: true, pointsAwarded: 0 });
+      }
+
+      // Mark as completed
+      progress = await UserProgressEntity.markCompleted(c.env, progress.id, content.points);
+
+      // Award points
+      await UserEntity.addPoints(c.env, userId, content.points);
+      await ProjectEnrollmentEntity.addPoints(c.env, activeEnrollment.projectId, userId, content.points);
+
+      // Record transaction
+      await PointsLedgerEntity.recordTransaction(c.env, {
+        projectId: activeEnrollment.projectId,
+        userId,
+        transactionType: 'daily_habit',
+        points: content.points,
+        description: `Completed video: ${content.title}`
+      });
+
+      progress = await new UserProgressEntity(c.env, progress.id).getState();
+
+      return ok(c, {
+        progress,
+        alreadyCompleted: false,
+        pointsAwarded: content.points
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // User: Submit quiz answers
+  app.post('/api/course/quiz/submit', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const { contentId, answers } = await c.req.json() as {
+        contentId: string;
+        answers: Record<string, number>;
+      };
+
+      if (!contentId || !answers) {
+        return bad(c, 'Content ID and answers are required');
+      }
+
+      // Get user's active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return c.json({ error: 'No active enrollment found' }, 404);
+      }
+
+      // Verify content is a quiz
+      const contentEntity = new CourseContentEntity(c.env, contentId);
+      const content = await contentEntity.getState();
+      if (!content.id) return notFound(c, 'Content not found');
+      if (content.contentType !== 'quiz') return bad(c, 'Content is not a quiz');
+      if (!content.quizData) return bad(c, 'Quiz has no questions');
+
+      // Check if day is unlocked
+      const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
+      const project = await projectEntity.getState();
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+
+      if (!isContentUnlocked(content.dayNumber, currentDay)) {
+        return c.json({ error: 'Quiz is not yet unlocked' }, 403);
+      }
+
+      // Check prerequisites (must complete all required videos for that week)
+      const weekStart = Math.floor((content.dayNumber - 1) / 7) * 7 + 1;
+      const requiredContent = await CourseContentEntity.findRequiredContent(
+        c.env,
+        activeEnrollment.projectId,
+        weekStart,
+        content.dayNumber - 1
+      );
+
+      const enrollmentId = activeEnrollment.id;
+      for (const req of requiredContent) {
+        if (req.contentType !== 'quiz') {
+          const reqProgress = await UserProgressEntity.findByEnrollmentAndContent(c.env, enrollmentId, req.id);
+          if (!reqProgress || reqProgress.status !== 'completed') {
+            return c.json({ error: 'Must complete all required videos before taking this quiz' }, 403);
+          }
+        }
+      }
+
+      // Get or create progress
+      let progress = await UserProgressEntity.getOrCreate(
+        c.env,
+        enrollmentId,
+        contentId,
+        userId,
+        activeEnrollment.projectId,
+        'available' as ContentStatus
+      );
+
+      // Check if already passed
+      if (progress.status === 'completed') {
+        return c.json({ error: 'Quiz already passed' }, 400);
+      }
+
+      // Check attempt limits
+      const quizData = content.quizData;
+      if (progress.quizAttempts >= quizData.maxAttempts) {
+        return c.json({ error: 'Maximum attempts reached' }, 400);
+      }
+
+      // Check cooldown
+      if (progress.lastQuizAttemptAt) {
+        const cooldownMs = quizData.cooldownHours * 60 * 60 * 1000;
+        const canRetryAt = progress.lastQuizAttemptAt + cooldownMs;
+        if (Date.now() < canRetryAt) {
+          return c.json({
+            error: 'Cooldown period active',
+            canRetryAt
+          }, 400);
+        }
+      }
+
+      // Grade the quiz
+      let correctCount = 0;
+      const results: QuizResultResponse['results'] = [];
+
+      for (const question of quizData.questions) {
+        const userAnswer = answers[question.id];
+        const isCorrect = userAnswer === question.correctIndex;
+        if (isCorrect) correctCount++;
+
+        results.push({
+          questionId: question.id,
+          correct: isCorrect,
+          correctAnswer: question.correctIndex,
+          userAnswer: userAnswer ?? -1,
+          explanation: question.explanation
+        });
+      }
+
+      const totalQuestions = quizData.questions.length;
+      const score = Math.round((correctCount / totalQuestions) * 100);
+      const passed = score >= quizData.passingScore;
+
+      // Calculate points (only award if passed)
+      const pointsAwarded = passed ? content.points : 0;
+
+      // Record attempt
+      progress = await UserProgressEntity.recordQuizAttempt(
+        c.env,
+        progress.id,
+        score,
+        answers,
+        passed,
+        pointsAwarded
+      );
+
+      // If passed, award points
+      if (passed) {
+        await UserEntity.addPoints(c.env, userId, content.points);
+        await ProjectEnrollmentEntity.addPoints(c.env, activeEnrollment.projectId, userId, content.points);
+
+        await PointsLedgerEntity.recordTransaction(c.env, {
+          projectId: activeEnrollment.projectId,
+          userId,
+          transactionType: 'bonus', // Quiz completion
+          points: content.points,
+          description: `Passed quiz: ${content.title} (${score}%)`
+        });
+      }
+
+      const response: QuizResultResponse = {
+        passed,
+        score,
+        correctCount,
+        totalQuestions,
+        pointsAwarded,
+        attemptsRemaining: quizData.maxAttempts - progress.quizAttempts,
+        canRetryAt: !passed && progress.quizAttempts < quizData.maxAttempts
+          ? Date.now() + (quizData.cooldownHours * 60 * 60 * 1000)
+          : undefined,
+        results
+      };
+
+      return ok(c, response);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // User: Get all content progress summary
+  app.get('/api/course/progress', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      // Get user's active enrollment
+      const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
+      const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
+
+      if (!activeEnrollment) {
+        return ok(c, { hasEnrollment: false, progress: [] });
+      }
+
+      const enrollmentId = activeEnrollment.id;
+      const progress = await UserProgressEntity.findByEnrollment(c.env, enrollmentId);
+
+      return ok(c, { hasEnrollment: true, progress });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

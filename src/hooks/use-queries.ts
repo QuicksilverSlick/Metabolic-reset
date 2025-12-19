@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
-import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings } from '@shared/types';
+import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings, CreateCourseContentRequest, UpdateCourseContentRequest } from '@shared/types';
 export function useUser() {
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
@@ -971,5 +971,207 @@ export function useAdminUpdatePointSettings() {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update point settings');
     }
+  });
+}
+
+// =========================================
+// LMS / Course Content hooks
+// =========================================
+
+// Admin: Get all content for a project
+export function useAdminProjectContent(projectId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'content', projectId],
+    queryFn: () => userId && projectId ? adminContentApi.getProjectContent(userId, projectId) : [],
+    enabled: !!userId && !!user?.isAdmin && !!projectId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// Admin: Get content analytics for a project
+export function useAdminContentAnalytics(projectId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'content', projectId, 'analytics'],
+    queryFn: () => userId && projectId ? adminContentApi.getContentAnalytics(userId, projectId) : [],
+    enabled: !!userId && !!user?.isAdmin && !!projectId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Admin: Create course content
+export function useAdminCreateContent() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (data: CreateCourseContentRequest) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminContentApi.createContent(userId, data);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', result.projectId] });
+      toast.success('Content created successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to create content');
+    }
+  });
+}
+
+// Admin: Update course content
+export function useAdminUpdateContent() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ contentId, updates }: { contentId: string; updates: UpdateCourseContentRequest }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminContentApi.updateContent(userId, contentId, updates);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', result.projectId] });
+      toast.success('Content updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update content');
+    }
+  });
+}
+
+// Admin: Delete course content
+export function useAdminDeleteContent() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ contentId, projectId }: { contentId: string; projectId: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminContentApi.deleteContent(userId, contentId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', variables.projectId] });
+      toast.success('Content deleted successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete content');
+    }
+  });
+}
+
+// Admin: Copy content between projects
+export function useAdminCopyContent() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ sourceProjectId, targetProjectId }: { sourceProjectId: string; targetProjectId: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminContentApi.copyContent(userId, sourceProjectId, targetProjectId);
+    },
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', variables.targetProjectId] });
+      toast.success(`Copied ${result.copiedCount} content items!`);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to copy content');
+    }
+  });
+}
+
+// User: Get course overview
+export function useCourseOverview() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['course', 'overview', userId],
+    queryFn: () => userId ? courseApi.getOverview(userId) : null,
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// User: Get day's content
+export function useDayContent(dayNumber: number | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['course', 'day', dayNumber],
+    queryFn: () => userId && dayNumber ? courseApi.getDayContent(userId, dayNumber) : null,
+    enabled: !!userId && !!dayNumber,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// User: Update video progress
+export function useUpdateVideoProgress() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ contentId, watchedPercentage, lastPosition }: { contentId: string; watchedPercentage: number; lastPosition: number }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return courseApi.updateVideoProgress(userId, contentId, watchedPercentage, lastPosition);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      if (result.justCompleted) {
+        toast.success(`Video completed! +${result.pointsAwarded} points`);
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to update video progress:', error);
+    }
+  });
+}
+
+// User: Mark video complete
+export function useCompleteVideo() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (contentId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return courseApi.completeVideo(userId, contentId);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      if (!result.alreadyCompleted) {
+        toast.success(`Video completed! +${result.pointsAwarded} points`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to complete video');
+    }
+  });
+}
+
+// User: Submit quiz
+export function useSubmitQuiz() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ contentId, answers }: { contentId: string; answers: Record<string, number> }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return courseApi.submitQuiz(userId, contentId, answers);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['course'] });
+      if (result.passed) {
+        toast.success(`Quiz passed! ${result.score}% - +${result.pointsAwarded} points`);
+      } else {
+        toast.error(`Quiz not passed. ${result.score}% (need 80%). ${result.attemptsRemaining} attempts remaining.`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit quiz');
+    }
+  });
+}
+
+// User: Get all progress
+export function useCourseProgress() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['course', 'progress', userId],
+    queryFn: () => userId ? courseApi.getProgress(userId) : null,
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

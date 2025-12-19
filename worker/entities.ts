@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode, CourseContent, UserProgress, ContentStatus } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -638,5 +638,260 @@ export async function buildGenealogyTree(
   }
 
   return buildNode(rootUserId, 0);
+}
+
+// ============================================================================
+// LMS / Course Content Entities
+// ============================================================================
+
+// Course Content Entity - Admin-managed content items
+export class CourseContentEntity extends IndexedEntity<CourseContent> {
+  static readonly entityName = "course-content";
+  static readonly indexName = "course-contents";
+  static readonly initialState: CourseContent = {
+    id: "",
+    projectId: "",
+    dayNumber: 1,
+    contentType: "video",
+    title: "",
+    description: "",
+    order: 0,
+    videoUrl: "",
+    videoDuration: 0,
+    thumbnailUrl: "",
+    quizData: undefined,
+    resourceUrl: "",
+    points: 0,
+    isRequired: true,
+    createdAt: 0,
+    updatedAt: 0
+  };
+
+  // Get all content for a project, sorted by day and order
+  static async findByProject(env: Env, projectId: string): Promise<CourseContent[]> {
+    const { items } = await CourseContentEntity.list(env);
+    return items
+      .filter(c => c.projectId === projectId)
+      .sort((a, b) => {
+        if (a.dayNumber !== b.dayNumber) return a.dayNumber - b.dayNumber;
+        return a.order - b.order;
+      });
+  }
+
+  // Get content for a specific day
+  static async findByProjectAndDay(env: Env, projectId: string, dayNumber: number): Promise<CourseContent[]> {
+    const allContent = await CourseContentEntity.findByProject(env, projectId);
+    return allContent.filter(c => c.dayNumber === dayNumber);
+  }
+
+  // Get all quizzes for a project
+  static async findQuizzes(env: Env, projectId: string): Promise<CourseContent[]> {
+    const allContent = await CourseContentEntity.findByProject(env, projectId);
+    return allContent.filter(c => c.contentType === 'quiz');
+  }
+
+  // Get required content for a day range (for prerequisite checking)
+  static async findRequiredContent(env: Env, projectId: string, fromDay: number, toDay: number): Promise<CourseContent[]> {
+    const allContent = await CourseContentEntity.findByProject(env, projectId);
+    return allContent.filter(c =>
+      c.isRequired && c.dayNumber >= fromDay && c.dayNumber <= toDay
+    );
+  }
+}
+
+// Index for tracking content by project
+export class ProjectContentIndex extends Index<string> {
+  constructor(env: Env, projectId: string) {
+    super(env, `project-content:${projectId}`);
+  }
+}
+
+// User Progress Entity - Per-user tracking of content completion
+export class UserProgressEntity extends IndexedEntity<UserProgress> {
+  static readonly entityName = "user-progress";
+  static readonly indexName = "user-progresses";
+  static readonly initialState: UserProgress = {
+    id: "", // Format: enrollmentId:contentId
+    enrollmentId: "",
+    contentId: "",
+    userId: "",
+    projectId: "",
+    status: "locked",
+    watchedPercentage: 0,
+    lastPosition: 0,
+    quizScore: undefined,
+    quizAttempts: 0,
+    lastQuizAttemptAt: undefined,
+    quizAnswers: undefined,
+    completedAt: undefined,
+    pointsAwarded: 0,
+    updatedAt: 0
+  };
+
+  // Get progress for a specific content item for a user
+  static async findByEnrollmentAndContent(
+    env: Env,
+    enrollmentId: string,
+    contentId: string
+  ): Promise<UserProgress | null> {
+    const id = `${enrollmentId}:${contentId}`;
+    const entity = new UserProgressEntity(env, id);
+    const exists = await entity.exists();
+    if (!exists) return null;
+    return entity.getState();
+  }
+
+  // Get all progress for a user in a project
+  static async findByEnrollment(env: Env, enrollmentId: string): Promise<UserProgress[]> {
+    const { items } = await UserProgressEntity.list(env);
+    return items.filter(p => p.enrollmentId === enrollmentId);
+  }
+
+  // Get all progress for a specific content item (for analytics)
+  static async findByContent(env: Env, contentId: string): Promise<UserProgress[]> {
+    const { items } = await UserProgressEntity.list(env);
+    return items.filter(p => p.contentId === contentId);
+  }
+
+  // Create or get progress record
+  static async getOrCreate(
+    env: Env,
+    enrollmentId: string,
+    contentId: string,
+    userId: string,
+    projectId: string,
+    initialStatus: ContentStatus = 'locked'
+  ): Promise<UserProgress> {
+    const id = `${enrollmentId}:${contentId}`;
+    const entity = new UserProgressEntity(env, id);
+    const exists = await entity.exists();
+
+    if (exists) {
+      return entity.getState();
+    }
+
+    // Create new progress record
+    const now = Date.now();
+    const progress: UserProgress = {
+      id,
+      enrollmentId,
+      contentId,
+      userId,
+      projectId,
+      status: initialStatus,
+      watchedPercentage: 0,
+      lastPosition: 0,
+      quizAttempts: 0,
+      pointsAwarded: 0,
+      updatedAt: now
+    };
+
+    await UserProgressEntity.create(env, progress);
+    return progress;
+  }
+
+  // Update video progress
+  static async updateVideoProgress(
+    env: Env,
+    progressId: string,
+    watchedPercentage: number,
+    lastPosition: number
+  ): Promise<UserProgress> {
+    const entity = new UserProgressEntity(env, progressId);
+    const now = Date.now();
+
+    await entity.mutate(state => {
+      const newStatus: ContentStatus = watchedPercentage >= 90 ? 'completed' :
+                                       state.status === 'locked' ? 'in_progress' : state.status;
+      return {
+        ...state,
+        watchedPercentage: Math.max(state.watchedPercentage, watchedPercentage),
+        lastPosition,
+        status: newStatus,
+        completedAt: newStatus === 'completed' && !state.completedAt ? now : state.completedAt,
+        updatedAt: now
+      };
+    });
+
+    return entity.getState();
+  }
+
+  // Mark content as completed
+  static async markCompleted(
+    env: Env,
+    progressId: string,
+    pointsAwarded: number = 0
+  ): Promise<UserProgress> {
+    const entity = new UserProgressEntity(env, progressId);
+    const now = Date.now();
+
+    await entity.mutate(state => ({
+      ...state,
+      status: 'completed' as ContentStatus,
+      completedAt: state.completedAt || now,
+      pointsAwarded: state.pointsAwarded + pointsAwarded,
+      updatedAt: now
+    }));
+
+    return entity.getState();
+  }
+
+  // Record quiz attempt
+  static async recordQuizAttempt(
+    env: Env,
+    progressId: string,
+    score: number,
+    answers: Record<string, number>,
+    passed: boolean,
+    pointsAwarded: number = 0
+  ): Promise<UserProgress> {
+    const entity = new UserProgressEntity(env, progressId);
+    const now = Date.now();
+
+    await entity.mutate(state => ({
+      ...state,
+      quizScore: score,
+      quizAttempts: state.quizAttempts + 1,
+      lastQuizAttemptAt: now,
+      quizAnswers: answers,
+      status: passed ? 'completed' as ContentStatus : state.status,
+      completedAt: passed && !state.completedAt ? now : state.completedAt,
+      pointsAwarded: state.pointsAwarded + pointsAwarded,
+      updatedAt: now
+    }));
+
+    return entity.getState();
+  }
+}
+
+// Index for tracking progress by enrollment
+export class EnrollmentProgressIndex extends Index<string> {
+  constructor(env: Env, enrollmentId: string) {
+    super(env, `enrollment-progress:${enrollmentId}`);
+  }
+}
+
+// Helper function to calculate current day based on enrollment date
+export function calculateCurrentDay(enrolledAt: number, projectStartDate: string): number {
+  const projectStart = new Date(projectStartDate);
+  const now = new Date();
+  const enrollmentDate = new Date(enrolledAt);
+
+  // User's day 1 is the later of: project start or their enrollment date
+  const userStartDate = enrollmentDate > projectStart ? enrollmentDate : projectStart;
+
+  const diffTime = now.getTime() - userStartDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  // Clamp between 1 and 28
+  return Math.max(1, Math.min(28, diffDays));
+}
+
+// Helper function to check if content is unlocked for user
+export function isContentUnlocked(
+  contentDayNumber: number,
+  currentUserDay: number
+): boolean {
+  return contentDayNumber <= currentUserDay;
 }
 

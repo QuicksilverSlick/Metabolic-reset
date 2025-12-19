@@ -353,3 +353,164 @@ export interface UpdatePointSettingsRequest {
   dailyHabitPoints?: number;
   biometricSubmissionPoints?: number;
 }
+
+// ============================================================================
+// LMS / Course Content System Types
+// ============================================================================
+
+// Content types for course items
+export type CourseContentType = 'video' | 'quiz' | 'resource';
+
+// Status of content availability for user
+export type ContentStatus = 'locked' | 'available' | 'in_progress' | 'completed';
+
+// Quiz question structure
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string; // Shown after answering for learning reinforcement
+}
+
+// Quiz data embedded in CourseContent
+export interface QuizData {
+  questions: QuizQuestion[];
+  passingScore: number; // Percentage (0-100), default 80
+  maxAttempts: number; // Maximum attempts allowed, default 2
+  cooldownHours: number; // Hours between attempts, default 24
+  timeLimit?: number; // Optional time limit in minutes
+}
+
+// Course Content - Admin-managed content items
+export interface CourseContent {
+  id: string;
+  projectId: string; // Links to ResetProject
+  dayNumber: number; // 1-28 (when content unlocks)
+  contentType: CourseContentType;
+  title: string;
+  description: string;
+  order: number; // For ordering multiple items on same day
+  // Video-specific fields
+  videoUrl?: string; // Cloudflare Stream URL
+  videoDuration?: number; // Duration in seconds (for progress display)
+  thumbnailUrl?: string; // Preview image
+  // Quiz-specific fields
+  quizData?: QuizData;
+  // Resource-specific fields
+  resourceUrl?: string; // PDF, link, etc.
+  // Points and metadata
+  points: number; // Points awarded on completion
+  isRequired: boolean; // Must complete to unlock quiz for that week
+  createdAt: number;
+  updatedAt: number;
+}
+
+// User Progress - Per-user tracking of content completion
+export interface UserProgress {
+  id: string; // Format: enrollmentId:contentId
+  enrollmentId: string; // projectId:userId
+  contentId: string;
+  userId: string;
+  projectId: string;
+  status: ContentStatus;
+  // Video progress
+  watchedPercentage: number; // 0-100
+  lastPosition: number; // Seconds (for resume playback)
+  // Quiz progress
+  quizScore?: number; // Percentage scored on quiz
+  quizAttempts: number;
+  lastQuizAttemptAt?: number; // For cooldown tracking
+  quizAnswers?: Record<string, number>; // Question ID to selected answer index
+  // Completion tracking
+  completedAt?: number;
+  pointsAwarded: number;
+  updatedAt: number;
+}
+
+// DTOs for LMS API
+export interface CreateCourseContentRequest {
+  projectId: string;
+  dayNumber: number;
+  contentType: CourseContentType;
+  title: string;
+  description?: string;
+  order?: number;
+  videoUrl?: string;
+  videoDuration?: number;
+  thumbnailUrl?: string;
+  quizData?: QuizData;
+  resourceUrl?: string;
+  points?: number;
+  isRequired?: boolean;
+}
+
+export interface UpdateCourseContentRequest {
+  dayNumber?: number;
+  contentType?: CourseContentType;
+  title?: string;
+  description?: string;
+  order?: number;
+  videoUrl?: string;
+  videoDuration?: number;
+  thumbnailUrl?: string;
+  quizData?: QuizData;
+  resourceUrl?: string;
+  points?: number;
+  isRequired?: boolean;
+}
+
+// Video progress update
+export interface UpdateVideoProgressRequest {
+  contentId: string;
+  watchedPercentage: number;
+  lastPosition: number;
+}
+
+// Quiz submission
+export interface SubmitQuizRequest {
+  contentId: string;
+  answers: Record<string, number>; // Question ID to selected answer index
+}
+
+// Quiz result response
+export interface QuizResultResponse {
+  passed: boolean;
+  score: number; // Percentage
+  correctCount: number;
+  totalQuestions: number;
+  pointsAwarded: number;
+  attemptsRemaining: number;
+  canRetryAt?: number; // Timestamp when retry is allowed
+  results: Array<{
+    questionId: string;
+    correct: boolean;
+    correctAnswer: number;
+    userAnswer: number;
+    explanation?: string;
+  }>;
+}
+
+// Course overview for user dashboard
+export interface CourseOverview {
+  totalContent: number;
+  completedContent: number;
+  availableContent: number;
+  lockedContent: number;
+  totalPoints: number;
+  earnedPoints: number;
+  currentDay: number; // Based on enrollment date
+  nextUnlockDay: number;
+  nextUnlockContent?: CourseContent;
+}
+
+// Day's content with progress for user view
+export interface DayContentWithProgress {
+  dayNumber: number;
+  isUnlocked: boolean;
+  unlockDate: string; // YYYY-MM-DD
+  content: Array<{
+    content: CourseContent;
+    progress: UserProgress | null;
+  }>;
+}
