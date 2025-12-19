@@ -142,6 +142,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { ContentManager } from '@/components/admin/ContentManager';
 
 export function AdminPage() {
   const currentUser = useAuthStore(s => s.user);
@@ -165,7 +166,7 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'bugs' | 'settings' | 'genealogy' | 'deleted'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'settings' | 'genealogy' | 'deleted'>('users');
 
   // Delete user state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -887,6 +888,17 @@ export function AdminPage() {
             Projects
           </button>
           <button
+            onClick={() => setActiveTab('content')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'content'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Video className="h-4 w-4 inline mr-1.5" />
+            Content
+          </button>
+          <button
             onClick={() => setActiveTab('bugs')}
             className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'bugs'
@@ -1501,6 +1513,9 @@ export function AdminPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Content Tab */}
+      {activeTab === 'content' && <ContentManager />}
 
       {/* Bugs Tab */}
       {activeTab === 'bugs' && (
