@@ -6,7 +6,8 @@ import {
   LogOut,
   Users,
   ShieldCheck,
-  FolderKanban
+  FolderKanban,
+  Video
 } from "lucide-react";
 import {
   Sidebar,
@@ -94,6 +95,18 @@ export function AppSidebar(): JSX.Element {
                 <Link to="/app/projects" onClick={handleMobileNavigation}>
                   <FolderKanban className="h-5 w-5" />
                   <span className="font-medium">My Projects</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive('/app/course')}
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
+              >
+                <Link to="/app/course" onClick={handleMobileNavigation}>
+                  <Video className="h-5 w-5" />
+                  <span className="font-medium">Course</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

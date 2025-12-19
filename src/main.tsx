@@ -31,6 +31,7 @@ import { AssignCaptainPage } from '@/pages/app/AssignCaptainPage';
 import { AdminPage } from '@/pages/app/AdminPage';
 import { MyProjectsPage } from '@/pages/app/MyProjectsPage';
 import { EnrollProjectPage } from '@/pages/app/EnrollProjectPage';
+import { CoursePage } from '@/pages/app/CoursePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 // Onboarding Pages
@@ -156,6 +157,10 @@ const router = createBrowserRouter([
           {
             path: "enroll/:projectId",
             element: <EnrollProjectPage />
+          },
+          {
+            path: "course",
+            element: <CoursePage />
           }
         ]
       },
