@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useCourseOverview, useDayContent, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz } from '@/hooks/use-queries';
 import {
   Play,
@@ -31,13 +31,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
 import { CourseContent, UserProgress, QuizQuestion, QuizResultResponse } from '@shared/types';
+
+// Helper to group days into weeks
+const DAYS_PER_WEEK = 7;
+const TOTAL_DAYS = 28;
+const weeks = Array.from({ length: Math.ceil(TOTAL_DAYS / DAYS_PER_WEEK) }, (_, weekIdx) =>
+  Array.from({ length: DAYS_PER_WEEK }, (_, dayIdx) => weekIdx * DAYS_PER_WEEK + dayIdx + 1)
+    .filter(day => day <= TOTAL_DAYS)
+);
 
 export function CoursePage() {
   const { data: overviewData, isLoading: overviewLoading } = useCourseOverview();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { data: dayContent, isLoading: dayContentLoading } = useDayContent(selectedDay);
+
+  // Carousel state for day selector
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [currentWeek, setCurrentWeek] = useState(0);
 
   // Video player state
   const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -55,12 +73,33 @@ export function CoursePage() {
   const completeVideoMutation = useCompleteVideo();
   const submitQuizMutation = useSubmitQuiz();
 
-  // Auto-select current day on load
+  // Carousel scroll handler
+  const onCarouselSelect = useCallback(() => {
+    if (!carouselApi) return;
+    setCurrentWeek(carouselApi.selectedScrollSnap());
+  }, [carouselApi]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    onCarouselSelect();
+    carouselApi.on('select', onCarouselSelect);
+    return () => {
+      carouselApi.off('select', onCarouselSelect);
+    };
+  }, [carouselApi, onCarouselSelect]);
+
+  // Auto-select current day on load and scroll to correct week
   useEffect(() => {
     if (overviewData?.overview && !selectedDay) {
-      setSelectedDay(overviewData.overview.currentDay);
+      const currentDay = overviewData.overview.currentDay;
+      setSelectedDay(currentDay);
+      // Scroll carousel to the week containing current day
+      const weekIndex = Math.floor((currentDay - 1) / DAYS_PER_WEEK);
+      if (carouselApi) {
+        carouselApi.scrollTo(weekIndex);
+      }
     }
-  }, [overviewData, selectedDay]);
+  }, [overviewData, selectedDay, carouselApi]);
 
   const openVideoPlayer = (content: CourseContent, progress: UserProgress | null) => {
     setActiveVideo({ content, progress });
@@ -218,50 +257,95 @@ export function CoursePage() {
         </CardContent>
       </Card>
 
-      {/* Day Selector */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSelectedDay(Math.max(1, (selectedDay || 1) - 1))}
-          disabled={selectedDay === 1}
-          className="border-slate-200 dark:border-navy-600"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Prev
-        </Button>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-500 dark:text-slate-400">Day</span>
-          <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none">
-            {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
-              <button
-                key={day}
-                onClick={() => setSelectedDay(day)}
-                className={cn(
-                  "w-8 h-8 rounded-full text-sm font-medium transition-colors flex-shrink-0",
-                  selectedDay === day
-                    ? "bg-gold-500 text-navy-900"
-                    : day <= overview.currentDay
-                    ? "bg-slate-100 dark:bg-navy-700 text-navy-900 dark:text-white hover:bg-gold-100 dark:hover:bg-gold-900/30"
-                    : "bg-slate-100 dark:bg-navy-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
-                )}
-                disabled={day > overview.currentDay}
-              >
-                {day}
-              </button>
-            ))}
+      {/* Day Selector - Week-based Carousel */}
+      <div className="space-y-3">
+        {/* Week Navigation Header */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => carouselApi?.scrollPrev()}
+            disabled={currentWeek === 0}
+            className="text-slate-500 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Prev Week</span>
+          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-navy-900 dark:text-white">
+              Week {currentWeek + 1}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              (Days {currentWeek * DAYS_PER_WEEK + 1}-{Math.min((currentWeek + 1) * DAYS_PER_WEEK, TOTAL_DAYS)})
+            </span>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => carouselApi?.scrollNext()}
+            disabled={currentWeek === weeks.length - 1}
+            className="text-slate-500 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
+          >
+            <span className="hidden sm:inline">Next Week</span>
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSelectedDay(Math.min(28, (selectedDay || 1) + 1))}
-          disabled={selectedDay === 28 || (selectedDay || 1) >= overview.currentDay}
-          className="border-slate-200 dark:border-navy-600"
+
+        {/* Day Carousel */}
+        <Carousel
+          setApi={setCarouselApi}
+          opts={{
+            align: 'start',
+            loop: false,
+          }}
+          className="w-full"
         >
-          Next
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
+          <CarouselContent className="-ml-2">
+            {weeks.map((weekDays, weekIdx) => (
+              <CarouselItem key={weekIdx} className="pl-2 basis-full">
+                <div className="flex justify-center gap-1 sm:gap-2 py-1">
+                  {weekDays.map(day => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      aria-label={`Day ${day}`}
+                      aria-pressed={selectedDay === day}
+                      className={cn(
+                        "w-10 h-10 sm:w-11 sm:h-11 rounded-full text-sm sm:text-base font-medium transition-all duration-200 flex-shrink-0",
+                        "focus:outline-none focus:ring-2 focus:ring-gold-500 focus:ring-offset-2 dark:focus:ring-offset-navy-800",
+                        selectedDay === day
+                          ? "bg-gold-500 text-navy-900 shadow-md scale-110"
+                          : day <= overview.currentDay
+                          ? "bg-slate-100 dark:bg-navy-700 text-navy-900 dark:text-white hover:bg-gold-100 dark:hover:bg-gold-900/40 hover:scale-105"
+                          : "bg-slate-100 dark:bg-navy-800 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50"
+                      )}
+                      disabled={day > overview.currentDay}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+
+        {/* Week Dots Indicator */}
+        <div className="flex justify-center gap-1.5">
+          {weeks.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => carouselApi?.scrollTo(idx)}
+              aria-label={`Go to week ${idx + 1}`}
+              className={cn(
+                "w-2 h-2 rounded-full transition-all duration-200",
+                currentWeek === idx
+                  ? "bg-gold-500 w-4"
+                  : "bg-slate-300 dark:bg-navy-600 hover:bg-gold-300 dark:hover:bg-gold-700"
+              )}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Day Content */}
@@ -300,28 +384,30 @@ export function CoursePage() {
                       : "bg-slate-100 dark:bg-navy-800 border-slate-200 dark:border-navy-700 opacity-60"
                   )}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3 sm:gap-4">
                     <div className={cn(
-                      "p-3 rounded-lg",
+                      "p-2 sm:p-3 rounded-lg flex-shrink-0",
                       content.contentType === 'video' && "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
                       content.contentType === 'quiz' && "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
                       content.contentType === 'resource' && "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
                     )}>
                       {getTypeIcon(content.contentType)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-medium text-navy-900 dark:text-white">{content.title}</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-medium text-navy-900 dark:text-white truncate">{content.title}</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
                             {content.description}
                           </p>
                         </div>
-                        {getStatusBadge(progress?.status, dayContent.isUnlocked)}
+                        <div className="flex-shrink-0">
+                          {getStatusBadge(progress?.status, dayContent.isUnlocked)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 mt-3">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-3">
                         <span className="text-sm text-gold-600 dark:text-gold-400 flex items-center gap-1">
-                          <Award className="h-4 w-4" />
+                          <Award className="h-4 w-4 flex-shrink-0" />
                           {content.points} pts
                         </span>
                         {content.contentType === 'video' && progress?.watchedPercentage && progress.watchedPercentage > 0 && progress.status !== 'completed' && (
@@ -384,7 +470,7 @@ export function CoursePage() {
 
       {/* Video Player Modal */}
       <Dialog open={videoModalOpen} onOpenChange={(open) => !open && closeVideoPlayer()}>
-        <DialogContent className="max-w-4xl p-0 bg-black overflow-hidden">
+        <DialogContent className="w-[95vw] max-w-4xl p-0 bg-black overflow-hidden">
           <div className="relative">
             <Button
               variant="ghost"
@@ -403,14 +489,14 @@ export function CoursePage() {
                 onTimeUpdate={handleVideoTimeUpdate}
                 onEnded={handleVideoEnded}
                 className="w-full aspect-video"
-                style={{ maxHeight: '80vh' }}
+                style={{ maxHeight: '70vh' }}
               />
             )}
           </div>
           {activeVideo && (
-            <div className="p-4 bg-navy-900 text-white">
-              <h3 className="font-semibold">{activeVideo.content.title}</h3>
-              <p className="text-sm text-slate-400 mt-1">{activeVideo.content.description}</p>
+            <div className="p-3 sm:p-4 bg-navy-900 text-white">
+              <h3 className="font-semibold text-sm sm:text-base truncate">{activeVideo.content.title}</h3>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 line-clamp-2">{activeVideo.content.description}</p>
             </div>
           )}
         </DialogContent>
@@ -425,12 +511,12 @@ export function CoursePage() {
           setQuizResult(null);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-navy-800">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-navy-800">
           <DialogHeader>
-            <DialogTitle className="text-navy-900 dark:text-white">
+            <DialogTitle className="text-navy-900 dark:text-white text-base sm:text-lg pr-6">
               {activeQuiz?.content.title}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm">
               {quizResult
                 ? (quizResult.passed ? 'Congratulations!' : 'Keep trying!')
                 : `Answer all questions to complete the quiz. ${activeQuiz?.content.quizData?.passingScore || 80}% required to pass.`
@@ -510,10 +596,10 @@ export function CoursePage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {activeQuiz?.content.quizData?.questions.map((question, qIdx) => (
-                <div key={question.id} className="space-y-3">
-                  <p className="font-medium text-navy-900 dark:text-white">
+                <div key={question.id} className="space-y-2 sm:space-y-3">
+                  <p className="font-medium text-navy-900 dark:text-white text-sm sm:text-base">
                     {qIdx + 1}. {question.question}
                   </p>
                   <div className="space-y-2">
@@ -522,22 +608,22 @@ export function CoursePage() {
                         key={oIdx}
                         onClick={() => setQuizAnswers({ ...quizAnswers, [question.id]: oIdx })}
                         className={cn(
-                          "w-full p-3 rounded-lg border text-left transition-colors",
+                          "w-full p-2.5 sm:p-3 rounded-lg border text-left transition-colors",
                           quizAnswers[question.id] === oIdx
                             ? "bg-gold-100 dark:bg-gold-900/30 border-gold-500 text-navy-900 dark:text-white"
                             : "bg-slate-50 dark:bg-navy-700 border-slate-200 dark:border-navy-600 hover:border-gold-300 dark:hover:border-gold-700"
                         )}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-2 sm:gap-3">
                           <span className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium",
+                            "w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium flex-shrink-0 mt-0.5",
                             quizAnswers[question.id] === oIdx
                               ? "bg-gold-500 text-navy-900"
                               : "bg-slate-200 dark:bg-navy-600 text-slate-600 dark:text-slate-400"
                           )}>
                             {String.fromCharCode(65 + oIdx)}
                           </span>
-                          <span className="text-sm">{option}</span>
+                          <span className="text-xs sm:text-sm">{option}</span>
                         </div>
                       </button>
                     ))}
@@ -547,10 +633,10 @@ export function CoursePage() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             {quizResult ? (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setQuizModalOpen(false)}>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" onClick={() => setQuizModalOpen(false)} className="w-full sm:w-auto">
                   Close
                 </Button>
                 {!quizResult.passed && quizResult.attemptsRemaining > 0 && (
@@ -559,7 +645,7 @@ export function CoursePage() {
                       setQuizAnswers({});
                       setQuizResult(null);
                     }}
-                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900 w-full sm:w-auto"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Try Again
@@ -573,7 +659,7 @@ export function CoursePage() {
                   Object.keys(quizAnswers).length !== activeQuiz?.content.quizData?.questions.length ||
                   submitQuizMutation.isPending
                 }
-                className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                className="bg-gold-500 hover:bg-gold-600 text-navy-900 w-full sm:w-auto"
               >
                 {submitQuizMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Submit Quiz

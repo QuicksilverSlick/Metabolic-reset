@@ -29,7 +29,7 @@ import {
   Upload,
   Image
 } from 'lucide-react';
-import { uploadApi } from '@/lib/api';
+import { uploadApi, streamApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -91,6 +91,8 @@ export function ContentManager() {
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [isUploadingResource, setIsUploadingResource] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const videoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const resourceInputRef = useRef<HTMLInputElement>(null);
@@ -284,10 +286,84 @@ export function ContentManager() {
       return;
     }
 
-    // Validate file size (95MB max for videos due to Cloudflare Workers limit)
-    const maxSize = type === 'video' ? 95 * 1024 * 1024 : 50 * 1024 * 1024;
+    // For videos, check if we need to use Stream (>95MB) or R2 (<95MB)
+    const R2_SIZE_LIMIT = 95 * 1024 * 1024; // 95MB
+    const MAX_STREAM_SIZE = 4 * 1024 * 1024 * 1024; // 4GB (Stream limit)
+
+    if (type === 'video' && file.size > R2_SIZE_LIMIT) {
+      // Use Cloudflare Stream for large videos
+      if (file.size > MAX_STREAM_SIZE) {
+        toast.error('File too large. Maximum video size is 4GB.');
+        return;
+      }
+
+      setUploading(true);
+      setUploadProgress(0);
+      setUploadStatus('Creating upload...');
+
+      try {
+        // 1. Get TUS upload config from backend
+        const { tusEndpoint, apiToken, meta } = await streamApi.createUpload(
+          userId,
+          { name: file.name, projectId: selectedProjectId || undefined },
+          file.size
+        );
+
+        setUploadStatus('Uploading video...');
+
+        // 2. Upload to Stream using TUS protocol (resumable)
+        const uid = await streamApi.uploadToStream(
+          tusEndpoint,
+          apiToken,
+          file,
+          meta,
+          (percent) => {
+            setUploadProgress(percent);
+          }
+        );
+
+        setUploadStatus('Processing video...');
+        setUploadProgress(100);
+
+        // 3. Wait for video to be ready (poll for status)
+        const result = await streamApi.waitForReady(userId, uid, 300000, 3000);
+
+        if (result.ready && result.playbackUrl) {
+          setUrl(result.playbackUrl);
+          // Also set duration if available
+          if (result.duration && result.duration > 0) {
+            setFormVideoDuration(Math.round(result.duration));
+          }
+          toast.success('Video uploaded and processed successfully via Cloudflare Stream');
+        } else {
+          throw new Error(result.error || 'Video processing failed');
+        }
+      } catch (error) {
+        console.error('Stream upload failed:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        // Check for specific error types
+        if (errorMessage.includes('not configured')) {
+          toast.error('Cloudflare Stream is not configured. Please upload your video to Cloudflare Stream manually and paste the URL, or contact admin to configure streaming.');
+        } else if (errorMessage.includes('Storage capacity exceeded') || errorMessage.includes('exceeded your allocated storage')) {
+          toast.error('Cloudflare Stream storage quota exceeded. Please delete old videos from Cloudflare Stream or upgrade your plan.');
+        } else if (errorMessage.includes('10011')) {
+          toast.error('Stream storage quota exceeded. Delete videos from Cloudflare dashboard or upgrade your Stream plan.');
+        } else {
+          toast.error(`Failed to upload video: ${errorMessage}`);
+        }
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+        setUploadStatus('');
+      }
+      return;
+    }
+
+    // For smaller files or non-videos, use R2 upload
+    const maxSize = type === 'video' ? R2_SIZE_LIMIT : 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB. For larger videos, consider using Cloudflare Stream.`);
+      toast.error(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`);
       return;
     }
 
@@ -666,6 +742,7 @@ export function ContentManager() {
                       onChange={(e) => setFormVideoUrl(e.target.value)}
                       placeholder="https://... or upload a video"
                       className="flex-1"
+                      disabled={isUploadingVideo}
                     />
                     <input
                       ref={videoInputRef}
@@ -687,7 +764,24 @@ export function ContentManager() {
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Upload MP4, WebM, or MOV (max 95MB). For larger videos, use Cloudflare Stream URL.</p>
+                  {/* Upload progress indicator for large videos */}
+                  {isUploadingVideo && uploadProgress > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>{uploadStatus}</span>
+                        <span>{Math.round(uploadProgress)}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-200 dark:bg-navy-600 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gold-500 transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Upload MP4, WebM, or MOV. Files under 95MB use R2 storage. Larger files (up to 4GB) automatically use Cloudflare Stream.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

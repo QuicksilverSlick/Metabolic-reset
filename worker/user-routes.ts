@@ -2343,6 +2343,116 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // =========================================
+  // Cloudflare Stream Upload Routes (for large videos)
+  // =========================================
+
+  // Get TUS upload endpoint for Cloudflare Stream (supports files up to 200GB)
+  // This bypasses the 100MB worker body limit by having the browser upload directly to Stream
+  // Uses TUS protocol for resumable uploads
+  app.post('/api/stream/create-upload', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      // Verify user is admin (only admins can upload course content)
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+      if (!user.isAdmin) return c.json({ error: 'Admin access required' }, 403);
+
+      const { maxDurationSeconds, meta, fileSize } = await c.req.json() as {
+        maxDurationSeconds?: number;
+        meta?: { name?: string; projectId?: string };
+        fileSize?: number;
+      };
+
+      // Get Cloudflare credentials from environment
+      const accountId = (c.env as any).CLOUDFLARE_ACCOUNT_ID;
+      const apiToken = (c.env as any).CLOUDFLARE_STREAM_TOKEN;
+
+      if (!accountId || !apiToken) {
+        console.error('Cloudflare Stream not configured - missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_STREAM_TOKEN');
+        return c.json({ error: 'Video streaming service not configured. Please contact admin.' }, 500);
+      }
+
+      // For TUS uploads, we create an upload via the Stream API with TUS headers
+      // https://developers.cloudflare.com/stream/uploading-videos/upload-video-file/#tus-protocol
+      const tusEndpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream`;
+
+      // Return TUS upload info
+      // The frontend will use tus-js-client to upload directly to this endpoint
+      return ok(c, {
+        tusEndpoint,
+        apiToken, // Frontend needs this for TUS authentication
+        accountId,
+        maxDurationSeconds: maxDurationSeconds || 3600,
+        meta: {
+          ...meta,
+          uploadedBy: userId,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+    } catch (e: any) {
+      console.error('Stream upload creation error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Check the status of a Stream video (processing, ready, error)
+  app.get('/api/stream/status/:uid', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const uid = c.req.param('uid');
+      if (!uid) return bad(c, 'Video UID required');
+
+      const accountId = (c.env as any).CLOUDFLARE_ACCOUNT_ID;
+      const apiToken = (c.env as any).CLOUDFLARE_STREAM_TOKEN;
+
+      if (!accountId || !apiToken) {
+        return c.json({ error: 'Video streaming service not configured' }, 500);
+      }
+
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${uid}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`
+          }
+        }
+      );
+
+      const data: any = await response.json();
+
+      if (!response.ok || !data.success) {
+        return c.json({ error: data.errors?.[0]?.message || 'Failed to get video status' }, 500);
+      }
+
+      const video = data.result;
+
+      return ok(c, {
+        uid: video.uid,
+        status: video.status?.state || 'unknown', // 'pendingupload', 'uploading', 'queued', 'inprogress', 'ready', 'error'
+        ready: video.readyToStream === true,
+        duration: video.duration,
+        thumbnail: video.thumbnail,
+        // Playback URLs
+        playbackUrl: video.playback?.hls || null,
+        dashUrl: video.playback?.dash || null,
+        // Preview/embed URL (can be used in iframe or video player)
+        previewUrl: video.preview || null,
+        // Error info if failed
+        errorReason: video.status?.errorReasonCode || null,
+        errorText: video.status?.errorReasonText || null
+      });
+    } catch (e: any) {
+      console.error('Stream status check error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
   // Bug Report Routes
   // =========================================
 

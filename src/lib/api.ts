@@ -479,6 +479,131 @@ export const uploadApi = {
   }
 };
 
+// Cloudflare Stream API - for large video uploads (>95MB)
+// Uses TUS protocol for resumable uploads up to 200GB
+export const streamApi = {
+  // Get TUS upload config from backend
+  // Returns endpoint and credentials for TUS upload
+  createUpload: (userId: string, meta?: { name?: string; projectId?: string }, fileSize?: number) =>
+    api<{
+      tusEndpoint: string;
+      apiToken: string;
+      accountId: string;
+      maxDurationSeconds: number;
+      meta: Record<string, string>;
+    }>('/api/stream/create-upload', {
+      method: 'POST',
+      body: JSON.stringify({ maxDurationSeconds: 3600, meta, fileSize }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Check the status of a Stream video (processing, ready, error)
+  getStatus: (userId: string, uid: string) =>
+    api<{
+      uid: string;
+      status: string;
+      ready: boolean;
+      duration: number | null;
+      thumbnail: string | null;
+      playbackUrl: string | null;
+      dashUrl: string | null;
+      previewUrl: string | null;
+      errorReason: string | null;
+      errorText: string | null;
+    }>(`/api/stream/status/${uid}`, { headers: { 'X-User-ID': userId } }),
+
+  // Upload file to Cloudflare Stream using TUS protocol
+  // Returns the video UID after upload starts
+  uploadToStream: async (
+    tusEndpoint: string,
+    apiToken: string,
+    file: File,
+    meta: Record<string, string>,
+    onProgress?: (percent: number) => void
+  ): Promise<string> => {
+    // Dynamically import tus-js-client
+    const { Upload } = await import('tus-js-client');
+
+    return new Promise((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint: tusEndpoint,
+        headers: {
+          'Authorization': `Bearer ${apiToken}`
+        },
+        metadata: {
+          name: file.name,
+          filetype: file.type,
+          ...meta
+        },
+        chunkSize: 50 * 1024 * 1024, // 50MB chunks
+        retryDelays: [0, 1000, 3000, 5000],
+        onError: (error) => {
+          console.error('TUS upload error:', error);
+          reject(error);
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const percentage = (bytesUploaded / bytesTotal) * 100;
+          if (onProgress) {
+            onProgress(percentage);
+          }
+        },
+        onSuccess: () => {
+          // Extract video UID from the upload URL
+          // URL format: https://api.cloudflare.com/client/v4/accounts/{account_id}/stream/{video_uid}
+          const uploadUrl = upload.url;
+          if (uploadUrl) {
+            const parts = uploadUrl.split('/');
+            const uid = parts[parts.length - 1];
+            resolve(uid);
+          } else {
+            reject(new Error('Upload completed but no URL returned'));
+          }
+        }
+      });
+
+      // Check if there's a previous upload to resume
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      });
+    });
+  },
+
+  // Poll for video ready status (with timeout)
+  waitForReady: async (
+    userId: string,
+    uid: string,
+    maxWaitMs: number = 300000, // 5 minutes default
+    pollIntervalMs: number = 3000 // 3 seconds
+  ): Promise<{ ready: boolean; playbackUrl: string | null; previewUrl: string | null; duration?: number; error?: string }> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const status = await streamApi.getStatus(userId, uid);
+
+      if (status.ready && status.playbackUrl) {
+        return {
+          ready: true,
+          playbackUrl: status.playbackUrl,
+          previewUrl: status.previewUrl,
+          duration: status.duration || undefined
+        };
+      }
+
+      if (status.status === 'error') {
+        return { ready: false, playbackUrl: null, previewUrl: null, error: status.errorText || 'Video processing failed' };
+      }
+
+      // Wait before polling again
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    }
+
+    return { ready: false, playbackUrl: null, previewUrl: null, error: 'Timed out waiting for video to be ready' };
+  }
+};
+
 // Admin Bug API - for admin bug management
 export const adminBugApi = {
   // Get all bug reports
