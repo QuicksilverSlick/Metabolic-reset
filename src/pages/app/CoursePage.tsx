@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useCourseOverview, useDayContent, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz } from '@/hooks/use-queries';
+import { useCourseOverview, useDayContent, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz, useContentComments, useAddComment, useLikeComment, useContentDetails, useLikeContent } from '@/hooks/use-queries';
+import { useAuthStore } from '@/lib/auth-store';
 import {
   Play,
   Pause,
@@ -17,7 +18,11 @@ import {
   AlertCircle,
   X,
   Check,
-  RotateCcw
+  RotateCcw,
+  Heart,
+  MessageCircle,
+  Send,
+  User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,8 +42,10 @@ import {
   CarouselItem,
   type CarouselApi,
 } from '@/components/ui/carousel';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { CourseContent, UserProgress, QuizQuestion, QuizResultResponse } from '@shared/types';
+import { CourseContent, UserProgress, QuizQuestion, QuizResultResponse, ContentComment } from '@shared/types';
 
 // Helper to group days into weeks
 const DAYS_PER_WEEK = 7;
@@ -52,6 +59,11 @@ export function CoursePage() {
   const { data: overviewData, isLoading: overviewLoading } = useCourseOverview();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { data: dayContent, isLoading: dayContentLoading } = useDayContent(selectedDay);
+  const userId = localStorage.getItem('userId'); // Get current user ID for like status
+
+  // Get current user to check admin/test mode status
+  const currentUser = useAuthStore(s => s.user);
+  const canPreviewAllContent = currentUser?.isAdmin || currentUser?.isTestMode;
 
   // Carousel state for day selector
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
@@ -67,6 +79,16 @@ export function CoursePage() {
   const [activeQuiz, setActiveQuiz] = useState<{ content: CourseContent; progress: UserProgress | null } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizResult, setQuizResult] = useState<QuizResultResponse | null>(null);
+
+  // Comment state
+  const [newComment, setNewComment] = useState('');
+  const { data: commentsData, isLoading: commentsLoading } = useContentComments(activeVideo?.content.id || null);
+  const addCommentMutation = useAddComment();
+  const likeCommentMutation = useLikeComment();
+
+  // Content likes (video likes)
+  const { data: contentDetails } = useContentDetails(activeVideo?.content.id || null);
+  const likeContentMutation = useLikeContent();
 
   // Mutations
   const updateProgressMutation = useUpdateVideoProgress();
@@ -138,7 +160,52 @@ export function CoursePage() {
   const handleVideoEnded = () => {
     if (activeVideo) {
       completeVideoMutation.mutate(activeVideo.content.id);
+      // Auto-close video modal after completion with a short delay for feedback
+      setTimeout(() => {
+        setVideoModalOpen(false);
+        setActiveVideo(null);
+      }, 1500);
     }
+  };
+
+  // Handle comment submission
+  const handleAddComment = () => {
+    if (!activeVideo || !newComment.trim()) return;
+    addCommentMutation.mutate({
+      contentId: activeVideo.content.id,
+      text: newComment.trim()
+    }, {
+      onSuccess: () => setNewComment('')
+    });
+  };
+
+  // Handle like toggle for comments
+  const handleLikeComment = (commentId: string) => {
+    if (!activeVideo) return;
+    likeCommentMutation.mutate({
+      commentId,
+      contentId: activeVideo.content.id
+    });
+  };
+
+  // Handle like toggle for video content
+  const handleLikeVideo = () => {
+    if (!activeVideo) return;
+    likeContentMutation.mutate(activeVideo.content.id);
+  };
+
+  // Format relative time for comments
+  const formatRelativeTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
   };
 
   const openQuiz = (content: CourseContent, progress: UserProgress | null) => {
@@ -220,9 +287,15 @@ export function CoursePage() {
           <CardTitle className="flex items-center gap-2 text-navy-900 dark:text-white">
             <Video className="h-5 w-5 text-gold-500" />
             Your Course Progress
+            {canPreviewAllContent && (
+              <Badge variant="outline" className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700">
+                {currentUser?.isAdmin ? 'Admin Preview' : 'Test Mode'}
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">
             Day {overview.currentDay} of 28
+            {canPreviewAllContent && ' • All days accessible for testing'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -304,26 +377,30 @@ export function CoursePage() {
             {weeks.map((weekDays, weekIdx) => (
               <CarouselItem key={weekIdx} className="pl-2 basis-full">
                 <div className="flex justify-center gap-1 sm:gap-2 py-1">
-                  {weekDays.map(day => (
-                    <button
-                      key={day}
-                      onClick={() => setSelectedDay(day)}
-                      aria-label={`Day ${day}`}
-                      aria-pressed={selectedDay === day}
-                      className={cn(
-                        "w-10 h-10 sm:w-11 sm:h-11 rounded-full text-sm sm:text-base font-medium transition-all duration-200 flex-shrink-0",
-                        "focus:outline-none focus:ring-2 focus:ring-gold-500 focus:ring-offset-2 dark:focus:ring-offset-navy-800",
-                        selectedDay === day
-                          ? "bg-gold-500 text-navy-900 shadow-md scale-110"
-                          : day <= overview.currentDay
-                          ? "bg-slate-100 dark:bg-navy-700 text-navy-900 dark:text-white hover:bg-gold-100 dark:hover:bg-gold-900/40 hover:scale-105"
-                          : "bg-slate-100 dark:bg-navy-800 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50"
-                      )}
-                      disabled={day > overview.currentDay}
-                    >
-                      {day}
-                    </button>
-                  ))}
+                  {weekDays.map(day => {
+                    // Admins and test mode users can access all days
+                    const isDayAccessible = canPreviewAllContent || day <= overview.currentDay;
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        aria-label={`Day ${day}`}
+                        aria-pressed={selectedDay === day}
+                        className={cn(
+                          "w-10 h-10 sm:w-11 sm:h-11 rounded-full text-sm sm:text-base font-medium transition-all duration-200 flex-shrink-0",
+                          "focus:outline-none focus:ring-2 focus:ring-gold-500 focus:ring-offset-2 dark:focus:ring-offset-navy-800",
+                          selectedDay === day
+                            ? "bg-gold-500 text-navy-900 shadow-md scale-110"
+                            : isDayAccessible
+                            ? "bg-slate-100 dark:bg-navy-700 text-navy-900 dark:text-white hover:bg-gold-100 dark:hover:bg-gold-900/40 hover:scale-105"
+                            : "bg-slate-100 dark:bg-navy-800 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50"
+                        )}
+                        disabled={!isDayAccessible}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
                 </div>
               </CarouselItem>
             ))}
@@ -371,12 +448,12 @@ export function CoursePage() {
               No content scheduled for this day.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {dayContent.content.map(({ content, progress, prerequisitesMet }) => (
                 <div
                   key={content.id}
                   className={cn(
-                    "p-4 rounded-lg border transition-all",
+                    "rounded-lg border transition-all overflow-hidden",
                     progress?.status === 'completed'
                       ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
                       : dayContent.isUnlocked
@@ -384,81 +461,145 @@ export function CoursePage() {
                       : "bg-slate-100 dark:bg-navy-800 border-slate-200 dark:border-navy-700 opacity-60"
                   )}
                 >
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <div className={cn(
-                      "p-2 sm:p-3 rounded-lg flex-shrink-0",
-                      content.contentType === 'video' && "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-                      content.contentType === 'quiz' && "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
-                      content.contentType === 'resource' && "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                    )}>
-                      {getTypeIcon(content.contentType)}
-                    </div>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-navy-900 dark:text-white truncate">{content.title}</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                            {content.description}
-                          </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          {getStatusBadge(progress?.status, dayContent.isUnlocked)}
+                  {/* Thumbnail for videos */}
+                  {content.contentType === 'video' && content.thumbnailUrl && (
+                    <div
+                      className="relative w-full aspect-video bg-slate-900 cursor-pointer group"
+                      onClick={() => dayContent.isUnlocked && openVideoPlayer(content, progress || null)}
+                    >
+                      <img
+                        src={content.thumbnailUrl}
+                        alt={content.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-16 h-16 rounded-full bg-gold-500 flex items-center justify-center">
+                          <Play className="h-8 w-8 text-navy-900 ml-1" />
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-3">
-                        <span className="text-sm text-gold-600 dark:text-gold-400 flex items-center gap-1">
-                          <Award className="h-4 w-4 flex-shrink-0" />
-                          {content.points} pts
-                        </span>
-                        {content.contentType === 'video' && progress?.watchedPercentage && progress.watchedPercentage > 0 && progress.status !== 'completed' && (
-                          <span className="text-sm text-blue-600 dark:text-blue-400">
-                            {Math.round(progress.watchedPercentage)}% watched
-                          </span>
-                        )}
-                        {content.contentType === 'quiz' && progress?.quizAttempts ? (
-                          <span className="text-sm text-purple-600 dark:text-purple-400">
-                            {progress.quizAttempts} attempt{progress.quizAttempts > 1 ? 's' : ''}
-                            {progress.quizScore !== undefined && ` - ${progress.quizScore}%`}
-                          </span>
-                        ) : null}
-                      </div>
-                      {dayContent.isUnlocked && progress?.status !== 'completed' && (
-                        <div className="mt-3">
-                          {content.contentType === 'video' && (
-                            <Button
-                              size="sm"
-                              onClick={() => openVideoPlayer(content, progress || null)}
-                              className="bg-gold-500 hover:bg-gold-600 text-navy-900"
-                            >
-                              <Play className="h-4 w-4 mr-1" />
-                              {progress?.lastPosition ? 'Resume' : 'Watch'}
-                            </Button>
-                          )}
-                          {content.contentType === 'quiz' && (
-                            <Button
-                              size="sm"
-                              onClick={() => openQuiz(content, progress || null)}
-                              disabled={!prerequisitesMet}
-                              className="bg-purple-500 hover:bg-purple-600 text-white"
-                            >
-                              <FileQuestion className="h-4 w-4 mr-1" />
-                              {!prerequisitesMet ? 'Complete videos first' : progress?.quizAttempts ? 'Retry Quiz' : 'Take Quiz'}
-                            </Button>
-                          )}
-                          {content.contentType === 'resource' && content.resourceUrl && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                            >
-                              <a href={content.resourceUrl} target="_blank" rel="noopener noreferrer">
-                                <FileText className="h-4 w-4 mr-1" />
-                                View Resource
-                              </a>
-                            </Button>
-                          )}
+                      {/* Progress bar for videos */}
+                      {progress?.watchedPercentage && progress.watchedPercentage > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
+                          <div
+                            className={cn(
+                              "h-full transition-all",
+                              progress.status === 'completed' ? "bg-green-500" : "bg-gold-500"
+                            )}
+                            style={{ width: `${Math.min(100, progress.watchedPercentage)}%` }}
+                          />
                         </div>
                       )}
+                      {/* Duration badge */}
+                      {content.videoDuration && (
+                        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/80 rounded text-xs text-white">
+                          {Math.floor(content.videoDuration / 60)}:{(content.videoDuration % 60).toString().padStart(2, '0')}
+                        </div>
+                      )}
+                      {/* Completed checkmark */}
+                      {progress?.status === 'completed' && (
+                        <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                          <CheckCircle2 className="h-5 w-5 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      {/* Icon for non-video content, or if no thumbnail */}
+                      {(content.contentType !== 'video' || !content.thumbnailUrl) && (
+                        <div className={cn(
+                          "p-2 sm:p-3 rounded-lg flex-shrink-0",
+                          content.contentType === 'video' && "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+                          content.contentType === 'quiz' && "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400",
+                          content.contentType === 'resource' && "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                        )}>
+                          {getTypeIcon(content.contentType)}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-navy-900 dark:text-white truncate">{content.title}</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                              {content.description}
+                            </p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(progress?.status, dayContent.isUnlocked)}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-3">
+                          <span className="text-sm text-gold-600 dark:text-gold-400 flex items-center gap-1">
+                            <Award className="h-4 w-4 flex-shrink-0" />
+                            {content.points} pts
+                          </span>
+                          {/* Like count for videos */}
+                          {content.contentType === 'video' && (content.likes || 0) > 0 && (
+                            <span className={cn(
+                              "text-sm flex items-center gap-1",
+                              userId && content.likedBy?.includes(userId)
+                                ? "text-red-500"
+                                : "text-slate-500 dark:text-slate-400"
+                            )}>
+                              <Heart
+                                className="h-4 w-4 flex-shrink-0"
+                                fill={userId && content.likedBy?.includes(userId) ? "currentColor" : "none"}
+                              />
+                              {content.likes}
+                            </span>
+                          )}
+                          {content.contentType === 'video' && progress?.watchedPercentage && progress.watchedPercentage > 0 && progress.status !== 'completed' && (
+                            <span className="text-sm text-blue-600 dark:text-blue-400">
+                              {Math.round(progress.watchedPercentage)}% watched
+                            </span>
+                          )}
+                          {content.contentType === 'quiz' && progress?.quizAttempts ? (
+                            <span className="text-sm text-purple-600 dark:text-purple-400">
+                              {progress.quizAttempts} attempt{progress.quizAttempts > 1 ? 's' : ''}
+                              {progress.quizScore !== undefined && ` - ${progress.quizScore}%`}
+                            </span>
+                          ) : null}
+                        </div>
+                        {dayContent.isUnlocked && progress?.status !== 'completed' && (
+                          <div className="mt-3">
+                            {content.contentType === 'video' && !content.thumbnailUrl && (
+                              <Button
+                                size="sm"
+                                onClick={() => openVideoPlayer(content, progress || null)}
+                                className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                {progress?.lastPosition ? 'Resume' : 'Watch'}
+                              </Button>
+                            )}
+                            {content.contentType === 'quiz' && (
+                              <Button
+                                size="sm"
+                                onClick={() => openQuiz(content, progress || null)}
+                                disabled={!prerequisitesMet}
+                                className="bg-purple-500 hover:bg-purple-600 text-white"
+                              >
+                                <FileQuestion className="h-4 w-4 mr-1" />
+                                {!prerequisitesMet ? 'Complete videos first' : progress?.quizAttempts ? 'Retry Quiz' : 'Take Quiz'}
+                              </Button>
+                            )}
+                            {content.contentType === 'resource' && content.resourceUrl && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                              >
+                                <a href={content.resourceUrl} target="_blank" rel="noopener noreferrer">
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  View Resource
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -468,17 +609,18 @@ export function CoursePage() {
         </CardContent>
       </Card>
 
-      {/* Video Player Modal */}
+      {/* Video Player Modal - Fullscreen with Comments */}
       <Dialog open={videoModalOpen} onOpenChange={(open) => !open && closeVideoPlayer()}>
-        <DialogContent className="w-[95vw] max-w-4xl p-0 bg-black overflow-hidden">
-          <div className="relative">
+        <DialogContent className="w-[100vw] h-[100vh] max-w-none p-0 bg-black overflow-hidden flex flex-col">
+          {/* Video Section */}
+          <div className="relative flex-shrink-0 bg-black flex items-center justify-center" style={{ maxHeight: '60vh' }}>
             <Button
               variant="ghost"
               size="sm"
               onClick={closeVideoPlayer}
-              className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white"
+              className="absolute top-4 right-4 z-20 bg-black/50 hover:bg-black/70 text-white"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
             {activeVideo && (
               <video
@@ -488,15 +630,148 @@ export function CoursePage() {
                 autoPlay
                 onTimeUpdate={handleVideoTimeUpdate}
                 onEnded={handleVideoEnded}
-                className="w-full aspect-video"
-                style={{ maxHeight: '70vh' }}
+                className="w-full h-full object-contain"
+                style={{ maxHeight: '60vh' }}
               />
             )}
           </div>
+
+          {/* Content Info & Comments Section */}
           {activeVideo && (
-            <div className="p-3 sm:p-4 bg-navy-900 text-white">
-              <h3 className="font-semibold text-sm sm:text-base truncate">{activeVideo.content.title}</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 line-clamp-2">{activeVideo.content.description}</p>
+            <div className="flex-1 bg-navy-900 overflow-hidden flex flex-col">
+              {/* Video Info Header */}
+              <div className="p-4 border-b border-navy-700 flex-shrink-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white text-lg">{activeVideo.content.title}</h3>
+                    <p className="text-sm text-slate-400 mt-1">{activeVideo.content.description}</p>
+                  </div>
+                  {/* Like Video Button */}
+                  <button
+                    onClick={handleLikeVideo}
+                    disabled={likeContentMutation.isPending}
+                    className={cn(
+                      "flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors flex-shrink-0",
+                      userId && (contentDetails?.content?.likedBy || []).includes(userId)
+                        ? "bg-red-500/20 text-red-500"
+                        : "bg-navy-700 text-slate-400 hover:text-red-500 hover:bg-red-500/10"
+                    )}
+                  >
+                    <Heart
+                      className="h-6 w-6"
+                      fill={userId && (contentDetails?.content?.likedBy || []).includes(userId) ? "currentColor" : "none"}
+                    />
+                    <span className="text-xs font-medium">
+                      {contentDetails?.content?.likes || activeVideo.content.likes || 0}
+                    </span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                  {activeVideo.content.videoDuration && (
+                    <span>{Math.floor(activeVideo.content.videoDuration / 60)} min</span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <MessageCircle className="h-4 w-4" />
+                    {commentsData?.comments?.length || 0} comments
+                  </span>
+                </div>
+              </div>
+
+              {/* Comments Section */}
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {/* Add Comment */}
+                <div className="p-4 border-b border-navy-700 flex-shrink-0">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-navy-700 flex items-center justify-center flex-shrink-0">
+                      <UserIcon className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <div className="flex-1">
+                      <Textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="min-h-[60px] bg-navy-800 border-navy-600 text-white placeholder:text-slate-500 resize-none"
+                        maxLength={1000}
+                      />
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-slate-500">{newComment.length}/1000</span>
+                        <Button
+                          size="sm"
+                          onClick={handleAddComment}
+                          disabled={!newComment.trim() || addCommentMutation.isPending}
+                          className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                        >
+                          {addCommentMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-1" />
+                              Comment
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comments List */}
+                <ScrollArea className="flex-1 p-4">
+                  {commentsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+                    </div>
+                  ) : !commentsData?.comments?.length ? (
+                    <p className="text-center py-8 text-slate-500">
+                      No comments yet. Be the first to share your thoughts!
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {commentsData.comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3">
+                          {/* Avatar */}
+                          {comment.userAvatarUrl ? (
+                            <img
+                              src={comment.userAvatarUrl}
+                              alt={comment.userName}
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-navy-700 flex items-center justify-center flex-shrink-0">
+                              <UserIcon className="h-4 w-4 text-slate-400" />
+                            </div>
+                          )}
+                          {/* Comment Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white text-sm">{comment.userName}</span>
+                              <span className="text-xs text-slate-500">{formatRelativeTime(comment.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-slate-300 mt-1 whitespace-pre-wrap break-words">{comment.text}</p>
+                            {/* Like button */}
+                            <button
+                              onClick={() => handleLikeComment(comment.id)}
+                              disabled={likeCommentMutation.isPending}
+                              className={cn(
+                                "flex items-center gap-1 mt-2 text-sm transition-colors",
+                                userId && comment.likedBy?.includes(userId)
+                                  ? "text-red-500"
+                                  : "text-slate-500 hover:text-red-500"
+                              )}
+                            >
+                              <Heart
+                              className="h-4 w-4"
+                              fill={userId && comment.likedBy?.includes(userId) ? "currentColor" : "none"}
+                            />
+                              <span>{comment.likes || 0}</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
             </div>
           )}
         </DialogContent>

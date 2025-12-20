@@ -57,6 +57,7 @@ export interface User {
   isActive: boolean;
   hasScale: boolean;
   isAdmin?: boolean; // Admin flag for system administrators
+  isTestMode?: boolean; // Test mode - allows viewing content like an admin without admin privileges
   stripeCustomerId?: string;
   avatarUrl?: string; // User profile photo URL
   deletedAt?: number; // Unix timestamp for soft delete (30-day recovery window)
@@ -171,7 +172,11 @@ export interface AdminUpdateUserRequest {
 export type SexType = 'male' | 'female';
 
 // Quiz result types based on score ranges
-export type QuizResultType = 'fatigue' | 'instability' | 'plateau' | 'optimized';
+// New system: GREEN (0-15), YELLOW (16-35), ORANGE (36-65), RED (66-100) - lower is better
+// Legacy support: fatigue, instability, plateau, optimized (kept for backward compatibility)
+export type QuizResultType =
+  | 'green' | 'yellow' | 'orange' | 'red'  // New result types (lower score = healthier)
+  | 'fatigue' | 'instability' | 'plateau' | 'optimized'; // Legacy types
 
 // Quiz Lead - captured from quiz funnel before registration
 export interface QuizLead {
@@ -183,10 +188,11 @@ export interface QuizLead {
   sex: SexType;                // Male or female for gender-specific questions
   referralCode: string | null; // The group leader's referral code that referred them
   captainId: string | null;    // Resolved group leader user ID (legacy name kept for compatibility)
-  quizScore: number;           // Total score (0-100)
+  quizScore: number;           // Total score (0-100) - lower is healthier in new system
   quizAnswers: Record<string, number>; // Question ID to points mapping
-  resultType: QuizResultType;  // Fatigue, Instability, Plateau, or Optimized
-  metabolicAge: number;        // Calculated metabolic age using Harris-Benedict
+  resultType: QuizResultType;  // GREEN/YELLOW/ORANGE/RED (new) or legacy types
+  metabolicAge: number;        // Legacy: Calculated metabolic age (deprecated, kept for compatibility)
+  totalScore: number;          // New: Raw quiz score (0-100) for display
   convertedToUserId: string | null; // If they registered, link to their user ID
   capturedAt: number;          // Unix timestamp
   source: string;              // 'quiz'
@@ -203,7 +209,8 @@ export interface QuizLeadSubmitRequest {
   quizScore: number;
   quizAnswers: Record<string, number>;
   resultType: QuizResultType;
-  metabolicAge: number;
+  metabolicAge?: number;  // Legacy (deprecated, optional for backward compatibility)
+  totalScore: number;     // New: Raw quiz score for display
 }
 
 // Admin Reset Project DTOs
@@ -402,6 +409,9 @@ export interface CourseContent {
   // Points and metadata
   points: number; // Points awarded on completion
   isRequired: boolean; // Must complete to unlock quiz for that week
+  // Engagement tracking
+  likes: number; // Total likes on this content
+  likedBy: string[]; // Array of userIds who liked
   createdAt: number;
   updatedAt: number;
 }
@@ -512,5 +522,34 @@ export interface DayContentWithProgress {
   content: Array<{
     content: CourseContent;
     progress: UserProgress | null;
+    prerequisitesMet: boolean;
   }>;
+}
+
+// Content Comments - YouTube-style comments on course content
+export interface ContentComment {
+  id: string;
+  contentId: string; // Course content this comment belongs to
+  userId: string;
+  userName: string;
+  userAvatarUrl?: string;
+  text: string;
+  likes: number;
+  likedBy: string[]; // Array of userIds who liked
+  createdAt: number;
+  updatedAt?: number;
+}
+
+// Comment DTOs
+export interface AddCommentRequest {
+  contentId: string;
+  text: string;
+}
+
+export interface LikeCommentRequest {
+  commentId: string;
+}
+
+export interface LikeContentRequest {
+  contentId: string;
 }

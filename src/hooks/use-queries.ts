@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi, commentsApi, contentLikesApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings, CreateCourseContentRequest, UpdateCourseContentRequest } from '@shared/types';
@@ -1089,14 +1089,16 @@ export function useCourseOverview() {
   });
 }
 
-// User: Get day's content
+// Get day's content (polls for real-time like updates)
 export function useDayContent(dayNumber: number | null) {
   const userId = useAuthStore(s => s.userId);
   return useQuery({
     queryKey: ['course', 'day', dayNumber],
     queryFn: () => userId && dayNumber ? courseApi.getDayContent(userId, dayNumber) : null,
     enabled: !!userId && !!dayNumber,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 10, // 10 seconds
+    refetchInterval: 5000, // Poll every 5 seconds for real-time like updates
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -1173,5 +1175,91 @@ export function useCourseProgress() {
     queryFn: () => userId ? courseApi.getProgress(userId) : null,
     enabled: !!userId,
     staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// ========== Content Comments ==========
+
+// Get comments for a content item (with real-time polling)
+export function useContentComments(contentId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['comments', contentId],
+    queryFn: () => contentId && userId ? commentsApi.getComments(userId, contentId) : null,
+    enabled: !!contentId && !!userId,
+    staleTime: 1000 * 5, // 5 seconds
+    refetchInterval: 3000, // Poll every 3 seconds for real-time comments
+    refetchIntervalInBackground: false, // Don't poll when tab is in background
+  });
+}
+
+// Add a comment
+export function useAddComment() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ contentId, text }: { contentId: string; text: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return commentsApi.addComment(userId, contentId, text);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['comments', variables.contentId] });
+      toast.success('Comment added!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to add comment');
+    }
+  });
+}
+
+// Like/unlike a comment
+export function useLikeComment() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ commentId, contentId }: { commentId: string; contentId: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return commentsApi.likeComment(userId, commentId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['comments', variables.contentId] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to like comment');
+    }
+  });
+}
+
+// ========== Content Likes ==========
+
+// Get content details with like count (with polling for real-time updates)
+export function useContentDetails(contentId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['content', contentId],
+    queryFn: () => contentId && userId ? contentLikesApi.getContent(userId, contentId) : null,
+    enabled: !!contentId && !!userId,
+    staleTime: 1000 * 5, // 5 seconds
+    refetchInterval: 5000, // Poll every 5 seconds for real-time like updates
+    refetchIntervalInBackground: false,
+  });
+}
+
+// Like/unlike a content item
+export function useLikeContent() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (contentId: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return contentLikesApi.likeContent(userId, contentId);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['content', result.content.id] });
+      queryClient.invalidateQueries({ queryKey: ['course'] }); // Refresh day content too
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to like content');
+    }
   });
 }

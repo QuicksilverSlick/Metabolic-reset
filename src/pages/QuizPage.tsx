@@ -88,11 +88,12 @@ const leadSchema = z.object({
 });
 type LeadData = z.infer<typeof leadSchema>;
 
-// Quiz question structure with 4-point scoring
+// Quiz question structure with 3-point scoring (0, 5, 10)
+// NEW SCORING: Lower score = healthier (GREEN 0-15, YELLOW 16-35, ORANGE 36-65, RED 66-100)
 interface QuizOption {
   id: string;
   text: string;
-  points: 0 | 4 | 7 | 10;
+  points: 0 | 5 | 10;  // 3 options per question
 }
 
 interface QuizQuestion {
@@ -104,213 +105,258 @@ interface QuizQuestion {
   gender?: 'male' | 'female'; // For gender-specific questions
 }
 
-// Female-specific questions (Q1-Q3)
+// Female-specific questions (Section 1B - 5 questions)
+// NEW: 3 options per question (0, 5, 10 points) - Lower score = healthier
 const femaleQuestions: QuizQuestion[] = [
   {
     id: 'f1',
     category: 'Hormonal Balance',
     icon: Heart,
-    question: 'How would you describe your menstrual cycle regularity and associated symptoms?',
+    question: 'How would you describe your menstrual cycle (or post-menopausal experience)?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Highly irregular with severe PMS, bloating, or mood swings', points: 0 },
-      { id: 'b', text: 'Somewhat irregular with moderate symptoms', points: 4 },
-      { id: 'c', text: 'Mostly regular with mild symptoms', points: 7 },
-      { id: 'd', text: 'Very regular with minimal to no symptoms', points: 10 }
+      { id: 'a', text: 'Regular cycles with minimal symptoms (or stable post-menopause)', points: 0 },
+      { id: 'b', text: 'Some irregularity or moderate symptoms', points: 5 },
+      { id: 'c', text: 'Highly irregular with severe PMS, bloating, or mood swings', points: 10 }
     ]
   },
   {
     id: 'f2',
-    category: 'Body Composition',
-    icon: Scale,
-    question: 'Where do you tend to store excess weight?',
+    category: 'Temperature Regulation',
+    icon: ThermometerSun,
+    question: 'How often do you experience hot flashes, night sweats, or difficulty regulating body temperature?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Primarily around my midsection (apple shape)', points: 0 },
-      { id: 'b', text: 'Evenly distributed but hard to lose anywhere', points: 4 },
-      { id: 'c', text: 'Hips and thighs with some midsection', points: 7 },
-      { id: 'd', text: 'Weight is well-distributed and manageable', points: 10 }
+      { id: 'a', text: 'Rarely or never', points: 0 },
+      { id: 'b', text: 'Occasionally, minor inconvenience', points: 5 },
+      { id: 'c', text: 'Frequently, they significantly impact my daily life', points: 10 }
     ]
   },
   {
     id: 'f3',
-    category: 'Metabolic Symptoms',
-    icon: ThermometerSun,
-    question: 'Do you experience hot flashes, night sweats, or difficulty regulating body temperature?',
+    category: 'Weight Distribution',
+    icon: Scale,
+    question: 'Where do you tend to store excess weight?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Frequently, they significantly impact my daily life', points: 0 },
-      { id: 'b', text: 'Sometimes, they\'re bothersome but manageable', points: 4 },
-      { id: 'c', text: 'Occasionally, minor inconvenience', points: 7 },
-      { id: 'd', text: 'Rarely or never experience these symptoms', points: 10 }
+      { id: 'a', text: 'Weight is well-distributed and manageable', points: 0 },
+      { id: 'b', text: 'Mostly hips and thighs with some midsection', points: 5 },
+      { id: 'c', text: 'Primarily around my midsection (apple shape)', points: 10 }
+    ]
+  },
+  {
+    id: 'f4',
+    category: 'Energy & Mood',
+    icon: Battery,
+    question: 'How stable is your energy and mood throughout your menstrual cycle or day-to-day?',
+    gender: 'female',
+    options: [
+      { id: 'a', text: 'Very stable - consistent energy and mood', points: 0 },
+      { id: 'b', text: 'Some fluctuations but manageable', points: 5 },
+      { id: 'c', text: 'Significant swings - energy crashes and mood changes', points: 10 }
+    ]
+  },
+  {
+    id: 'f5',
+    category: 'Metabolic Symptoms',
+    icon: Activity,
+    question: 'Do you experience unexplained weight gain, water retention, or difficulty losing weight despite effort?',
+    gender: 'female',
+    options: [
+      { id: 'a', text: 'No - my weight responds well to diet and exercise', points: 0 },
+      { id: 'b', text: 'Sometimes - occasional plateaus or slow progress', points: 5 },
+      { id: 'c', text: 'Yes - constant struggle despite consistent effort', points: 10 }
     ]
   }
 ];
 
-// Male-specific questions (Q1-Q3)
+// Male-specific questions (Section 1A - 5 questions)
+// NEW: 3 options per question (0, 5, 10 points) - Lower score = healthier
 const maleQuestions: QuizQuestion[] = [
   {
     id: 'm1',
-    category: 'Hormonal Health',
+    category: 'Muscle & Recovery',
     icon: Dumbbell,
-    question: 'How would you describe your muscle recovery and strength maintenance?',
+    question: 'How would you describe your muscle recovery and ability to maintain or build strength?',
     gender: 'male',
     options: [
-      { id: 'a', text: 'Very slow recovery, losing muscle despite effort', points: 0 },
-      { id: 'b', text: 'Takes longer than it used to, harder to maintain', points: 4 },
-      { id: 'c', text: 'Generally good but not as quick as before', points: 7 },
-      { id: 'd', text: 'Quick recovery, easily maintain or build muscle', points: 10 }
+      { id: 'a', text: 'Quick recovery, easily maintain or build muscle', points: 0 },
+      { id: 'b', text: 'Takes longer than it used to, harder to maintain', points: 5 },
+      { id: 'c', text: 'Very slow recovery, losing muscle despite effort', points: 10 }
     ]
   },
   {
     id: 'm2',
-    category: 'Body Composition',
-    icon: Scale,
-    question: 'Where do you tend to accumulate stubborn fat?',
-    gender: 'male',
-    options: [
-      { id: 'a', text: 'Significant belly fat that won\'t budge', points: 0 },
-      { id: 'b', text: 'Belly and love handles, slowly increasing', points: 4 },
-      { id: 'c', text: 'Some midsection fat but fairly proportional', points: 7 },
-      { id: 'd', text: 'Minimal fat accumulation, well-distributed', points: 10 }
-    ]
-  },
-  {
-    id: 'm3',
     category: 'Energy & Drive',
     icon: Battery,
     question: 'How would you rate your overall energy, motivation, and drive throughout the day?',
     gender: 'male',
     options: [
-      { id: 'a', text: 'Consistently low energy, lack of motivation', points: 0 },
-      { id: 'b', text: 'Variable energy, often need stimulants to get going', points: 4 },
-      { id: 'c', text: 'Generally good but dips in the afternoon', points: 7 },
-      { id: 'd', text: 'Consistently high energy and drive all day', points: 10 }
+      { id: 'a', text: 'Consistently high energy and drive all day', points: 0 },
+      { id: 'b', text: 'Generally good but dips in the afternoon', points: 5 },
+      { id: 'c', text: 'Consistently low energy, need stimulants to function', points: 10 }
+    ]
+  },
+  {
+    id: 'm3',
+    category: 'Body Composition',
+    icon: Scale,
+    question: 'Where do you tend to accumulate stubborn fat?',
+    gender: 'male',
+    options: [
+      { id: 'a', text: 'Minimal fat accumulation, well-distributed', points: 0 },
+      { id: 'b', text: 'Some midsection fat but fairly proportional', points: 5 },
+      { id: 'c', text: 'Significant belly fat and love handles that won\'t budge', points: 10 }
+    ]
+  },
+  {
+    id: 'm4',
+    category: 'Sleep Quality',
+    icon: Moon,
+    question: 'How well do you sleep and how do you feel upon waking?',
+    gender: 'male',
+    options: [
+      { id: 'a', text: 'Deep sleep, wake refreshed and energized', points: 0 },
+      { id: 'b', text: 'Okay sleep, takes a while to feel alert', points: 5 },
+      { id: 'c', text: 'Poor sleep, wake exhausted despite 7+ hours', points: 10 }
+    ]
+  },
+  {
+    id: 'm5',
+    category: 'Stress & Focus',
+    icon: Brain,
+    question: 'How would you describe your mental clarity, focus, and stress levels?',
+    gender: 'male',
+    options: [
+      { id: 'a', text: 'Sharp focus, low stress, clear thinking', points: 0 },
+      { id: 'b', text: 'Sometimes foggy, moderate stress', points: 5 },
+      { id: 'c', text: 'Frequent brain fog, high stress, difficulty concentrating', points: 10 }
     ]
   }
 ];
 
-// Universal questions (Q4-Q10) - Same for both genders
+// Universal questions (Section 2 - 5 questions) - Same for both genders
+// NEW: 3 options per question (0, 5, 10 points) - Lower score = healthier
 const universalQuestions: QuizQuestion[] = [
   {
-    id: 'u4',
-    category: 'Energy & Glucose',
+    id: 'u1',
+    category: 'Energy Stability',
     icon: Zap,
     question: 'How often do you experience energy crashes or brain fog between 2-4 PM?',
     options: [
-      { id: 'a', text: 'Daily - I need caffeine or sugar to function', points: 0 },
-      { id: 'b', text: 'Frequently - 4-5 times per week', points: 4 },
-      { id: 'c', text: 'Occasionally - 1-2 times per week', points: 7 },
-      { id: 'd', text: 'Rarely or never - my energy is stable', points: 10 }
+      { id: 'a', text: 'Rarely or never - my energy is stable', points: 0 },
+      { id: 'b', text: 'Occasionally - 1-2 times per week', points: 5 },
+      { id: 'c', text: 'Daily - I need caffeine or sugar to function', points: 10 }
+    ]
+  },
+  {
+    id: 'u2',
+    category: 'Hunger & Cravings',
+    icon: Flame,
+    question: 'How often do you experience strong cravings for sugar, carbs, or feel "hangry"?',
+    options: [
+      { id: 'a', text: 'Rarely - I can go 4-5 hours between meals easily', points: 0 },
+      { id: 'b', text: 'Sometimes - I get uncomfortable if I wait too long', points: 5 },
+      { id: 'c', text: 'Frequently - I need to eat every 2-3 hours or I crash', points: 10 }
+    ]
+  },
+  {
+    id: 'u3',
+    category: 'Weight Resistance',
+    icon: Scale,
+    question: 'How would you describe your ability to lose weight or maintain a healthy weight?',
+    options: [
+      { id: 'a', text: 'Easy - my body responds well to diet and exercise', points: 0 },
+      { id: 'b', text: 'Moderate - I can lose weight but it takes consistent effort', points: 5 },
+      { id: 'c', text: 'Difficult - I struggle despite trying everything', points: 10 }
+    ]
+  },
+  {
+    id: 'u4',
+    category: 'Stress Impact',
+    icon: Brain,
+    question: 'How do stress and cortisol affect your body and weight?',
+    options: [
+      { id: 'a', text: 'Minimal impact - I manage stress well', points: 0 },
+      { id: 'b', text: 'Some impact - I notice weight fluctuations when stressed', points: 5 },
+      { id: 'c', text: 'Significant impact - chronic stress, weight gain despite effort', points: 10 }
     ]
   },
   {
     id: 'u5',
-    category: 'Sleep & Recovery',
-    icon: Moon,
-    question: 'How do you feel when you wake up in the morning?',
-    options: [
-      { id: 'a', text: 'Exhausted - need coffee immediately to function', points: 0 },
-      { id: 'b', text: 'Groggy - takes 30+ minutes to feel alert', points: 4 },
-      { id: 'c', text: 'Okay - generally fine after 10-15 minutes', points: 7 },
-      { id: 'd', text: 'Refreshed - wake up naturally energized', points: 10 }
-    ]
-  },
-  {
-    id: 'u6',
-    category: 'Hunger & Satiety',
-    icon: Clock,
-    question: 'Can you comfortably go 4-5 hours between meals without feeling shaky, irritable, or "hangry"?',
-    options: [
-      { id: 'a', text: 'No - I need to eat every 2-3 hours or I crash', points: 0 },
-      { id: 'b', text: 'Difficult - I get uncomfortable after 3-4 hours', points: 4 },
-      { id: 'c', text: 'Usually - though I prefer not to wait that long', points: 7 },
-      { id: 'd', text: 'Yes - I can easily skip meals without issues', points: 10 }
-    ]
-  },
-  {
-    id: 'u7',
-    category: 'Cravings',
-    icon: Flame,
-    question: 'How often do you experience strong cravings for sugar, carbs, or processed foods?',
-    options: [
-      { id: 'a', text: 'Multiple times daily - feels uncontrollable', points: 0 },
-      { id: 'b', text: 'Daily - especially after meals or when stressed', points: 4 },
-      { id: 'c', text: 'Occasionally - a few times per week', points: 7 },
-      { id: 'd', text: 'Rarely - I have good control over my eating', points: 10 }
-    ]
-  },
-  {
-    id: 'u8',
-    category: 'Visceral Fat Awareness',
+    category: 'Metabolic Awareness',
     icon: Activity,
-    question: 'Do you track your body composition metrics (body fat %, visceral fat, lean mass)?',
+    question: 'How aware are you of your metabolic health markers (body fat %, visceral fat, lean mass)?',
     options: [
-      { id: 'a', text: 'No - I only look at the scale number', points: 0 },
-      { id: 'b', text: 'Occasionally - but not consistently', points: 4 },
-      { id: 'c', text: 'Yes - I track it monthly', points: 7 },
-      { id: 'd', text: 'Yes - I track it weekly with a smart scale', points: 10 }
-    ]
-  },
-  {
-    id: 'u9',
-    category: 'Protein Timing',
-    icon: Dumbbell,
-    question: 'How soon after waking do you consume 25-30g of protein?',
-    options: [
-      { id: 'a', text: 'I don\'t - I skip breakfast or just have coffee', points: 0 },
-      { id: 'b', text: '2+ hours - I eat a late breakfast', points: 4 },
-      { id: 'c', text: 'Within 1-2 hours - I have a normal breakfast', points: 7 },
-      { id: 'd', text: 'Within 30 minutes - I prioritize protein first', points: 10 }
-    ]
-  },
-  {
-    id: 'u10',
-    category: 'Stress & Cortisol',
-    icon: Brain,
-    question: 'How would you describe your stress levels and their impact on your weight?',
-    options: [
-      { id: 'a', text: 'Chronically stressed - weight gain despite effort', points: 0 },
-      { id: 'b', text: 'Often stressed - I notice weight fluctuations', points: 4 },
-      { id: 'c', text: 'Moderate stress - some impact on weight', points: 7 },
-      { id: 'd', text: 'Well-managed stress - minimal weight impact', points: 10 }
+      { id: 'a', text: 'Very aware - I track regularly with a smart scale', points: 0 },
+      { id: 'b', text: 'Somewhat aware - I check occasionally', points: 5 },
+      { id: 'c', text: 'Not aware - I only look at the scale number', points: 10 }
     ]
   }
 ];
 
-// Calculate metabolic age using Harris-Benedict equation with lifestyle factors
+// NEW SCORING SYSTEM: Lower score = healthier
+// GREEN (0-15): Optimal metabolic health
+// YELLOW (16-35): Minor areas for improvement
+// ORANGE (36-65): Moderate metabolic dysfunction
+// RED (66-100): Significant metabolic issues
+
+// Determine result type based on score (NEW: lower is better)
+function getResultType(score: number): QuizResultType {
+  if (score <= 15) return 'green';
+  if (score <= 35) return 'yellow';
+  if (score <= 65) return 'orange';
+  return 'red';
+}
+
+// Get color class for result type
+function getResultColor(resultType: QuizResultType): string {
+  switch (resultType) {
+    case 'green': return 'green';
+    case 'yellow': return 'yellow';
+    case 'orange': return 'orange';
+    case 'red': return 'red';
+    // Legacy support
+    case 'optimized': return 'green';
+    case 'plateau': return 'yellow';
+    case 'instability': return 'orange';
+    case 'fatigue': return 'red';
+    default: return 'orange';
+  }
+}
+
+// Calculate metabolic age (LEGACY - kept for backward compatibility)
+// In the new system, we primarily use totalScore but still calculate this for display
 function calculateMetabolicAge(
   chronologicalAge: number,
   sex: SexType,
   quizScore: number
 ): number {
-  // Base metabolic age offset based on quiz score (0-100)
-  // Higher scores = better metabolic health = lower offset
-  // Score ranges: 0-35 (Fatigue), 36-55 (Instability), 56-75 (Plateau), 76-100 (Optimized)
+  // NEW: Lower score = healthier, so we invert the logic
+  // Score 0-15 (GREEN) = -2 to 0 years offset
+  // Score 16-35 (YELLOW) = +1 to +5 years offset
+  // Score 36-65 (ORANGE) = +5 to +10 years offset
+  // Score 66-100 (RED) = +10 to +15 years offset
 
   let baseOffset: number;
-  if (quizScore <= 35) {
-    // Metabolic Fatigue - significant metabolic dysfunction
-    // Offset: +8 to +15 years based on how low the score is
-    baseOffset = 15 - Math.floor((quizScore / 35) * 7);
-  } else if (quizScore <= 55) {
-    // Glucose Instability - moderate metabolic issues
-    // Offset: +5 to +8 years
-    baseOffset = 8 - Math.floor(((quizScore - 35) / 20) * 3);
-  } else if (quizScore <= 75) {
-    // Cortisol Plateau - minor metabolic inefficiency
-    // Offset: +2 to +5 years
-    baseOffset = 5 - Math.floor(((quizScore - 55) / 20) * 3);
+  if (quizScore <= 15) {
+    // GREEN - Optimal metabolic health
+    baseOffset = Math.floor((quizScore / 15) * 2) - 2; // -2 to 0
+  } else if (quizScore <= 35) {
+    // YELLOW - Minor areas for improvement
+    baseOffset = 1 + Math.floor(((quizScore - 15) / 20) * 4); // +1 to +5
+  } else if (quizScore <= 65) {
+    // ORANGE - Moderate metabolic dysfunction
+    baseOffset = 5 + Math.floor(((quizScore - 35) / 30) * 5); // +5 to +10
   } else {
-    // Metabolic Optimization - good metabolic health
-    // Offset: -2 to +2 years (can be younger than chronological age!)
-    baseOffset = 2 - Math.floor(((quizScore - 75) / 25) * 4);
+    // RED - Significant metabolic issues
+    baseOffset = 10 + Math.floor(((quizScore - 65) / 35) * 5); // +10 to +15
   }
 
-  // Apply sex-specific adjustment (women tend to have slightly better longevity markers)
+  // Apply sex-specific adjustment
   const sexAdjustment = sex === 'female' ? -0.5 : 0;
 
-  // Age-related scaling - metabolic age diverges more from chronological with age
+  // Age-related scaling
   const ageScaling = chronologicalAge > 50 ? 1.1 : chronologicalAge > 40 ? 1.05 : 1;
 
   const metabolicAge = Math.round(chronologicalAge + (baseOffset * ageScaling) + sexAdjustment);
@@ -319,15 +365,11 @@ function calculateMetabolicAge(
   return Math.max(18, Math.min(metabolicAge, chronologicalAge + 20));
 }
 
-// Determine result type based on score
-function getResultType(score: number): QuizResultType {
-  if (score <= 35) return 'fatigue';
-  if (score <= 55) return 'instability';
-  if (score <= 75) return 'plateau';
-  return 'optimized';
-}
-
 // Results Data based on result type
+// NEW: Using 4 universal videos (same for all result types for now)
+// These can be replaced with result-specific videos later
+const DEFAULT_VIDEO_URL = 'https://descriptusercontent.com/published/b932bbbd-91ac-44d6-b863-a8574d047d2a/original.mp4';
+
 const resultContent: Record<QuizResultType, {
   status: string;
   priority: string;
@@ -339,18 +381,75 @@ const resultContent: Record<QuizResultType, {
   cta: string;
   riskLevel: string;
   videoUrl: string;
+  scoreRange: string;
 }> = {
+  // NEW RESULT TYPES (lower score = healthier)
+  green: {
+    status: 'METABOLICALLY OPTIMIZED',
+    priority: 'Excellent Metabolic Health',
+    icon: Crown,
+    color: 'green',
+    headline: 'Your metabolic health is excellent!',
+    scoreRange: '0-15',
+    diagnosis: "Your responses indicate strong metabolic function. Your body efficiently processes energy, maintains stable blood sugar, and responds well to diet and exercise. You're already practicing many healthy habits.",
+    clinicalData: "Join the Protocol Cohort to fine-tune your biometrics and optimize further. Even high-performers in clinical trials saw measurable improvements. Your stability makes you an ideal candidate for the leadership track.",
+    cta: "JOIN THE LEADERSHIP COHORT",
+    riskLevel: 'Low',
+    videoUrl: DEFAULT_VIDEO_URL
+  },
+  yellow: {
+    status: 'MINOR OPTIMIZATION NEEDED',
+    priority: 'Room for Improvement',
+    icon: Target,
+    color: 'yellow',
+    headline: 'Your metabolism has room for optimization.',
+    scoreRange: '16-35',
+    diagnosis: "Your metabolic health is generally good, but there are some areas that could use attention. You may experience occasional energy dips, mild cravings, or find it takes extra effort to maintain your weight.",
+    clinicalData: "The Protocol can help you address these minor inefficiencies. Participants with similar profiles typically see improved energy stability and easier weight management within the first 2 weeks.",
+    cta: "OPTIMIZE YOUR METABOLISM",
+    riskLevel: 'Low-Moderate',
+    videoUrl: DEFAULT_VIDEO_URL
+  },
+  orange: {
+    status: 'METABOLIC DYSFUNCTION',
+    priority: 'Moderate Intervention Recommended',
+    icon: TrendingDown,
+    color: 'orange',
+    headline: 'Your metabolism needs attention.',
+    scoreRange: '36-65',
+    diagnosis: "Your responses indicate moderate metabolic dysfunction. You may be experiencing regular energy crashes, difficulty losing weight despite effort, and/or unstable blood sugar levels. These are signs your metabolism is under stress.",
+    clinicalData: "The Arterburn Study demonstrated that participants on the Protocol lost 10x more weight than the self-directed control group. The structured approach helps stabilize insulin and cortisol to break the cycle you're in.",
+    cta: "START YOUR METABOLIC RESET",
+    riskLevel: 'Moderate',
+    videoUrl: DEFAULT_VIDEO_URL
+  },
+  red: {
+    status: 'METABOLIC STRESS',
+    priority: 'Urgent Intervention Recommended',
+    icon: AlertTriangle,
+    color: 'red',
+    headline: 'Your metabolism is under significant stress.',
+    scoreRange: '66-100',
+    diagnosis: "Your biomarkers indicate significant metabolic dysfunction. Your body may be in a cycle of energy crashes, cravings, and weight gain despite your efforts. This is often caused by hormonal imbalances, chronic stress, and insulin resistance.",
+    clinicalData: "According to the Arterburn Clinical Study, a Protocol-based approach allows for significant fat loss while retaining 98% of lean muscle mass. You need this structured approach to reverse the metabolic stress and protect your metabolic engine.",
+    cta: "INITIATE METABOLIC RESCUE",
+    riskLevel: 'High',
+    videoUrl: DEFAULT_VIDEO_URL
+  },
+
+  // LEGACY RESULT TYPES (kept for backward compatibility)
   fatigue: {
     status: 'METABOLIC FATIGUE',
     priority: 'High Priority for Protocol Intervention',
     icon: AlertTriangle,
     color: 'red',
     headline: 'Your metabolism needs urgent attention.',
+    scoreRange: '0-35 (legacy)',
     diagnosis: "Your biomarkers indicate a breakdown in Muscle Protein Synthesis. Your body is likely cannibalizing its own muscle for energy, which lowers your metabolic rate. Standard \"dieting\" fails here because calorie restriction accelerates this muscle loss.",
     clinicalData: "According to the Arterburn Clinical Study (PubMed), a Protocol-based approach allows for significant fat loss while retaining 98% of lean muscle mass. You need this specific nutrition structure to reverse your fatigue and protect your metabolic engine.",
     cta: "INITIATE METABOLIC RESCUE",
     riskLevel: 'Critical',
-    videoUrl: 'https://descriptusercontent.com/published/b932bbbd-91ac-44d6-b863-a8574d047d2a/original.mp4'
+    videoUrl: DEFAULT_VIDEO_URL
   },
   instability: {
     status: 'GLUCOSE VARIABILITY',
@@ -358,11 +457,12 @@ const resultContent: Record<QuizResultType, {
     icon: TrendingDown,
     color: 'orange',
     headline: 'Your blood sugar is on a roller coaster.',
+    scoreRange: '36-55 (legacy)',
     diagnosis: "Your metabolism is on a \"Roller Coaster.\" Relying on caffeine or sugar creates insulin spikes that trigger immediate fat storage. You are likely stuck in a cycle of \"Energy Crash → Craving → Storage.\"",
     clinicalData: "The Arterburn Study demonstrated that participants on the Protocol lost 10x more weight than the self-directed control group. Why? Because the Protocol flatlines insulin 6 times a day. We need to get you into the project to stabilize your blood sugar immediately.",
     cta: "STABILIZE YOUR GLUCOSE",
     riskLevel: 'Elevated',
-    videoUrl: 'https://descriptusercontent.com/published/6b4ff24a-9e8b-434b-a539-5977002aece7/original.mp4'
+    videoUrl: DEFAULT_VIDEO_URL
   },
   plateau: {
     status: 'CORTISOL RESISTANCE',
@@ -370,11 +470,12 @@ const resultContent: Record<QuizResultType, {
     icon: BarChart3,
     color: 'yellow',
     headline: 'You\'re doing things right, but stuck.',
+    scoreRange: '56-75 (legacy)',
     diagnosis: "You are doing a lot of things \"right,\" but the scale won't move. This indicates Visceral Fat retention due to stress hormones (Cortisol). \"Eating less\" actually makes this worse by increasing stress on the body.",
     clinicalData: "You need a system proven to signal \"safety\" to your body. Data confirms the Protocol is up to 17x more effective at burning fat than unguided dieting because it nourishes the muscle while targeting visceral fat stores.",
     cta: "TARGET VISCERAL FAT",
     riskLevel: 'Moderate',
-    videoUrl: 'https://descriptusercontent.com/published/a2338b80-4fd3-4c8b-a1e7-6d26656b110e/original.mp4'
+    videoUrl: DEFAULT_VIDEO_URL
   },
   optimized: {
     status: 'METABOLICALLY OPTIMIZED',
@@ -382,11 +483,12 @@ const resultContent: Record<QuizResultType, {
     icon: Crown,
     color: 'green',
     headline: 'Your baseline health is strong.',
+    scoreRange: '76-100 (legacy)',
     diagnosis: "Your baseline health is strong. You have good data awareness and stable energy. We need participants with your stability to serve as the \"Standard\" to compare against the Self-Directed group.",
     clinicalData: "Join the Protocol Cohort to fine-tune your biometrics. Even high-performers in the clinical trials saw an average 14% reduction in inflammatory Visceral Fat. Help us lead the data set.",
     cta: "JOIN THE LEADERSHIP COHORT",
     riskLevel: 'Low',
-    videoUrl: 'https://descriptusercontent.com/published/eac3de8c-f1a4-4539-89a6-fb9fcbf77f45/original.mp4'
+    videoUrl: DEFAULT_VIDEO_URL
   }
 };
 
@@ -606,7 +708,8 @@ export function QuizPage() {
         quizScore: totalScore,
         quizAnswers: answers,
         resultType: calculatedResultType,
-        metabolicAge: calculatedMetabolicAge
+        metabolicAge: calculatedMetabolicAge,  // Legacy field
+        totalScore: totalScore  // New field for display
       }).then((result) => {
         // Store the lead ID in session storage and state for conversion tracking
         if (result.id) {
@@ -622,13 +725,13 @@ export function QuizPage() {
       // Simulate calculation animation
       const timer = setTimeout(() => {
         setPhase('results');
-        // Trigger confetti for good scores
-        if (totalScore >= 76) {
+        // Trigger confetti for GREEN scores (0-15 in new system = excellent health)
+        if (totalScore <= 15) {
           confetti({
             particleCount: 100,
             spread: 70,
             origin: { y: 0.6 },
-            colors: ['#F59E0B', '#FBBF24', '#FCD34D', '#0F172A', '#1E293B']
+            colors: ['#22C55E', '#4ADE80', '#86EFAC', '#F59E0B', '#FBBF24']  // Green celebration
           });
         }
       }, 3000);
@@ -877,44 +980,44 @@ export function QuizPage() {
                             <div className="text-center mb-4">
                               <div className="inline-flex items-center gap-1.5 py-1 px-2 rounded-full bg-orange-500/20 text-orange-400 text-[10px] font-bold mb-2 border border-orange-500/30">
                                 <TrendingDown className="h-2.5 w-2.5" />
-                                GLUCOSE VARIABILITY
+                                METABOLIC DYSFUNCTION
                               </div>
-                              <p className="text-slate-400 text-xs">Detected: Insulin Spikes & Crashes</p>
+                              <p className="text-slate-400 text-xs">Moderate Intervention Recommended</p>
                             </div>
 
-                            {/* Metabolic Age Circle */}
+                            {/* Score Circle */}
                             <div className="relative w-28 h-28 mx-auto mb-4">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#1E293B" strokeWidth="8" />
-                                <circle cx="50" cy="50" r="45" fill="none" stroke="#F97316" strokeWidth="8" strokeLinecap="round" strokeDasharray="283" strokeDashoffset={283 - (283 * 42 / 50)} />
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="#F97316" strokeWidth="8" strokeLinecap="round" strokeDasharray="283" strokeDashoffset={283 - (283 * 52 / 100)} />
                               </svg>
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-slate-500 text-[10px] mb-0.5">Metabolic Age</span>
-                                <span className="text-3xl font-bold text-orange-400">59</span>
-                                <span className="text-slate-400 text-[10px]">years old</span>
+                                <span className="text-slate-500 text-[10px] mb-0.5">Your Score</span>
+                                <span className="text-3xl font-bold text-orange-400">48</span>
+                                <span className="text-slate-400 text-[10px]">out of 100</span>
                               </div>
                             </div>
 
-                            {/* Age Comparison Stats */}
+                            {/* Stats Grid */}
                             <div className="grid grid-cols-3 gap-2 mb-4">
                               <div className="bg-navy-900 rounded-lg p-2 text-center">
-                                <div className="text-base font-bold text-white">47</div>
-                                <div className="text-slate-500 text-[10px]">Actual Age</div>
+                                <div className="text-base font-bold text-orange-400">48</div>
+                                <div className="text-slate-500 text-[10px]">Score</div>
                               </div>
                               <div className="bg-navy-900 rounded-lg p-2 text-center">
-                                <div className="text-base font-bold text-orange-400">59</div>
+                                <div className="text-sm font-bold text-orange-400 uppercase">Orange</div>
+                                <div className="text-slate-500 text-[10px]">Risk Zone</div>
+                              </div>
+                              <div className="bg-navy-900 rounded-lg p-2 text-center">
+                                <div className="text-base font-bold text-orange-400">54</div>
                                 <div className="text-slate-500 text-[10px]">Metabolic Age</div>
-                              </div>
-                              <div className="bg-navy-900 rounded-lg p-2 text-center">
-                                <div className="text-base font-bold text-orange-400">+12</div>
-                                <div className="text-slate-500 text-[10px]">Years Added</div>
                               </div>
                             </div>
 
                             {/* Impact Statement */}
                             <div className="p-2 bg-navy-900/50 rounded-lg border border-navy-700">
                               <p className="text-orange-300 text-xs text-center leading-relaxed">
-                                Your body is functioning like someone who is <strong>59 years old</strong> — that's <strong>12 years older</strong> than your actual age of 47.
+                                You scored <strong>48/100</strong>. You're in the <strong>ORANGE zone</strong> indicating moderate metabolic dysfunction.
                               </p>
                             </div>
                           </CardContent>
@@ -1003,12 +1106,12 @@ export function QuizPage() {
                           <div className="text-center mb-6">
                             <div className="inline-flex items-center gap-2 py-1.5 px-3 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold mb-3 border border-orange-500/30">
                               <TrendingDown className="h-3 w-3" />
-                              CLINICAL STATUS: GLUCOSE VARIABILITY
+                              METABOLIC DYSFUNCTION
                             </div>
-                            <p className="text-slate-400 text-sm">Detected: Insulin Spikes & Crashes</p>
+                            <p className="text-slate-400 text-sm">Moderate Intervention Recommended</p>
                           </div>
 
-                          {/* Metabolic Age Circle */}
+                          {/* Score Circle */}
                           <div className="relative w-40 h-40 mx-auto mb-6">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                               <circle
@@ -1028,36 +1131,36 @@ export function QuizPage() {
                                 strokeWidth="8"
                                 strokeLinecap="round"
                                 strokeDasharray="283"
-                                strokeDashoffset={283 - (283 * 42 / 50)}
+                                strokeDashoffset={283 - (283 * 52 / 100)}
                               />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <span className="text-slate-500 text-xs mb-1">Metabolic Age</span>
-                              <span className="text-4xl font-bold text-orange-400">59</span>
-                              <span className="text-slate-400 text-xs">years old</span>
+                              <span className="text-slate-500 text-xs mb-1">Your Score</span>
+                              <span className="text-4xl font-bold text-orange-400">48</span>
+                              <span className="text-slate-400 text-xs">out of 100</span>
                             </div>
                           </div>
 
-                          {/* Age Comparison Stats */}
+                          {/* Stats Grid */}
                           <div className="grid grid-cols-3 gap-3 mb-6">
                             <div className="bg-navy-900 rounded-lg p-3 text-center">
-                              <div className="text-xl font-bold text-white">47</div>
-                              <div className="text-slate-500 text-xs">Actual Age</div>
+                              <div className="text-xl font-bold text-orange-400">48</div>
+                              <div className="text-slate-500 text-xs">Score</div>
                             </div>
                             <div className="bg-navy-900 rounded-lg p-3 text-center">
-                              <div className="text-xl font-bold text-orange-400">59</div>
+                              <div className="text-lg font-bold text-orange-400 uppercase">Orange</div>
+                              <div className="text-slate-500 text-xs">Risk Zone</div>
+                            </div>
+                            <div className="bg-navy-900 rounded-lg p-3 text-center">
+                              <div className="text-xl font-bold text-orange-400">54</div>
                               <div className="text-slate-500 text-xs">Metabolic Age</div>
-                            </div>
-                            <div className="bg-navy-900 rounded-lg p-3 text-center">
-                              <div className="text-xl font-bold text-orange-400">+12</div>
-                              <div className="text-slate-500 text-xs">Years Added</div>
                             </div>
                           </div>
 
                           {/* Impact Statement */}
                           <div className="p-3 bg-navy-900/50 rounded-lg border border-navy-700">
                             <p className="text-orange-300 text-sm text-center leading-relaxed">
-                              Your body is functioning like someone who is <strong>59 years old</strong> — that's <strong>12 years older</strong> than your actual age of 47.
+                              You scored <strong>48/100</strong>. You're in the <strong>ORANGE zone</strong> indicating moderate metabolic dysfunction.
                             </p>
                           </div>
                         </CardContent>
@@ -1527,7 +1630,7 @@ export function QuizPage() {
                   {result.headline}
                 </motion.h1>
 
-                {/* Metabolic Age Display */}
+                {/* Score Display - Primary metric in new system */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -1557,22 +1660,22 @@ export function QuizPage() {
                       strokeWidth="8"
                       strokeLinecap="round"
                       strokeDasharray="283"
-                      strokeDashoffset={283 - (283 * Math.min(50 - metabolicAgeOffset, 50) / 50)}
+                      strokeDashoffset={283 - (283 * (100 - score) / 100)}
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-slate-500 text-sm mb-1">Your Metabolic Age</span>
+                    <span className="text-slate-500 text-sm mb-1">Your Score</span>
                     <span className={`text-6xl font-bold ${
                       result.color === 'red' ? 'text-red-400' :
                       result.color === 'orange' ? 'text-orange-400' :
                       result.color === 'yellow' ? 'text-yellow-400' :
                       'text-green-400'
-                    }`}>{metabolicAge}</span>
-                    <span className="text-slate-400 text-sm">years old</span>
+                    }`}>{score}</span>
+                    <span className="text-slate-400 text-sm">out of 100</span>
                   </div>
                 </motion.div>
 
-                {/* Age Comparison Stats */}
+                {/* Stats Grid - Score, Zone, Metabolic Age */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1580,10 +1683,28 @@ export function QuizPage() {
                   className="grid grid-cols-3 gap-4 max-w-lg mx-auto"
                 >
                   <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
-                    <div className="text-3xl font-bold text-white">
-                      {chronologicalAge}
+                    <div className={`text-3xl font-bold ${
+                      result.color === 'red' ? 'text-red-400' :
+                      result.color === 'orange' ? 'text-orange-400' :
+                      result.color === 'yellow' ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>
+                      {score}
                     </div>
-                    <div className="text-slate-500 text-xs">Actual Age</div>
+                    <div className="text-slate-500 text-xs">Your Score</div>
+                  </div>
+                  <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
+                    <div className={`text-2xl font-bold uppercase ${
+                      result.color === 'red' ? 'text-red-400' :
+                      result.color === 'orange' ? 'text-orange-400' :
+                      result.color === 'yellow' ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>
+                      {result.color === 'green' ? 'GREEN' :
+                       result.color === 'yellow' ? 'YELLOW' :
+                       result.color === 'orange' ? 'ORANGE' : 'RED'}
+                    </div>
+                    <div className="text-slate-500 text-xs">Risk Zone</div>
                   </div>
                   <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
                     <div className={`text-3xl font-bold ${
@@ -1595,17 +1716,6 @@ export function QuizPage() {
                       {metabolicAge}
                     </div>
                     <div className="text-slate-500 text-xs">Metabolic Age</div>
-                  </div>
-                  <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
-                    <div className={`text-3xl font-bold ${
-                      result.color === 'red' ? 'text-red-400' :
-                      result.color === 'orange' ? 'text-orange-400' :
-                      result.color === 'yellow' ? 'text-yellow-400' :
-                      'text-green-400'
-                    }`}>
-                      {metabolicAgeOffset >= 0 ? '+' : ''}{metabolicAgeOffset}
-                    </div>
-                    <div className="text-slate-500 text-xs">Years {metabolicAgeOffset >= 0 ? 'Added' : 'Younger'}</div>
                   </div>
                 </motion.div>
 
@@ -1622,12 +1732,15 @@ export function QuizPage() {
                     result.color === 'yellow' ? 'text-yellow-300' :
                     'text-green-300'
                   }`}>
-                    {leadData?.name.split(' ')[0]}, your body is functioning like someone who is{' '}
-                    <strong>{metabolicAge} years old</strong> — that's{' '}
-                    {metabolicAgeOffset >= 0 ? (
-                      <><strong>{metabolicAgeOffset} years older</strong> than your actual age of {chronologicalAge}.</>
+                    {leadData?.name.split(' ')[0]}, you scored <strong>{score}/100</strong>.{' '}
+                    {score <= 15 ? (
+                      <>Your metabolic health is <strong>excellent</strong> - you're in the GREEN zone!</>
+                    ) : score <= 35 ? (
+                      <>You're in the <strong>YELLOW zone</strong> with minor areas for improvement.</>
+                    ) : score <= 65 ? (
+                      <>You're in the <strong>ORANGE zone</strong> indicating moderate metabolic dysfunction.</>
                     ) : (
-                      <><strong>{Math.abs(metabolicAgeOffset)} years younger</strong> than your actual age of {chronologicalAge}!</>
+                      <>You're in the <strong>RED zone</strong> - your metabolism needs attention.</>
                     )}
                   </p>
                 </motion.div>
@@ -2086,12 +2199,24 @@ export function QuizPage() {
                   <div className="sticky top-8">
                     <Card className="border-navy-700 bg-navy-800/50 backdrop-blur-xl">
                       <CardContent className="p-6">
-                        {/* Metabolic Age Summary */}
+                        {/* Score Summary */}
                         <div className="text-center mb-6">
-                          <p className="text-slate-400 text-sm mb-2">Your Metabolic Age</p>
-                          <div className="text-5xl font-bold text-gold-500 mb-1">{metabolicAge}</div>
-                          <p className="text-slate-500 text-sm">
-                            {metabolicAgeOffset >= 0 ? `+${metabolicAgeOffset}` : metabolicAgeOffset} years vs actual age
+                          <p className="text-slate-400 text-sm mb-2">Your Score</p>
+                          <div className={`text-5xl font-bold mb-1 ${
+                            result.color === 'red' ? 'text-red-400' :
+                            result.color === 'orange' ? 'text-orange-400' :
+                            result.color === 'yellow' ? 'text-yellow-400' :
+                            'text-green-400'
+                          }`}>{score}</div>
+                          <p className={`text-sm font-semibold uppercase ${
+                            result.color === 'red' ? 'text-red-400' :
+                            result.color === 'orange' ? 'text-orange-400' :
+                            result.color === 'yellow' ? 'text-yellow-400' :
+                            'text-green-400'
+                          }`}>
+                            {result.color === 'green' ? 'GREEN Zone' :
+                             result.color === 'yellow' ? 'YELLOW Zone' :
+                             result.color === 'orange' ? 'ORANGE Zone' : 'RED Zone'}
                           </p>
                         </div>
 

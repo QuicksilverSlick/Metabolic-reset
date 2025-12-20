@@ -48,6 +48,7 @@ export class UserEntity extends IndexedEntity<User> {
     isActive: true,
     hasScale: false,
     isAdmin: false,
+    isTestMode: false,
     avatarUrl: ""
   };
   static async findByReferralCode(env: Env, code: string): Promise<User | null> {
@@ -216,8 +217,9 @@ export class QuizLeadEntity extends IndexedEntity<QuizLead> {
     captainId: null,
     quizScore: 0,
     quizAnswers: {},
-    resultType: "fatigue",
-    metabolicAge: 0,
+    resultType: "green",  // New default result type
+    metabolicAge: 0,      // Legacy field (deprecated)
+    totalScore: 0,        // New: Raw quiz score for display
     convertedToUserId: null,
     capturedAt: 0,
     source: "quiz"
@@ -663,9 +665,30 @@ export class CourseContentEntity extends IndexedEntity<CourseContent> {
     resourceUrl: "",
     points: 0,
     isRequired: true,
+    likes: 0,
+    likedBy: [],
     createdAt: 0,
     updatedAt: 0
   };
+
+  // Toggle like on content (returns updated content)
+  static async toggleLike(env: Env, contentId: string, userId: string): Promise<CourseContent> {
+    const entity = new CourseContentEntity(env, contentId);
+    const state = await entity.getState();
+    if (!state.id) throw new Error('Content not found');
+
+    const likedBy = state.likedBy || [];
+    const alreadyLiked = likedBy.includes(userId);
+
+    await entity.mutate(s => ({
+      ...s,
+      likes: alreadyLiked ? Math.max(0, (s.likes || 0) - 1) : (s.likes || 0) + 1,
+      likedBy: alreadyLiked ? likedBy.filter(id => id !== userId) : [...likedBy, userId],
+      updatedAt: Date.now()
+    }));
+
+    return entity.getState();
+  }
 
   // Get all content for a project, sorted by day and order
   static async findByProject(env: Env, projectId: string): Promise<CourseContent[]> {
@@ -871,25 +894,40 @@ export class EnrollmentProgressIndex extends Index<string> {
   }
 }
 
-// Helper function to calculate current day based on enrollment date
-export function calculateCurrentDay(enrolledAt: number, projectStartDate: string, isAdmin: boolean = false): number {
+// Helper function to calculate current day based on project start date
+// All users see the same day based on how many days since the project started,
+// regardless of when they enrolled. Late joiners can catch up on past content.
+//
+// Test Mode: Users with isTestMode=true can preview content like admins before project starts.
+// This allows thorough testing without granting full admin privileges.
+export function calculateCurrentDay(
+  enrolledAt: number,
+  projectStartDate: string,
+  isAdmin: boolean = false,
+  isTestMode: boolean = false
+): number {
   const projectStart = new Date(projectStartDate);
   const now = new Date();
   const enrollmentDate = new Date(enrolledAt);
 
-  // For admins testing before project starts, use days since enrollment
-  // This allows admins to preview content during setup
-  if (isAdmin && now < projectStart) {
+  // For admins or test mode users testing before project starts, use days since enrollment
+  // This allows admins/testers to preview content during setup
+  const canPreviewContent = isAdmin || isTestMode;
+  if (canPreviewContent && now < projectStart) {
     const diffTime = now.getTime() - enrollmentDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    // Admins can see up to all 28 days for testing
+    // Admins/testers can see up to all 28 days for testing
     return Math.max(1, Math.min(28, diffDays));
   }
 
-  // User's day 1 is the later of: project start or their enrollment date
-  const userStartDate = enrollmentDate > projectStart ? enrollmentDate : projectStart;
+  // If project hasn't started yet, show day 1
+  if (now < projectStart) {
+    return 1;
+  }
 
-  const diffTime = now.getTime() - userStartDate.getTime();
+  // Calculate days since project started (not since user enrolled)
+  // This ensures all users see the same content based on project timeline
+  const diffTime = now.getTime() - projectStart.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   // Clamp between 1 and 28
@@ -902,5 +940,111 @@ export function isContentUnlocked(
   currentUserDay: number
 ): boolean {
   return contentDayNumber <= currentUserDay;
+}
+
+// Content Comment Entity - YouTube-style comments on course content
+import type { ContentComment } from "@shared/types";
+
+export class ContentCommentEntity extends IndexedEntity<ContentComment> {
+  static readonly entityName = "content-comment";
+  static readonly indexName = "content-comments";
+  static readonly initialState: ContentComment = {
+    id: "",
+    contentId: "",
+    userId: "",
+    userName: "",
+    userAvatarUrl: "",
+    text: "",
+    likes: 0,
+    likedBy: [],
+    createdAt: 0,
+    updatedAt: undefined
+  };
+
+  // Get all comments for a content item
+  static async findByContent(env: Env, contentId: string): Promise<ContentComment[]> {
+    const index = new ContentCommentsIndex(env, contentId);
+    const commentIds = await index.list();
+
+    const comments = await Promise.all(commentIds.map(async (id) => {
+      const entity = new ContentCommentEntity(env, id);
+      return entity.getState();
+    }));
+
+    // Sort by createdAt descending (newest first)
+    return comments
+      .filter(c => c.id)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Add a new comment
+  static async addComment(
+    env: Env,
+    contentId: string,
+    userId: string,
+    userName: string,
+    userAvatarUrl: string | undefined,
+    text: string
+  ): Promise<ContentComment> {
+    const commentId = crypto.randomUUID();
+    const now = Date.now();
+
+    const comment: ContentComment = {
+      id: commentId,
+      contentId,
+      userId,
+      userName,
+      userAvatarUrl,
+      text,
+      likes: 0,
+      likedBy: [],
+      createdAt: now
+    };
+
+    await ContentCommentEntity.create(env, comment);
+
+    // Index by content
+    const contentIndex = new ContentCommentsIndex(env, contentId);
+    await contentIndex.add(commentId);
+
+    return comment;
+  }
+
+  // Toggle like on a comment
+  static async toggleLike(env: Env, commentId: string, userId: string): Promise<ContentComment> {
+    const entity = new ContentCommentEntity(env, commentId);
+
+    await entity.mutate(state => {
+      const likedBy = state.likedBy || [];
+      const isLiked = likedBy.includes(userId);
+
+      if (isLiked) {
+        // Remove like
+        return {
+          ...state,
+          likes: Math.max(0, state.likes - 1),
+          likedBy: likedBy.filter(id => id !== userId),
+          updatedAt: Date.now()
+        };
+      } else {
+        // Add like
+        return {
+          ...state,
+          likes: state.likes + 1,
+          likedBy: [...likedBy, userId],
+          updatedAt: Date.now()
+        };
+      }
+    });
+
+    return entity.getState();
+  }
+}
+
+// Index for tracking comments by content
+export class ContentCommentsIndex extends Index<string> {
+  constructor(env: Env, contentId: string) {
+    super(env, `content-comments:${contentId}`);
+  }
 }
 

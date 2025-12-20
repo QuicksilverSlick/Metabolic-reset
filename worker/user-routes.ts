@@ -27,9 +27,10 @@ import {
   UserProgressEntity,
   ProjectContentIndex,
   calculateCurrentDay,
-  isContentUnlocked
+  isContentUnlocked,
+  ContentCommentEntity
 } from './entities';
-import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress } from "@shared/types";
+import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress, AddCommentRequest, LikeCommentRequest, LikeContentRequest } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -1135,11 +1136,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         projectId?: string | null;
         quizScore: number;
         quizAnswers: Record<string, number>;
-        resultType: 'fatigue' | 'instability' | 'plateau' | 'optimized';
-        metabolicAge: number;
+        resultType: 'green' | 'yellow' | 'orange' | 'red' | 'fatigue' | 'instability' | 'plateau' | 'optimized';
+        metabolicAge?: number;  // Legacy (deprecated, optional)
+        totalScore: number;     // New: Raw quiz score for display
       };
 
-      const { name, phone, age, sex, referralCode, projectId, quizScore, quizAnswers, resultType, metabolicAge } = body;
+      const { name, phone, age, sex, referralCode, projectId, quizScore, quizAnswers, resultType, metabolicAge, totalScore } = body;
 
       if (!name || !phone || !age || !sex) {
         return bad(c, 'Missing required fields: name, phone, age, sex');
@@ -1171,8 +1173,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         captainId,
         quizScore,
         quizAnswers: quizAnswers || {},
-        resultType: resultType || 'fatigue',
-        metabolicAge,
+        resultType: resultType || 'green',
+        metabolicAge: metabolicAge || 0,  // Legacy field (deprecated)
+        totalScore: totalScore || quizScore,  // New field, fallback to quizScore
         convertedToUserId: null,
         capturedAt: now,
         source: 'quiz'
@@ -1201,8 +1204,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
               age,
               sex,
               quizScore,
+              totalScore: totalScore || quizScore,
               resultType,
-              metabolicAge,
+              metabolicAge: metabolicAge || 0,
               referralCode,
               projectId,
               captainId,
@@ -1220,7 +1224,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         sex,
         captainId,
         resultType,
-        metabolicAge
+        totalScore: totalScore || quizScore,
+        metabolicAge: metabolicAge || 0
       });
     } catch (e: any) {
       console.error('Lead submission error:', e);
@@ -1368,6 +1373,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const updates = await c.req.json() as {
         isAdmin?: boolean;
         isActive?: boolean;
+        isTestMode?: boolean;
         points?: number;
         role?: 'challenger' | 'coach';
       };
@@ -1380,6 +1386,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const patch: Partial<User> = {};
       if (typeof updates.isAdmin === 'boolean') patch.isAdmin = updates.isAdmin;
       if (typeof updates.isActive === 'boolean') patch.isActive = updates.isActive;
+      if (typeof updates.isTestMode === 'boolean') patch.isTestMode = updates.isTestMode;
       if (typeof updates.points === 'number') patch.points = updates.points;
       if (updates.role) patch.role = updates.role;
 
@@ -3369,9 +3376,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const project = await projectEntity.getState();
       if (!project.id) return notFound(c, 'Project not found');
 
-      // Calculate current day - admins can preview content before project starts
+      // Calculate current day - admins and test mode users can preview content before project starts
       const isAdmin = user.isAdmin === true;
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin);
+      const isTestMode = user.isTestMode === true;
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
 
       // Get all content for project
       const content = await CourseContentEntity.findByProject(c.env, activeEnrollment.projectId);
@@ -3439,11 +3447,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Invalid day number');
       }
 
-      // Get user info to check admin status
+      // Get user info to check admin/test mode status
       const userEntity = new UserEntity(c.env, userId);
       const user = await userEntity.getState();
       if (!user.id) return c.json({ error: 'User not found' }, 404);
       const isAdmin = user.isAdmin === true;
+      const isTestMode = user.isTestMode === true;
 
       // Get user's active enrollment
       const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
@@ -3458,8 +3467,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const project = await projectEntity.getState();
       if (!project.id) return notFound(c, 'Project not found');
 
-      // Check if day is unlocked - admins can preview content before project starts
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin);
+      // Check if day is unlocked - admins and test mode users can preview content before project starts
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
       const isUnlocked = isContentUnlocked(dayNumber, currentDay);
 
       // Get content for this day
@@ -3536,6 +3545,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Content ID and watched percentage are required');
       }
 
+      // Get user info for test mode check
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return c.json({ error: 'User not found' }, 404);
+
       // Get user's active enrollment
       const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
       const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
@@ -3551,10 +3565,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (content.contentType !== 'video') return bad(c, 'Content is not a video');
       if (content.projectId !== activeEnrollment.projectId) return bad(c, 'Content not in your enrolled project');
 
-      // Check if day is unlocked
+      // Check if day is unlocked - admins and test mode users can preview content
       const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
       const project = await projectEntity.getState();
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+      const isAdmin = user.isAdmin === true;
+      const isTestMode = user.isTestMode === true;
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
 
       if (!isContentUnlocked(content.dayNumber, currentDay)) {
         return c.json({ error: 'Content is not yet unlocked' }, 403);
@@ -3693,6 +3709,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Content ID and answers are required');
       }
 
+      // Get user info for test mode check
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return c.json({ error: 'User not found' }, 404);
+
       // Get user's active enrollment
       const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
       const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
@@ -3708,10 +3729,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (content.contentType !== 'quiz') return bad(c, 'Content is not a quiz');
       if (!content.quizData) return bad(c, 'Quiz has no questions');
 
-      // Check if day is unlocked
+      // Check if day is unlocked - admins and test mode users can preview content
       const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
       const project = await projectEntity.getState();
-      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate);
+      const isAdmin = user.isAdmin === true;
+      const isTestMode = user.isTestMode === true;
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
 
       if (!isContentUnlocked(content.dayNumber, currentDay)) {
         return c.json({ error: 'Quiz is not yet unlocked' }, 403);
@@ -3855,6 +3878,111 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const progress = await UserProgressEntity.findByEnrollment(c.env, enrollmentId);
 
       return ok(c, { hasEnrollment: true, progress });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ========== Content Comments ==========
+
+  // Get comments for a content item
+  app.get('/api/course/comments/:contentId', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const contentId = c.req.param('contentId');
+      if (!contentId) return bad(c, 'Content ID required');
+
+      const comments = await ContentCommentEntity.findByContent(c.env, contentId);
+
+      return ok(c, { comments });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Add a comment to content
+  app.post('/api/course/comments', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const body = await c.req.json() as AddCommentRequest;
+
+      if (!body.contentId) return bad(c, 'Content ID required');
+      if (!body.text || body.text.trim().length === 0) return bad(c, 'Comment text required');
+      if (body.text.length > 1000) return bad(c, 'Comment too long (max 1000 characters)');
+
+      // Get user info for comment
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      const comment = await ContentCommentEntity.addComment(
+        c.env,
+        body.contentId,
+        userId,
+        user.name || 'Anonymous',
+        user.avatarUrl,
+        body.text.trim()
+      );
+
+      return ok(c, { comment });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Like/unlike a comment
+  app.post('/api/course/comments/like', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const body = await c.req.json() as LikeCommentRequest;
+
+      if (!body.commentId) return bad(c, 'Comment ID required');
+
+      const comment = await ContentCommentEntity.toggleLike(c.env, body.commentId, userId);
+
+      return ok(c, { comment });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Like/unlike a content item (video/resource)
+  app.post('/api/course/content/like', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const body = await c.req.json() as LikeContentRequest;
+
+      if (!body.contentId) return bad(c, 'Content ID required');
+
+      const content = await CourseContentEntity.toggleLike(c.env, body.contentId, userId);
+
+      return ok(c, { content });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get content details (for real-time like count updates)
+  app.get('/api/course/content/:contentId', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const contentId = c.req.param('contentId');
+      const entity = new CourseContentEntity(c.env, contentId);
+      const content = await entity.getState();
+
+      if (!content.id) return bad(c, 'Content not found');
+
+      return ok(c, { content });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }

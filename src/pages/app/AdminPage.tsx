@@ -276,6 +276,7 @@ export function AdminPage() {
   // Form state for edit dialog
   const [editPoints, setEditPoints] = useState(0);
   const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editIsTestMode, setEditIsTestMode] = useState(false);
   const [editIsActive, setEditIsActive] = useState(true);
   const [editRole, setEditRole] = useState<'challenger' | 'coach'>('challenger');
 
@@ -373,6 +374,7 @@ export function AdminPage() {
     setSelectedUser(user);
     setEditPoints(user.points || 0);
     setEditIsAdmin(user.isAdmin || false);
+    setEditIsTestMode(user.isTestMode || false);
     setEditIsActive(user.isActive !== false);
     setEditRole(user.role || 'challenger');
     setEditDialogOpen(true);
@@ -391,6 +393,7 @@ export function AdminPage() {
         updates: {
           points: editPoints,
           isAdmin: editIsAdmin,
+          isTestMode: editIsTestMode,
           isActive: editIsActive,
           role: editRole,
         },
@@ -402,6 +405,13 @@ export function AdminPage() {
         },
       }
     );
+  };
+
+  const handleToggleTestMode = (user: User) => {
+    updateUserMutation.mutate({
+      targetUserId: user.id,
+      updates: { isTestMode: !user.isTestMode },
+    });
   };
 
   const handleToggleAdmin = (user: User) => {
@@ -1127,8 +1137,11 @@ export function AdminPage() {
                             </AvatarFallback>
                           </Avatar>
                           <span>{user.name}</span>
+                          {user.isTestMode && (
+                            <Eye className="h-4 w-4 text-blue-600" title="Test Mode" />
+                          )}
                           {user.isAdmin && (
-                            <ShieldCheck className="h-4 w-4 text-green-600" />
+                            <ShieldCheck className="h-4 w-4 text-green-600" title="Admin" />
                           )}
                         </div>
                       </TableCell>
@@ -1186,6 +1199,21 @@ export function AdminPage() {
                               Edit User
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onClick={() => handleToggleTestMode(user)}
+                            >
+                              {user.isTestMode ? (
+                                <>
+                                  <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                  Disable Test Mode
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Enable Test Mode
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => handleToggleAdmin(user)}
                               disabled={user.id === currentUser?.id}
                             >
@@ -1240,8 +1268,11 @@ export function AdminPage() {
                             <p className="font-medium text-navy-900 dark:text-white truncate">
                               {user.name}
                             </p>
+                            {user.isTestMode && (
+                              <Eye className="h-4 w-4 text-blue-600 shrink-0" title="Test Mode" />
+                            )}
                             {user.isAdmin && (
-                              <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                              <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" title="Admin" />
                             )}
                           </div>
                           <p className="text-sm text-slate-500 truncate">{user.email}</p>
@@ -1264,6 +1295,21 @@ export function AdminPage() {
                           <DropdownMenuItem onClick={() => openEditDialog(user)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleToggleTestMode(user)}
+                          >
+                            {user.isTestMode ? (
+                              <>
+                                <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                Disable Test Mode
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Enable Test Mode
+                              </>
+                            )}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleToggleAdmin(user)}
@@ -2551,6 +2597,20 @@ export function AdminPage() {
 
             <div className="flex items-center justify-between border-t pt-4">
               <div className="space-y-0.5">
+                <Label className="flex items-center gap-1 text-blue-700">
+                  <Eye className="h-4 w-4" />
+                  Test Mode
+                </Label>
+                <p className="text-xs text-slate-500">Preview all content like an admin (no admin privileges)</p>
+              </div>
+              <Switch
+                checked={editIsTestMode}
+                onCheckedChange={setEditIsTestMode}
+              />
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <div className="space-y-0.5">
                 <Label className="flex items-center gap-1 text-green-700">
                   <ShieldCheck className="h-4 w-4" />
                   Admin Access
@@ -2770,8 +2830,11 @@ export function AdminPage() {
                               <p className="font-medium text-navy-900 dark:text-white truncate">
                                 {user.name}
                               </p>
+                              {user.isTestMode && (
+                                <Eye className="h-4 w-4 text-blue-600 shrink-0" title="Test Mode" />
+                              )}
                               {user.isAdmin && (
-                                <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                                <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" title="Admin" />
                               )}
                             </div>
                             <p className="text-sm text-slate-500 truncate">{user.email}</p>

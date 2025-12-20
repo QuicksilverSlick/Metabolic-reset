@@ -32,7 +32,8 @@ import {
   UserProgress,
   CourseOverview,
   DayContentWithProgress,
-  QuizResultResponse
+  QuizResultResponse,
+  ContentComment
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -181,6 +182,7 @@ export const adminApi = {
   updateUser: (adminUserId: string, targetUserId: string, updates: {
     isAdmin?: boolean;
     isActive?: boolean;
+    isTestMode?: boolean;
     points?: number;
     role?: 'challenger' | 'coach';
   }) =>
@@ -266,7 +268,8 @@ export const leadsApi = {
       age: number;
       sex: 'male' | 'female';
       captainId: string | null;
-      resultType: 'fatigue' | 'instability' | 'plateau' | 'optimized';
+      resultType: 'green' | 'yellow' | 'orange' | 'red' | 'fatigue' | 'instability' | 'plateau' | 'optimized';
+      totalScore: number;
       metabolicAge: number;
     }>(
       '/api/leads',
@@ -814,4 +817,42 @@ export const courseApi = {
   // Get all progress
   getProgress: (userId: string) =>
     api<{ hasEnrollment: boolean; progress: UserProgress[] }>('/api/course/progress', { headers: { 'X-User-ID': userId } }),
+};
+
+// Content Comments API - for YouTube-style comments on course content
+export const commentsApi = {
+  // Get comments for a content item
+  getComments: (userId: string, contentId: string) =>
+    api<{ comments: ContentComment[] }>(`/api/course/comments/${contentId}`, { headers: { 'X-User-ID': userId } }),
+
+  // Add a comment
+  addComment: (userId: string, contentId: string, text: string) =>
+    api<{ comment: ContentComment }>('/api/course/comments', {
+      method: 'POST',
+      body: JSON.stringify({ contentId, text }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Like/unlike a comment
+  likeComment: (userId: string, commentId: string) =>
+    api<{ comment: ContentComment }>('/api/course/comments/like', {
+      method: 'POST',
+      body: JSON.stringify({ commentId }),
+      headers: { 'X-User-ID': userId }
+    }),
+};
+
+// Content Likes API - for liking videos/resources
+export const contentLikesApi = {
+  // Like/unlike a content item
+  likeContent: (userId: string, contentId: string) =>
+    api<{ content: CourseContent }>('/api/course/content/like', {
+      method: 'POST',
+      body: JSON.stringify({ contentId }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get content details (for polling likes)
+  getContent: (userId: string, contentId: string) =>
+    api<{ content: CourseContent }>(`/api/course/content/${contentId}`, { headers: { 'X-User-ID': userId } }),
 };
