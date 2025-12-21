@@ -21,7 +21,7 @@ export default function KitConfirmationPage() {
         if (!enrollment.onboardingComplete) {
           // Complete onboarding then navigate
           if (!enrollment.projectId) {
-            navigate('/app');
+            navigate('/app/onboarding/final-video');
             return;
           }
           try {
@@ -36,11 +36,11 @@ export default function KitConfirmationPage() {
             console.error('Failed to complete onboarding:', error);
           }
         }
-        // Navigate to dashboard
-        navigate('/app');
+        // Navigate to all-audience orientation video
+        navigate('/app/onboarding/final-video');
       } else if (!enrollmentLoading && !enrollment) {
-        // No enrollment - just redirect to dashboard
-        navigate('/app');
+        // No enrollment - redirect to final video
+        navigate('/app/onboarding/final-video');
       }
     };
     handleGroupB();
@@ -58,8 +58,8 @@ export default function KitConfirmationPage() {
           onboardingComplete: true
         }
       });
-      // Navigate to dashboard
-      navigate('/app');
+      // Navigate to all-audience orientation video
+      navigate('/app/onboarding/final-video');
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
     } finally {
@@ -92,8 +92,8 @@ export default function KitConfirmationPage() {
       window.open(settings.kitOrderUrl, '_blank');
     }
 
-    // Navigate to dashboard
-    navigate('/app');
+    // Navigate to all-audience orientation video
+    navigate('/app/onboarding/final-video');
   };
 
   // Loading state or Group B redirect

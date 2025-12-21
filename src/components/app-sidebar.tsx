@@ -7,7 +7,8 @@ import {
   Users,
   ShieldCheck,
   FolderKanban,
-  Video
+  Video,
+  Megaphone
 } from "lucide-react";
 import {
   Sidebar,
@@ -111,18 +112,32 @@ export function AppSidebar(): JSX.Element {
               </SidebarMenuButton>
             </SidebarMenuItem>
             {role === 'coach' && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive('/app/roster')}
-                  className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
-                >
-                  <Link to="/app/roster" onClick={handleMobileNavigation}>
-                    <Users className="h-5 w-5" />
-                    <span className="font-medium">Team Roster</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive('/app/roster')}
+                    className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
+                  >
+                    <Link to="/app/roster" onClick={handleMobileNavigation}>
+                      <Users className="h-5 w-5" />
+                      <span className="font-medium">Team Roster</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive('/app/resources')}
+                    className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
+                  >
+                    <Link to="/app/resources" onClick={handleMobileNavigation}>
+                      <Megaphone className="h-5 w-5" />
+                      <span className="font-medium">Resources</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
             )}
             {user?.isAdmin && (
               <SidebarMenuItem>

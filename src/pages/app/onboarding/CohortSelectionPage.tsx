@@ -9,8 +9,8 @@ import { CohortType } from '@shared/types';
 import { cn } from '@/lib/utils';
 
 const COHORT_VIDEOS = {
-  GROUP_A: 'https://descriptusercontent.com/published/1a79c071-aa7e-4193-9fc7-24a668c51d6b/original.mp4',
-  GROUP_B: 'https://descriptusercontent.com/published/c4acd472-cfe1-48da-bd16-0d35e68d4baf/original.mp4',
+  GROUP_A: 'https://descriptusercontent.com/published/a49e4961-d965-4086-8ff1-ded1a71c8986/original.mp4',
+  GROUP_B: 'https://descriptusercontent.com/published/2d0a63df-80ad-449a-8b86-03bb1843b8f8/original.mp4',
 };
 
 export default function CohortSelectionPage() {

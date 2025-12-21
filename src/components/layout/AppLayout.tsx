@@ -47,12 +47,27 @@ export function AppLayout({ children, container = false, className, contentClass
 
   // Gatekeeper: If user has an enrollment but hasn't completed onboarding, redirect
   if (activeEnrollment && !activeEnrollment.onboardingComplete) {
-    // Determine which onboarding step they should be at
+    // Check if user is a coach (from user object or enrollment)
+    const isCoach = user?.role === 'coach' || activeEnrollment.role === 'coach';
+
+    // Coaches skip cohort selection entirely - they're always GROUP_A (Optavia coaches)
+    // Send them directly to cart-link page to set up their referral link
+    if (isCoach) {
+      return <Navigate to="/app/onboarding/cart-link" replace />;
+    }
+
     if (!activeEnrollment.cohortId) {
+      // No cohort selected - send challengers to cohort selection
       return <Navigate to="/app/onboarding/cohort" replace />;
     }
-    // If they have cohort but somehow got here, send to video
-    return <Navigate to="/app/onboarding/video" replace />;
+
+    // Challengers in Group A who haven't completed kit confirmation
+    if (activeEnrollment.cohortId === 'GROUP_A' && !activeEnrollment.hasKit) {
+      return <Navigate to="/app/onboarding/kit" replace />;
+    }
+
+    // If they have cohort but onboarding not complete, they may still be in the flow
+    // Let them through - the individual onboarding pages will handle their own logic
   }
 
   // Calculate current day of the challenge

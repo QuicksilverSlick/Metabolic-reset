@@ -60,9 +60,25 @@ export interface User {
   isTestMode?: boolean; // Test mode - allows viewing content like an admin without admin privileges
   stripeCustomerId?: string;
   avatarUrl?: string; // User profile photo URL
+  cartLink?: string; // Coach's personal cart link for kit orders (coaches only)
   deletedAt?: number; // Unix timestamp for soft delete (30-day recovery window)
   deletedBy?: string; // Admin user ID who performed the deletion
+  mergedInto?: string; // User ID this account was merged into (for duplicate resolution)
+  couponCodeUsed?: string; // Coupon code used during registration (if any)
 }
+
+// Coupon Usage - tracks who used which coupon codes
+export interface CouponUsage {
+  id: string;
+  couponCode: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+  projectId: string | null;
+  usedAt: number;
+}
+
 export interface DailyScore {
   id: string; // Format: projectId:userId:YYYY-MM-DD
   projectId: string;
@@ -111,7 +127,9 @@ export interface SystemSettings {
   id: string; // "global"
   groupAVideoUrl: string; // Orientation video URL for Group A (Protocol)
   groupBVideoUrl: string; // Orientation video URL for Group B (DIY)
-  kitOrderUrl: string; // URL to order the nutrition kit
+  kitOrderUrl: string; // URL to order the nutrition kit (fallback if no coach link)
+  scaleOrderUrl: string; // URL to order a smart scale (e.g., Amazon link)
+  fallbackPhone: string; // Fallback phone number if coach has no cart link (e.g., "5039741671")
   // Configurable point values
   referralPointsCoach: number; // Points for coach when they refer someone (default: 1)
   referralPointsChallenger: number; // Points for challenger when they refer someone (default: 5)

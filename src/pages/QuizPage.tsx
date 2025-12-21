@@ -36,10 +36,7 @@ import {
   Lock,
   Loader2,
   ExternalLink,
-  Mail,
-  Video,
-  X,
-  Play
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,11 +45,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
-import { leadsApi, referralApi, projectApi, paymentApi, usersApi } from '@/lib/api';
+import { leadsApi, referralApi, projectApi, paymentApi, usersApi, couponApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import type { SexType, QuizResultType } from '@shared/types';
 import { loadStripe } from '@stripe/stripe-js';
@@ -492,40 +488,91 @@ const resultContent: Record<QuizResultType, {
   }
 };
 
-// Payment form component for Stripe
+// Payment form component for Stripe with duplicate payment protection
 function StripePaymentForm({ onSuccess, amount }: { onSuccess: () => void; amount: number }) {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const hasSubmittedRef = useRef(false);
+
+  // Check if payment was already completed (handles page refresh during processing)
+  useEffect(() => {
+    const completed = sessionStorage.getItem('quizPaymentCompleted');
+    if (completed === 'true') {
+      console.log('Payment already completed, triggering success flow');
+      setPaymentCompleted(true);
+      onSuccess();
+    }
+  }, [onSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Multiple layers of protection against duplicate submissions
     if (!stripe || !elements) {
       return;
     }
+    if (processing || paymentCompleted || hasSubmittedRef.current) {
+      console.log('Payment submission blocked - already processing or completed');
+      return;
+    }
+
+    // Mark as submitted immediately (ref updates synchronously, state is async)
+    hasSubmittedRef.current = true;
     setProcessing(true);
     setError(null);
+
     try {
-      const { error: submitError } = await stripe.confirmPayment({
+      const { error: submitError, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: window.location.origin + '/app/onboarding/cohort',
         },
         redirect: 'if_required'
       });
+
       if (submitError) {
+        // Payment failed - allow retry
+        hasSubmittedRef.current = false;
         setError(submitError.message || 'Payment failed');
         setProcessing(false);
       } else {
+        // Payment succeeded - mark as completed to prevent duplicates
+        console.log('Payment confirmed successfully', paymentIntent?.id);
+        sessionStorage.setItem('quizPaymentCompleted', 'true');
+        if (paymentIntent) {
+          sessionStorage.setItem('quizPaymentIntentId', paymentIntent.id);
+        }
+        setPaymentCompleted(true);
         onSuccess();
       }
     } catch (err) {
       console.error("Stripe confirm error:", err);
+      hasSubmittedRef.current = false;
       setError("An unexpected error occurred during payment processing.");
       setProcessing(false);
     }
   };
+
+  // If payment already completed, show success message
+  if (paymentCompleted) {
+    return (
+      <div className="text-center py-6">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center"
+        >
+          <Check className="h-8 w-8 text-green-500" />
+        </motion.div>
+        <h3 className="text-lg font-bold mb-2 text-white">Payment Successful!</h3>
+        <p className="text-slate-400 text-sm">Completing your registration...</p>
+        <Loader2 className="h-6 w-6 animate-spin text-gold-500 mx-auto mt-4" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -547,7 +594,7 @@ function StripePaymentForm({ onSuccess, amount }: { onSuccess: () => void; amoun
         {processing ? (
           <>
             <Loader2 className="animate-spin mr-2 h-5 w-5" />
-            Processing...
+            Processing Payment...
           </>
         ) : (
           <>
@@ -595,13 +642,21 @@ export function QuizPage() {
   const [isMockPayment, setIsMockPayment] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const { login } = useAuthStore();
 
-  // Results video modal state
-  const [resultsVideoOpen, setResultsVideoOpen] = useState(false);
-  const [hasAutoPlayedVideo, setHasAutoPlayedVideo] = useState(false);
-  const resultsVideoRef = useRef<HTMLVideoElement>(null);
+  // Coupon code state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{
+    valid: boolean;
+    discount: number;
+    description: string;
+    bypassPayment: boolean;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
 
   // Email validation helper
   const validateEmail = (email: string): boolean => {
@@ -609,30 +664,6 @@ export function QuizPage() {
     return re.test(email);
   };
 
-  // Auto-open video modal when entering results phase
-  useEffect(() => {
-    if (phase === 'results' && !hasAutoPlayedVideo) {
-      // Small delay to let the results page render first
-      const timer = setTimeout(() => {
-        setResultsVideoOpen(true);
-        setHasAutoPlayedVideo(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, hasAutoPlayedVideo]);
-
-  // Handle video modal close
-  const handleResultsVideoClose = () => {
-    setResultsVideoOpen(false);
-    if (resultsVideoRef.current) {
-      resultsVideoRef.current.pause();
-    }
-  };
-
-  // Handle video ended
-  const handleResultsVideoEnded = () => {
-    setResultsVideoOpen(false);
-  };
 
   // Fetch referrer name and project info when we have a referral code or project ID
   useEffect(() => {
@@ -801,17 +832,73 @@ export function QuizPage() {
       leadId
     }));
 
-    // Initialize payment
-    initializePayment();
+    // Go to payment phase - payment intent will be created after role confirmation
+    setStripeError(null);
+    setClientSecret(null);
+    setIsMockPayment(false);
+    setCouponCode('');
+    setCouponApplied(null);
+    setCouponError(null);
+    setPhase('payment');
   };
 
-  const initializePayment = async () => {
+  // Validate and apply coupon code
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const result = await couponApi.validate(couponCode);
+      if (result.valid) {
+        setCouponApplied({
+          valid: true,
+          discount: result.discount || 0,
+          description: result.description || '',
+          bypassPayment: result.bypassPayment || false
+        });
+        setCouponError(null);
+      } else {
+        setCouponApplied(null);
+        setCouponError(result.message || 'Invalid coupon code');
+      }
+    } catch (err) {
+      console.error('Coupon validation failed:', err);
+      setCouponApplied(null);
+      setCouponError('Failed to validate coupon code');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  // Create payment intent for the selected role amount
+  const createPaymentIntent = async () => {
     setStripeError(null);
-    setPhase('payment');
+    setClientSecret(null);
+    setIsMockPayment(false);
+    setIsCreatingPaymentIntent(true);
 
     const amount = role === 'group_leader' ? 4900 : 2800;
+
+    // Generate or reuse idempotency key for this payment session
+    // Key includes leadId, role, and amount to ensure unique payments per combination
+    // but same key if user refreshes during the same session
+    let idempotencyKey = sessionStorage.getItem('quizPaymentIdempotencyKey');
+    if (!idempotencyKey) {
+      // Create a unique key based on lead + role + amount + timestamp
+      const keyBase = `quiz_${leadId || 'unknown'}_${role}_${amount}_${Date.now()}`;
+      idempotencyKey = keyBase;
+      sessionStorage.setItem('quizPaymentIdempotencyKey', idempotencyKey);
+    }
+
+    console.log(`Creating payment intent for role: ${role}, amount: $${amount / 100}, idempotencyKey: ${idempotencyKey.substring(0, 20)}...`);
+
     try {
-      const { clientSecret: secret, mock } = await paymentApi.createIntent(amount);
+      const { clientSecret: secret, mock } = await paymentApi.createIntent(amount, idempotencyKey);
       if (mock) {
         setIsMockPayment(true);
       } else if (secret) {
@@ -826,11 +913,27 @@ export function QuizPage() {
       } else {
         setStripeError("Could not initialize payment system. Please try again.");
       }
+    } finally {
+      setIsCreatingPaymentIntent(false);
     }
   };
 
   const handlePaymentSuccess = async () => {
     if (!leadData) return;
+
+    // CRITICAL: Check if registration was already completed to prevent duplicates
+    // This handles browser back button, page refresh, and accidental double-calls
+    if (sessionStorage.getItem('quizRegistrationCompleted') === 'true') {
+      console.log('Registration already completed, redirecting to onboarding');
+      // Clear all payment/registration session data
+      sessionStorage.removeItem('quizPaymentCompleted');
+      sessionStorage.removeItem('quizPaymentIntentId');
+      sessionStorage.removeItem('quizPaymentIdempotencyKey');
+      sessionStorage.removeItem('quizRegistrationCompleted');
+      // Redirect to onboarding (they should already be logged in)
+      navigate('/app/onboarding/profile');
+      return;
+    }
 
     // Validate email before processing
     if (!email || !validateEmail(email)) {
@@ -838,6 +941,10 @@ export function QuizPage() {
       setIsProcessingPayment(false);
       return;
     }
+
+    // Mark registration as in-progress BEFORE the API call
+    // This prevents race conditions if this function is called twice quickly
+    sessionStorage.setItem('quizRegistrationCompleted', 'true');
 
     setIsProcessingPayment(true);
     setEmailError(null);
@@ -851,13 +958,20 @@ export function QuizPage() {
         referralCodeUsed: referralCode,
         hasScale,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        projectId: projectIdFromUrl || undefined
+        projectId: projectIdFromUrl || undefined,
+        couponCode: couponApplied?.bypassPayment ? couponCode : undefined
       });
 
       // Log the user in
       if (result.user) {
         login(result.user);
       }
+
+      // Clear all payment/registration session storage after successful registration
+      sessionStorage.removeItem('quizPaymentCompleted');
+      sessionStorage.removeItem('quizPaymentIntentId');
+      sessionStorage.removeItem('quizPaymentIdempotencyKey');
+      sessionStorage.removeItem('quizRegistrationCompleted');
 
       // Trigger celebration confetti
       confetti({
@@ -867,9 +981,14 @@ export function QuizPage() {
         colors: ['#F59E0B', '#FBBF24', '#FCD34D', '#22C55E', '#10B981']
       });
 
-      // Navigate based on whether user was enrolled in a project
-      // If enrolled, go to cohort selection; otherwise skip to profile
-      if (result.enrolledProjectId) {
+      // Navigate based on role and project enrollment
+      // Coaches skip cohort selection (auto-assigned GROUP_A on backend)
+      const isCoach = role === 'group_leader';
+      if (isCoach) {
+        // Coaches go straight to profile photo
+        navigate('/app/onboarding/profile');
+      } else if (result.enrolledProjectId) {
+        // Challengers with project go to cohort selection
         navigate('/app/onboarding/cohort');
       } else {
         // No project available - skip cohort selection
@@ -877,6 +996,8 @@ export function QuizPage() {
       }
     } catch (err) {
       console.error('Registration failed:', err);
+      // Clear the registration flag so user can retry
+      sessionStorage.removeItem('quizRegistrationCompleted');
       setStripeError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {
       setIsProcessingPayment(false);
@@ -1747,8 +1868,8 @@ export function QuizPage() {
               </div>
             </section>
 
-            {/* Rewatch Video Button */}
-            <section className="py-4 md:py-6">
+            {/* Primary CTA Button */}
+            <section className="py-6 md:py-8">
               <div className="max-w-3xl mx-auto px-4">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -1756,48 +1877,20 @@ export function QuizPage() {
                   transition={{ delay: 0.75 }}
                   className="text-center"
                 >
-                  <button
-                    onClick={() => setResultsVideoOpen(true)}
-                    className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
-                      result.color === 'red' ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30' :
-                      result.color === 'orange' ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30' :
-                      result.color === 'yellow' ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30' :
-                      'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
-                    }`}
+                  <Button
+                    size="lg"
+                    onClick={handleGoToPayment}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] font-bold transition-all duration-300 group"
                   >
-                    <Play className="h-5 w-5" />
-                    Watch: Understanding Your Results
-                  </button>
+                    {result.cta}
+                    <ArrowRight className="ml-2 h-6 w-6 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                  <p className="text-slate-500 text-sm mt-4">
+                    Join 2,847+ others who reversed their metabolic age
+                  </p>
                 </motion.div>
               </div>
             </section>
-
-            {/* Video Modal */}
-            <Dialog open={resultsVideoOpen} onOpenChange={setResultsVideoOpen}>
-              <DialogContent className="bg-navy-900 border-navy-700 max-w-4xl w-[95vw] p-0 overflow-hidden">
-                <div className="relative">
-                  {/* Close button */}
-                  <button
-                    onClick={handleResultsVideoClose}
-                    className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                  {/* Video */}
-                  <video
-                    ref={resultsVideoRef}
-                    src={result.videoUrl}
-                    controls
-                    autoPlay
-                    playsInline
-                    onEnded={handleResultsVideoEnded}
-                    className="w-full aspect-video bg-black"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              </DialogContent>
-            </Dialog>
 
             {/* Diagnosis Section */}
             <section className="py-12 md:py-16">
@@ -1956,7 +2049,16 @@ export function QuizPage() {
                       {/* Role Selection */}
                       <div className="space-y-4">
                         <Label className="text-slate-200 text-lg font-medium">How will you participate?</Label>
-                        <RadioGroup value={role} onValueChange={(v) => setRole(v as 'participant' | 'group_leader')}>
+                        <RadioGroup value={role} onValueChange={(v) => {
+                          const newRole = v as 'participant' | 'group_leader';
+                          if (newRole !== role) {
+                            // Clear payment state when role changes to ensure correct amount
+                            setClientSecret(null);
+                            sessionStorage.removeItem('quizPaymentIdempotencyKey');
+                            sessionStorage.removeItem('quizRegistrationCompleted');
+                          }
+                          setRole(newRole);
+                        }}>
                           {/* Participant Option */}
                           <motion.div
                             whileHover={{ scale: 1.01 }}
@@ -2127,14 +2229,72 @@ export function QuizPage() {
                                 </p>
                               </div>
                             </div>
-                            <span className="text-2xl font-bold text-gold-500">
+                            <span className={`text-2xl font-bold ${couponApplied?.bypassPayment ? 'line-through text-slate-500' : 'text-gold-500'}`}>
                               ${role === 'group_leader' ? '49' : '28'}
                             </span>
                           </div>
+
+                          {/* Coupon Applied Indicator */}
+                          {couponApplied?.bypassPayment && (
+                            <div className="flex items-center justify-between mb-4 bg-green-500/10 rounded-lg p-3 border border-green-500/30">
+                              <div className="flex items-center gap-2">
+                                <Check className="h-4 w-4 text-green-500" />
+                                <span className="text-green-400 text-sm font-medium">Coupon Applied: {couponCode}</span>
+                              </div>
+                              <span className="text-green-400 font-bold">-100%</span>
+                            </div>
+                          )}
+
                           <div className="border-t border-navy-700 pt-4 flex items-center justify-between">
                             <span className="text-slate-400">Total</span>
-                            <span className="text-xl font-bold text-white">${role === 'group_leader' ? '49.00' : '28.00'}</span>
+                            <span className="text-xl font-bold text-white">
+                              {couponApplied?.bypassPayment ? '$0.00' : `$${role === 'group_leader' ? '49.00' : '28.00'}`}
+                            </span>
                           </div>
+                        </div>
+
+                        {/* Coupon Code Input */}
+                        <div className="bg-navy-900 rounded-xl p-5 border border-navy-700 mb-6">
+                          <Label className="text-slate-400 text-sm font-medium mb-3 block">Have a coupon code?</Label>
+                          <div className="flex gap-3">
+                            <Input
+                              value={couponCode}
+                              onChange={(e) => {
+                                setCouponCode(e.target.value);
+                                setCouponError(null);
+                                if (couponApplied) setCouponApplied(null);
+                              }}
+                              placeholder="Enter coupon code"
+                              className="bg-navy-800 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-11 rounded-xl flex-1"
+                              disabled={couponApplied?.bypassPayment}
+                            />
+                            <Button
+                              type="button"
+                              onClick={handleApplyCoupon}
+                              disabled={isValidatingCoupon || couponApplied?.bypassPayment || !couponCode.trim()}
+                              className="bg-navy-700 hover:bg-navy-600 text-white h-11 px-6 rounded-xl"
+                            >
+                              {isValidatingCoupon ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : couponApplied?.bypassPayment ? (
+                                <Check className="h-4 w-4" />
+                              ) : (
+                                'Apply'
+                              )}
+                            </Button>
+                          </div>
+                          {couponError && (
+                            <p className="text-red-400 text-sm mt-2 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              {couponError}
+                            </p>
+                          )}
+                          {couponApplied && (
+                            <p className="text-green-400 text-sm mt-2 flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              {couponApplied.description}
+                            </p>
+                          )}
                         </div>
 
                         {stripeError && (
@@ -2145,7 +2305,44 @@ export function QuizPage() {
                           </Alert>
                         )}
 
-                        {isMockPayment ? (
+                        {/* Coupon Bypass - Free Registration */}
+                        {couponApplied?.bypassPayment ? (
+                          <div className="text-center py-6">
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center"
+                            >
+                              <Check className="h-8 w-8 text-green-500" />
+                            </motion.div>
+                            <h3 className="text-lg font-bold mb-2 text-white">Free Pass Applied!</h3>
+                            <p className="text-slate-400 mb-6 max-w-sm mx-auto text-sm">
+                              Your coupon code qualifies you for free access. Click below to complete your registration.
+                            </p>
+                            <Button
+                              onClick={handlePaymentSuccess}
+                              disabled={isProcessingPayment || !email || !validateEmail(email)}
+                              className="w-full bg-green-500 hover:bg-green-600 text-white py-7 text-lg font-bold rounded-xl"
+                            >
+                              {isProcessingPayment ? (
+                                <>
+                                  <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                                  Completing Registration...
+                                </>
+                              ) : (
+                                <>
+                                  Complete Free Registration
+                                  <ArrowRight className="ml-2 h-5 w-5" />
+                                </>
+                              )}
+                            </Button>
+                            {(!email || !validateEmail(email)) && (
+                              <p className="text-amber-400 text-sm mt-3">
+                                Please enter a valid email address above to continue
+                              </p>
+                            )}
+                          </div>
+                        ) : isMockPayment ? (
                           <div className="text-center py-6">
                             <motion.div
                               initial={{ scale: 0 }}
@@ -2184,9 +2381,27 @@ export function QuizPage() {
                             />
                           </Elements>
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-gold-500 mb-4" />
-                            <p className="text-slate-400">Loading payment form...</p>
+                          <div className="text-center py-6">
+                            <p className="text-slate-400 mb-6 text-sm">
+                              Confirm your selection above, then proceed to payment.
+                            </p>
+                            <Button
+                              onClick={createPaymentIntent}
+                              disabled={!hasScale || isCreatingPaymentIntent}
+                              className="w-full bg-gold-500 hover:bg-gold-600 text-navy-900 py-7 text-lg font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isCreatingPaymentIntent ? (
+                                <>
+                                  <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                                  Loading payment form...
+                                </>
+                              ) : (
+                                <>
+                                  Proceed to Payment - ${role === 'group_leader' ? '49' : '28'}
+                                  <ArrowRight className="ml-2 h-5 w-5" />
+                                </>
+                              )}
+                            </Button>
                           </div>
                         )}
                       </div>

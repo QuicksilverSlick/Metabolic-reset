@@ -7,9 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, Link } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, Link, ShoppingCart, Save, ExternalLink, Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadApi } from '@/lib/api';
+import { formatPhoneDisplay, toE164 } from '@/lib/phone-utils';
+
+// Common US timezones
+const US_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Phoenix', label: 'Arizona (MST)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+];
 
 export function ProfilePage() {
   const { data: user, isLoading } = useUser();
@@ -22,6 +35,16 @@ export function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [projectSelectorOpen, setProjectSelectorOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [cartLink, setCartLink] = useState(user?.cartLink || '');
+  const [isSavingCartLink, setIsSavingCartLink] = useState(false);
+
+  // Editable profile fields
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTimezone, setEditTimezone] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Get user initials for avatar fallback
   const getInitials = (name: string) => {
@@ -120,6 +143,106 @@ export function ProfilePage() {
       copyQuizLink(null);
     }
   };
+
+  // Save cart link
+  const handleSaveCartLink = async () => {
+    if (!cartLink.trim()) {
+      toast.error('Please enter a valid cart link');
+      return;
+    }
+    // Validate URL
+    try {
+      new URL(cartLink);
+    } catch {
+      toast.error('Please enter a valid URL (e.g., https://example.com/your-cart)');
+      return;
+    }
+
+    setIsSavingCartLink(true);
+    try {
+      await updateProfile.mutateAsync({ cartLink: cartLink.trim() });
+      toast.success('Cart link saved successfully!');
+    } catch (error) {
+      console.error('Failed to save cart link:', error);
+      toast.error('Failed to save cart link');
+    } finally {
+      setIsSavingCartLink(false);
+    }
+  };
+
+  // Sync cart link state when user data loads
+  React.useEffect(() => {
+    if (user?.cartLink) {
+      setCartLink(user.cartLink);
+    }
+  }, [user?.cartLink]);
+
+  // Start editing mode
+  const handleStartEdit = () => {
+    if (!user) return;
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditPhone(formatPhoneDisplay(user.phone));
+    setEditTimezone(user.timezone);
+    setIsEditing(true);
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditName('');
+    setEditEmail('');
+    setEditPhone('');
+    setEditTimezone('');
+  };
+
+  // Save profile changes
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    // Validate fields
+    if (!editName.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!editPhone.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
+
+    // Format phone to E.164
+    const formattedPhone = toE164(editPhone);
+    if (!formattedPhone) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      await updateProfile.mutateAsync({
+        name: editName.trim(),
+        email: editEmail.trim(),
+        phone: formattedPhone,
+        timezone: editTimezone,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      // Error toast is handled by the mutation
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  // Format timezone for display
+  const getTimezoneLabel = (tz: string) => {
+    const found = US_TIMEZONES.find(t => t.value === tz);
+    return found ? found.label : tz;
+  };
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">My Profile</h1>
@@ -127,8 +250,49 @@ export function ProfilePage() {
         {/* User Info Card */}
         <Card className="md:col-span-2 border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
           <CardHeader>
-            <CardTitle className="text-navy-900 dark:text-white">Personal Information</CardTitle>
-            <CardDescription className="text-slate-500 dark:text-slate-400">Your account details and contact info.</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-navy-900 dark:text-white">Personal Information</CardTitle>
+                <CardDescription className="text-slate-500 dark:text-slate-400">Your account details and contact info.</CardDescription>
+              </div>
+              {!isEditing ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStartEdit}
+                  className="border-navy-200 dark:border-navy-700 text-navy-700 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                    disabled={isSavingProfile}
+                    className="border-slate-200 dark:border-navy-700"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                  >
+                    {isSavingProfile ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Avatar Section */}
@@ -191,37 +355,132 @@ export function ProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-navy-800">
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Full Name</Label>
-                <Input
-                  value={user.name}
-                  readOnly
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
-                />
+                {isEditing ? (
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="bg-white dark:bg-navy-900 border-slate-300 dark:border-navy-700 text-navy-900 dark:text-white focus:border-gold-500 focus:ring-gold-500"
+                  />
+                ) : (
+                  <Input
+                    value={user.name}
+                    readOnly
+                    className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Email Address</Label>
-                <Input
-                  value={user.email}
-                  readOnly
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
-                />
+                {isEditing ? (
+                  <Input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="bg-white dark:bg-navy-900 border-slate-300 dark:border-navy-700 text-navy-900 dark:text-white focus:border-gold-500 focus:ring-gold-500"
+                  />
+                ) : (
+                  <Input
+                    value={user.email}
+                    readOnly
+                    className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Phone Number</Label>
-                <Input
-                  value={user.phone}
-                  readOnly
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
-                />
+                {isEditing ? (
+                  <Input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="(555) 555-5555"
+                    className="bg-white dark:bg-navy-900 border-slate-300 dark:border-navy-700 text-navy-900 dark:text-white focus:border-gold-500 focus:ring-gold-500"
+                  />
+                ) : (
+                  <Input
+                    value={formatPhoneDisplay(user.phone)}
+                    readOnly
+                    className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-navy-900 dark:text-slate-200">Timezone</Label>
-                <Input
-                  value={user.timezone}
-                  readOnly
-                  className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
-                />
+                {isEditing ? (
+                  <Select value={editTimezone} onValueChange={setEditTimezone}>
+                    <SelectTrigger className="bg-white dark:bg-navy-900 border-slate-300 dark:border-navy-700 text-navy-900 dark:text-white">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-700">
+                      {US_TIMEZONES.map((tz) => (
+                        <SelectItem
+                          key={tz.value}
+                          value={tz.value}
+                          className="text-navy-900 dark:text-white hover:bg-slate-100 dark:hover:bg-navy-800"
+                        >
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={getTimezoneLabel(user.timezone)}
+                    readOnly
+                    className="bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
+                  />
+                )}
               </div>
             </div>
+
+            {/* Cart Link Section - Coaches Only */}
+            {user.role === 'coach' && (
+              <div className="pt-4 border-t border-slate-100 dark:border-navy-800">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShoppingCart className="h-5 w-5 text-gold-600 dark:text-gold-400" />
+                  <h3 className="font-semibold text-navy-900 dark:text-white">Your Cart Link</h3>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                  When your referrals need to order their Nutrition Kit, they'll be directed to your personalized cart link.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={cartLink}
+                    onChange={(e) => setCartLink(e.target.value)}
+                    placeholder="https://www.optavia.com/your-cart-link"
+                    className="flex-1 bg-slate-50 dark:bg-navy-950 border-slate-200 dark:border-navy-800 text-navy-900 dark:text-white"
+                  />
+                  <Button
+                    onClick={handleSaveCartLink}
+                    disabled={isSavingCartLink || cartLink === user.cartLink}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                  >
+                    {isSavingCartLink ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                  </Button>
+                  {user.cartLink && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(user.cartLink, '_blank')}
+                      className="border-slate-200 dark:border-navy-700"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {user.cartLink && cartLink === user.cartLink && (
+                  <p className="text-xs text-green-500 dark:text-green-400 mt-2 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Cart link saved
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
         {/* Status Card */}

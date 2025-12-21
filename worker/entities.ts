@@ -49,7 +49,8 @@ export class UserEntity extends IndexedEntity<User> {
     hasScale: false,
     isAdmin: false,
     isTestMode: false,
-    avatarUrl: ""
+    avatarUrl: "",
+    cartLink: ""
   };
   static async findByReferralCode(env: Env, code: string): Promise<User | null> {
     // Normalize code to uppercase for case-insensitive lookup
@@ -463,6 +464,8 @@ export class SystemSettingsEntity extends Entity<SystemSettings> {
     groupAVideoUrl: "https://descriptusercontent.com/published/9e3d87f9-a6f6-4088-932e-87d618f6fafa/original.mp4",
     groupBVideoUrl: "https://descriptusercontent.com/published/6117b02a-9c38-4ac2-b79a-b4f0e2708367/original.mp4",
     kitOrderUrl: "https://www.optavia.com/us/en/coach/craveoptimalhealth/sc/30164167-000070009",
+    scaleOrderUrl: "", // Amazon link for smart scale - admin configurable
+    fallbackPhone: "5039741671", // Fallback phone if coach has no cart link
     // Default point values
     referralPointsCoach: 1,
     referralPointsChallenger: 5,
@@ -1045,6 +1048,74 @@ export class ContentCommentEntity extends IndexedEntity<ContentComment> {
 export class ContentCommentsIndex extends Index<string> {
   constructor(env: Env, contentId: string) {
     super(env, `content-comments:${contentId}`);
+  }
+}
+
+// ============================================================================
+// Coupon Code Tracking
+// ============================================================================
+
+import type { CouponUsage } from "@shared/types";
+
+// Coupon Usage Entity - tracks who used which coupon codes
+export class CouponUsageEntity extends IndexedEntity<CouponUsage> {
+  static readonly entityName = "coupon-usage";
+  static readonly indexName = "coupon-usages";
+  static readonly initialState: CouponUsage = {
+    id: "",
+    couponCode: "",
+    userId: "",
+    userName: "",
+    userPhone: "",
+    userEmail: "",
+    projectId: null,
+    usedAt: 0
+  };
+
+  // Get all usages of a specific coupon code
+  static async findByCode(env: Env, couponCode: string): Promise<CouponUsage[]> {
+    const { items } = await CouponUsageEntity.list(env);
+    return items
+      .filter(u => u.couponCode === couponCode)
+      .sort((a, b) => b.usedAt - a.usedAt);
+  }
+
+  // Check if a user has already used a specific coupon
+  static async hasUserUsedCoupon(env: Env, userId: string, couponCode: string): Promise<boolean> {
+    const { items } = await CouponUsageEntity.list(env);
+    return items.some(u => u.userId === userId && u.couponCode === couponCode);
+  }
+
+  // Record coupon usage
+  static async recordUsage(
+    env: Env,
+    couponCode: string,
+    userId: string,
+    userName: string,
+    userPhone: string,
+    userEmail: string,
+    projectId: string | null
+  ): Promise<CouponUsage> {
+    const id = crypto.randomUUID();
+    const usage: CouponUsage = {
+      id,
+      couponCode,
+      userId,
+      userName,
+      userPhone,
+      userEmail,
+      projectId,
+      usedAt: Date.now()
+    };
+    await CouponUsageEntity.create(env, usage);
+    return usage;
+  }
+}
+
+// Index for tracking coupon usage by code
+export class CouponCodeUsageIndex extends Index<string> {
+  constructor(env: Env, couponCode: string) {
+    super(env, `coupon-usage:${couponCode}`);
   }
 }
 

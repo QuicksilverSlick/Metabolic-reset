@@ -23,7 +23,7 @@ import { useMyActiveEnrollment } from '@/hooks/use-queries';
 export default function PhoneVerificationPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { data: enrollment } = useMyActiveEnrollment();
+  const { data: enrollment, isLoading: enrollmentLoading } = useMyActiveEnrollment();
 
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -157,10 +157,22 @@ export default function PhoneVerificationPage() {
         });
 
         // Short delay to show success, then navigate
-        // Group B (self-directed) skips kit page and goes straight to dashboard
+        // Coaches go to cart link page to set up their referral link
+        // Group B goes to final video, Group A goes to kit confirmation
         setTimeout(() => {
-          if (enrollment?.cohortId === 'GROUP_B') {
-            navigate('/app');
+          // Check coach status at navigation time
+          const userIsCoach = user?.role === 'coach' || enrollment?.role === 'coach';
+          console.log('[PhoneVerification] Navigation decision:', {
+            userRole: user?.role,
+            enrollmentRole: enrollment?.role,
+            userIsCoach,
+            cohortId: enrollment?.cohortId
+          });
+          if (userIsCoach) {
+            navigate('/app/onboarding/cart-link');
+          } else if (enrollment?.cohortId === 'GROUP_B') {
+            // Group B goes to all-audience orientation video
+            navigate('/app/onboarding/final-video');
           } else {
             navigate('/app/onboarding/kit');
           }
@@ -176,19 +188,34 @@ export default function PhoneVerificationPage() {
   };
 
   // If already verified, show success and auto-navigate
-  // Group B (self-directed) skips kit page and goes straight to dashboard
+  // Coaches go to cart link page to set up their referral link
+  // Group B goes to final video, Group A goes to kit confirmation
+  // Wait for enrollment data to load before navigating
   useEffect(() => {
-    if (isPhoneVerified && !isVerifying) {
+    console.log('[PhoneVerification] useEffect check:', {
+      isPhoneVerified,
+      isVerifying,
+      enrollmentLoading,
+      userRole: user?.role,
+      enrollmentRole: enrollment?.role
+    });
+    if (isPhoneVerified && !isVerifying && !enrollmentLoading) {
       const timer = setTimeout(() => {
-        if (enrollment?.cohortId === 'GROUP_B') {
-          navigate('/app');
+        // Check coach status at navigation time
+        const userIsCoach = user?.role === 'coach' || enrollment?.role === 'coach';
+        console.log('[PhoneVerification] useEffect navigation:', { userIsCoach });
+        if (userIsCoach) {
+          navigate('/app/onboarding/cart-link');
+        } else if (enrollment?.cohortId === 'GROUP_B') {
+          // Group B goes to all-audience orientation video
+          navigate('/app/onboarding/final-video');
         } else {
           navigate('/app/onboarding/kit');
         }
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [isPhoneVerified, isVerifying, navigate, enrollment?.cohortId]);
+  }, [isPhoneVerified, isVerifying, navigate, enrollment?.cohortId, enrollment?.role, user?.role, enrollmentLoading]);
 
   if (!user) {
     return (

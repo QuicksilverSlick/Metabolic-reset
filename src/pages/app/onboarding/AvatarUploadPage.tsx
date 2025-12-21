@@ -68,11 +68,11 @@ export default function AvatarUploadPage() {
   };
 
   const handleContinue = () => {
-    navigate('/app/onboarding/video');
+    navigate('/app/onboarding/final-video');
   };
 
   const handleSkip = () => {
-    navigate('/app/onboarding/video');
+    navigate('/app/onboarding/final-video');
   };
 
   const initials = user?.name

@@ -205,8 +205,8 @@ export default function FinalRegistrationPage() {
         colors: ['#F59E0B', '#FBBF24', '#FCD34D', '#22C55E', '#10B981']
       });
 
-      // Navigate to video orientation
-      navigate('/app/onboarding/video');
+      // Navigate to all-audience orientation video
+      navigate('/app/onboarding/final-video');
     } catch (err) {
       console.error('Save failed:', err);
       setError('Failed to save profile. Please try again.');
@@ -425,7 +425,7 @@ export default function FinalRegistrationPage() {
               {/* Skip Option */}
               <div className="text-center">
                 <button
-                  onClick={() => navigate('/app/onboarding/video')}
+                  onClick={() => navigate('/app/onboarding/final-video')}
                   className="text-slate-500 text-sm hover:text-slate-400 transition-colors"
                 >
                   Skip for now

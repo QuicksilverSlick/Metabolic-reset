@@ -28,9 +28,23 @@ import {
   ProjectContentIndex,
   calculateCurrentDay,
   isContentUnlocked,
-  ContentCommentEntity
+  ContentCommentEntity,
+  CouponUsageEntity
 } from './entities';
 import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress, AddCommentRequest, LikeCommentRequest, LikeContentRequest } from "@shared/types";
+
+// Helper: Convert phone to E.164 format (moved outside for reuse)
+const toE164 = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  return `+1${digits.slice(-10)}`;
+};
+
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/health', (c) => {
     return ok(c, {
@@ -44,26 +58,26 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     // Cast env to any to access STRIPE_SECRET_KEY which is injected at runtime but not in the core Env type
     const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
     try {
-      const body = await c.req.json() as { amount: number };
+      const body = await c.req.json() as { amount: number; idempotencyKey?: string };
       // Ensure amount is an integer (cents)
       const amount = Math.floor(Number(body.amount) || 0);
-      // MOCK PAYMENT CHECK: Bypass Stripe for free/test transactions AND standard tiers
-      // 0 = Free/Test
-      // 2800 = Challenger ($28)
-      // 4900 = Coach ($49)
-      if (amount === 0 || amount === 2800 || amount === 4900) {
-        console.log(`Mock amount detected (${amount}), bypassing Stripe`);
+      const idempotencyKey = body.idempotencyKey;
+
+      // Only bypass for truly free transactions ($0)
+      if (amount === 0) {
+        console.log('Free transaction, bypassing Stripe');
         return ok(c, { clientSecret: "mock_secret_zero_amount", mock: true });
       }
       if (!rawStripeKey) {
-        console.log('No Stripe key found, using mock mode');
-        return ok(c, { mock: true });
+        console.error('STRIPE_SECRET_KEY not configured - payments will fail');
+        return c.json({ error: 'Payment processing is not configured. Please contact support.' }, 500);
       }
       // Robustly handle key: trim whitespace which is a common copy-paste error
       const stripeKey = rawStripeKey.trim();
       // Detect Test Mode: Check for '_test_' to support both sk_test_... and rk_test_... (Restricted Keys)
       const isTestMode = stripeKey.includes('_test_');
-      console.log(`Stripe Mode: ${isTestMode ? 'TEST' : 'LIVE'} (Key prefix: ${stripeKey.substring(0, 8)}...)`);
+      console.log(`Stripe Mode: ${isTestMode ? 'TEST' : 'LIVE'} (Key prefix: ${stripeKey.substring(0, 8)}...)${idempotencyKey ? ` [Idempotency: ${idempotencyKey.substring(0, 8)}...]` : ''}`);
+
       const params = new URLSearchParams();
       params.append('amount', amount.toString());
       params.append('currency', 'usd');
@@ -75,12 +89,21 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         // Enable automatic payment methods for better compatibility (cards, wallets, etc.) in production
         params.append('automatic_payment_methods[enabled]', 'true');
       }
+
+      // Build headers - include idempotency key if provided
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${stripeKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+      if (idempotencyKey) {
+        // Stripe idempotency key - if same key is used, Stripe returns the same payment intent
+        // This prevents duplicate payment intents if the user refreshes or network issues occur
+        headers['Idempotency-Key'] = idempotencyKey;
+      }
+
       const response = await fetch('https://api.stripe.com/v1/payment_intents', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${stripeKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers,
         body: params,
       });
       const data: any = await response.json();
@@ -94,14 +117,62 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return c.json({ error: e.message }, 500);
     }
   });
+
+  // --- Coupon Code Validation ---
+  // Valid coupon codes that bypass payment (case-sensitive)
+  const VALID_COUPONS: Record<string, { discount: number; description: string }> = {
+    'PLAYFORWARDSEPT25': { discount: 100, description: 'Free pass for previous participants/coaches' }
+  };
+
+  // Validate a coupon code
+  app.post('/api/validate-coupon', async (c) => {
+    try {
+      const body = await c.req.json() as { couponCode: string };
+      const { couponCode } = body;
+
+      if (!couponCode) {
+        return bad(c, 'Coupon code is required');
+      }
+
+      // Check if valid (case-sensitive)
+      const coupon = VALID_COUPONS[couponCode];
+      if (!coupon) {
+        return ok(c, {
+          valid: false,
+          message: 'Invalid coupon code'
+        });
+      }
+
+      return ok(c, {
+        valid: true,
+        discount: coupon.discount,
+        description: coupon.description,
+        bypassPayment: coupon.discount === 100
+      });
+    } catch (e: any) {
+      console.error('Validate coupon error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // --- Registration ---
   app.post('/api/register', async (c) => {
     try {
       const body = await c.req.json() as any;
-      const { name, email, phone, referralCodeUsed, role, hasScale, projectId, timezone } = body;
+      const { name, email, phone, referralCodeUsed, role, hasScale, projectId, timezone, couponCode } = body;
       // Email is now optional - can be added later in profile setup
       if (!name || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
+      }
+
+      // Validate coupon code if provided (case-sensitive)
+      let validCouponUsed: string | null = null;
+      if (couponCode) {
+        const coupon = VALID_COUPONS[couponCode];
+        if (!coupon) {
+          return c.json({ error: 'Invalid coupon code' }, 400);
+        }
+        validCouponUsed = couponCode;
       }
 
       // Normalize phone number for checking
@@ -199,7 +270,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         hasScale: !!hasScale,
         points: 0,
         createdAt: now,
-        isActive: true
+        isActive: true,
+        couponCodeUsed: validCouponUsed || undefined
       });
       // If user is a coach, add to CaptainIndex
       if (role === 'coach') {
@@ -228,6 +300,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       if (enrollProjectId) {
         const enrollmentId = `${enrollProjectId}:${userId}`;
+        // Coaches are automatically assigned to GROUP_A and have their kit
+        // They still need to complete profile photo + phone verification
+        const isCoachRole = role === 'coach';
         await ProjectEnrollmentEntity.create(c.env, {
           id: enrollmentId,
           projectId: enrollProjectId,
@@ -236,7 +311,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           groupLeaderId: captainId || null, // Their group leader for this project
           points: 0,
           enrolledAt: now,
-          isGroupLeaderEnrolled: true // Payment was already processed
+          isGroupLeaderEnrolled: true, // Payment was already processed
+          // Auto-set cohort and kit for coaches (skip cohort selection page)
+          cohortId: isCoachRole ? 'GROUP_A' : null,
+          hasKit: isCoachRole ? true : false
         });
 
         // Index user's enrollment for looking up their projects
@@ -281,6 +359,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         await recruitIndex.add(userId);
       }
 
+      // Record coupon usage if a valid coupon was used
+      if (validCouponUsed) {
+        await CouponUsageEntity.recordUsage(
+          c.env,
+          validCouponUsed,
+          userId,
+          name,
+          phone,
+          email || '',
+          enrollProjectId || null
+        );
+        console.log(`Coupon ${validCouponUsed} used by ${name} (${phone})`);
+      }
+
       // Trigger GHL Webhook (Fire and Forget)
       const ghlWebhookUrl = (c.env as any).GHL_WEBHOOK_URL;
       if (ghlWebhookUrl) {
@@ -296,6 +388,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
               referralCode: newReferralCode,
               recruiterId,
               hasScale: !!hasScale,
+              couponCodeUsed: validCouponUsed || null,
               source: 'app-registration'
             })
           }).catch(err => console.error('GHL Webhook Failed', err))
@@ -350,7 +443,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const updates = await c.req.json() as {
         avatarUrl?: string;
         name?: string;
+        email?: string;
+        phone?: string;
         timezone?: string;
+        cartLink?: string;
+        hasScale?: boolean;
       };
 
       const patch: Partial<User> = {};
@@ -359,6 +456,56 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl;
       if (updates.name !== undefined && updates.name.trim()) patch.name = updates.name.trim();
       if (updates.timezone !== undefined) patch.timezone = updates.timezone;
+      if (updates.cartLink !== undefined) patch.cartLink = updates.cartLink;
+      if (updates.hasScale !== undefined) patch.hasScale = updates.hasScale;
+
+      // Handle email update (also update EmailMapping)
+      if (updates.email !== undefined && updates.email.trim()) {
+        const newEmail = updates.email.trim().toLowerCase();
+        if (newEmail !== user.email) {
+          // Check if new email is already taken by another user
+          const existingEmailMapping = new EmailMapping(c.env, newEmail);
+          const existingUserId = await existingEmailMapping.getState();
+          if (existingUserId.userId && existingUserId.userId !== userId) {
+            return bad(c, 'Email address is already in use');
+          }
+
+          // Remove old email mapping
+          const oldEmailMapping = new EmailMapping(c.env, user.email);
+          await oldEmailMapping.patch({ userId: '' });
+
+          // Create new email mapping
+          await existingEmailMapping.patch({ userId: userId });
+
+          patch.email = newEmail;
+        }
+      }
+
+      // Handle phone update (also update PhoneMapping and clear OTP)
+      if (updates.phone !== undefined && updates.phone.trim()) {
+        const newPhone = toE164(updates.phone.trim());
+        if (newPhone !== user.phone) {
+          // Check if new phone is already taken by another user
+          const existingPhoneMapping = new PhoneMapping(c.env, newPhone);
+          const existingUserId = await existingPhoneMapping.getState();
+          if (existingUserId.userId && existingUserId.userId !== userId) {
+            return bad(c, 'Phone number is already in use');
+          }
+
+          // Remove old phone mapping
+          const oldPhoneMapping = new PhoneMapping(c.env, user.phone);
+          await oldPhoneMapping.patch({ userId: '' });
+
+          // Create new phone mapping
+          await existingPhoneMapping.patch({ userId: userId });
+
+          // Clear old OTP record for old phone
+          const oldOtpEntity = new OtpEntity(c.env, user.phone);
+          await oldOtpEntity.patch({ id: '', code: '', verified: false, attempts: 0, createdAt: 0, expiresAt: 0 });
+
+          patch.phone = newPhone;
+        }
+      }
 
       if (Object.keys(patch).length === 0) {
         return bad(c, 'No valid updates provided');
@@ -366,6 +513,28 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       await userEntity.patch(patch);
       return ok(c, await userEntity.getState());
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get coach info (cart link, phone) for kit ordering - public endpoint
+  app.get('/api/users/:coachId/coach-info', async (c) => {
+    try {
+      const coachId = c.req.param('coachId');
+      if (!coachId) return bad(c, 'Coach ID required');
+
+      const coachEntity = new UserEntity(c.env, coachId);
+      const coach = await coachEntity.getState();
+      if (!coach.id) return notFound(c, 'Coach not found');
+
+      // Only return limited public info
+      return ok(c, {
+        id: coach.id,
+        name: coach.name,
+        phone: coach.phone,
+        cartLink: coach.cartLink || null
+      });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -897,18 +1066,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // OTP (SMS) Authentication Routes
   // =========================================
 
-  // Helper: Convert phone to E.164 format
-  const toE164 = (phone: string): string => {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length === 11 && digits.startsWith('1')) {
-      return `+${digits}`;
-    }
-    if (digits.length === 10) {
-      return `+1${digits}`;
-    }
-    return `+1${digits.slice(-10)}`;
-  };
-
   // Helper: Generate 6-digit OTP
   const generateOtp = (): string => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -1376,6 +1533,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         isTestMode?: boolean;
         points?: number;
         role?: 'challenger' | 'coach';
+        // Profile fields
+        name?: string;
+        email?: string;
+        phone?: string;
+        timezone?: string;
       };
 
       const userEntity = new UserEntity(c.env, targetUserId);
@@ -1389,6 +1551,58 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (typeof updates.isTestMode === 'boolean') patch.isTestMode = updates.isTestMode;
       if (typeof updates.points === 'number') patch.points = updates.points;
       if (updates.role) patch.role = updates.role;
+
+      // Profile fields
+      if (updates.name !== undefined && updates.name.trim()) patch.name = updates.name.trim();
+      if (updates.timezone !== undefined) patch.timezone = updates.timezone;
+
+      // Handle email update (also update EmailMapping)
+      if (updates.email !== undefined && updates.email.trim()) {
+        const newEmail = updates.email.trim().toLowerCase();
+        if (newEmail !== user.email) {
+          // Check if new email is already taken by another user
+          const existingEmailMapping = new EmailMapping(c.env, newEmail);
+          const existingUserId = await existingEmailMapping.getState();
+          if (existingUserId.userId && existingUserId.userId !== targetUserId) {
+            return bad(c, 'Email address is already in use');
+          }
+
+          // Remove old email mapping
+          const oldEmailMapping = new EmailMapping(c.env, user.email);
+          await oldEmailMapping.patch({ userId: '' });
+
+          // Create new email mapping
+          await existingEmailMapping.patch({ userId: targetUserId });
+
+          patch.email = newEmail;
+        }
+      }
+
+      // Handle phone update (also update PhoneMapping and clear OTP)
+      if (updates.phone !== undefined && updates.phone.trim()) {
+        const newPhone = toE164(updates.phone.trim());
+        if (newPhone !== user.phone) {
+          // Check if new phone is already taken by another user
+          const existingPhoneMapping = new PhoneMapping(c.env, newPhone);
+          const existingUserId = await existingPhoneMapping.getState();
+          if (existingUserId.userId && existingUserId.userId !== targetUserId) {
+            return bad(c, 'Phone number is already in use');
+          }
+
+          // Remove old phone mapping
+          const oldPhoneMapping = new PhoneMapping(c.env, user.phone);
+          await oldPhoneMapping.patch({ userId: '' });
+
+          // Create new phone mapping
+          await existingPhoneMapping.patch({ userId: targetUserId });
+
+          // Clear old OTP record for old phone
+          const oldOtpEntity = new OtpEntity(c.env, user.phone);
+          await oldOtpEntity.patch({ id: '', code: '', verified: false, attempts: 0, createdAt: 0, expiresAt: 0 });
+
+          patch.phone = newPhone;
+        }
+      }
 
       await userEntity.patch(patch);
 
@@ -1610,6 +1824,552 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return ok(c, {
         message: 'User permanently deleted',
         userId: targetUserId
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Merge duplicate users
+  // Merges secondaryUserId into primaryUserId, preserving referrals from both referral codes
+  app.post('/api/admin/users/merge', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json() as { primaryUserId: string; secondaryUserId: string };
+      const { primaryUserId, secondaryUserId } = body;
+
+      if (!primaryUserId || !secondaryUserId) {
+        return bad(c, 'Both primaryUserId and secondaryUserId are required');
+      }
+
+      if (primaryUserId === secondaryUserId) {
+        return bad(c, 'Cannot merge a user with themselves');
+      }
+
+      // Load both users
+      const primaryEntity = new UserEntity(c.env, primaryUserId);
+      const secondaryEntity = new UserEntity(c.env, secondaryUserId);
+
+      const primaryUser = await primaryEntity.getState();
+      const secondaryUser = await secondaryEntity.getState();
+
+      if (!primaryUser.id) return notFound(c, 'Primary user not found');
+      if (!secondaryUser.id) return notFound(c, 'Secondary user not found');
+
+      // Track what was merged
+      const mergeLog: string[] = [];
+
+      // 1. MERGE REFERRAL CODE MAPPINGS
+      // Both referral codes should now point to the primary user
+      if (secondaryUser.referralCode) {
+        const secondaryRefMapping = new ReferralCodeMapping(c.env, secondaryUser.referralCode.toUpperCase().trim());
+        await secondaryRefMapping.save({ userId: primaryUserId });
+        mergeLog.push(`Redirected referral code ${secondaryUser.referralCode} to primary user`);
+      }
+
+      // 2. MERGE RECRUITS INDEXES
+      // Get all recruits from secondary user and add them to primary user's index
+      const secondaryRecruitIndex = new Index(c.env, `recruits:${secondaryUserId}`);
+      const secondaryRecruits = await secondaryRecruitIndex.list();
+
+      if (secondaryRecruits.length > 0) {
+        const primaryRecruitIndex = new Index(c.env, `recruits:${primaryUserId}`);
+        for (const recruitId of secondaryRecruits) {
+          await primaryRecruitIndex.add(recruitId);
+          // Note: We don't remove from secondary index - the soft-delete handles cleanup
+        }
+        mergeLog.push(`Merged ${secondaryRecruits.length} recruits to primary user`);
+      }
+
+      // 3. UPDATE REFERRAL LEDGER ENTRIES
+      // Any entries where secondary user was the recruiter should now credit primary user
+      const { items: allLedgers } = await ReferralLedgerEntity.list(c.env);
+      let ledgerUpdates = 0;
+      for (const ledger of allLedgers) {
+        if (ledger.recruiterId === secondaryUserId) {
+          const ledgerEntity = new ReferralLedgerEntity(c.env, ledger.id);
+          await ledgerEntity.patch({ recruiterId: primaryUserId });
+          ledgerUpdates++;
+        }
+      }
+      if (ledgerUpdates > 0) {
+        mergeLog.push(`Updated ${ledgerUpdates} referral ledger entries`);
+      }
+
+      // 4. UPDATE POINTS LEDGER ENTRIES
+      // Move any points transactions from secondary to primary
+      const { items: allPointsLedgers } = await PointsLedgerEntity.list(c.env);
+      let pointsLedgerUpdates = 0;
+      for (const pointsLedger of allPointsLedgers) {
+        if (pointsLedger.userId === secondaryUserId) {
+          const pointsLedgerEntity = new PointsLedgerEntity(c.env, pointsLedger.id);
+          await pointsLedgerEntity.patch({ userId: primaryUserId });
+          pointsLedgerUpdates++;
+        }
+        // Also update relatedUserId if secondary was the related user
+        if (pointsLedger.relatedUserId === secondaryUserId) {
+          const pointsLedgerEntity = new PointsLedgerEntity(c.env, pointsLedger.id);
+          await pointsLedgerEntity.patch({ relatedUserId: primaryUserId });
+        }
+      }
+      if (pointsLedgerUpdates > 0) {
+        mergeLog.push(`Updated ${pointsLedgerUpdates} points ledger entries`);
+      }
+
+      // Also update the points ledger index for primary user
+      const secondaryPointsIndex = new Index(c.env, `points-ledger:${secondaryUserId}`);
+      const secondaryPointsIds = await secondaryPointsIndex.list();
+      if (secondaryPointsIds.length > 0) {
+        const primaryPointsIndex = new Index(c.env, `points-ledger:${primaryUserId}`);
+        for (const pointsId of secondaryPointsIds) {
+          await primaryPointsIndex.add(pointsId);
+        }
+      }
+
+      // 5. MERGE PROJECT ENROLLMENTS
+      // For each project secondary is enrolled in, check if primary is also enrolled
+      const secondaryEnrollments = await ProjectEnrollmentEntity.findByUser(c.env, secondaryUserId);
+      const primaryEnrollments = await ProjectEnrollmentEntity.findByUser(c.env, primaryUserId);
+      const primaryProjectIds = new Set(primaryEnrollments.map(e => e.projectId));
+
+      for (const secondaryEnrollment of secondaryEnrollments) {
+        if (!primaryProjectIds.has(secondaryEnrollment.projectId)) {
+          // Primary doesn't have this enrollment - transfer it
+          // Create new enrollment for primary user
+          const newEnrollmentId = `${secondaryEnrollment.projectId}:${primaryUserId}`;
+          await ProjectEnrollmentEntity.create(c.env, {
+            ...secondaryEnrollment,
+            id: newEnrollmentId,
+            userId: primaryUserId
+          });
+
+          // Update indexes
+          const userEnrollmentsIndex = new Index(c.env, `user_enrollments:${primaryUserId}`);
+          await userEnrollmentsIndex.add(secondaryEnrollment.projectId);
+
+          const projectEnrollmentsIndex = new Index(c.env, `project_enrollments:${secondaryEnrollment.projectId}`);
+          await projectEnrollmentsIndex.add(primaryUserId);
+
+          mergeLog.push(`Transferred enrollment for project ${secondaryEnrollment.projectId.substring(0, 8)}...`);
+        } else {
+          // Primary already enrolled - merge points
+          const primaryEnrollmentId = `${secondaryEnrollment.projectId}:${primaryUserId}`;
+          const primaryEnrollmentEntity = new ProjectEnrollmentEntity(c.env, primaryEnrollmentId);
+          await primaryEnrollmentEntity.mutate(state => ({
+            ...state,
+            points: (state.points || 0) + (secondaryEnrollment.points || 0)
+          }));
+          mergeLog.push(`Merged ${secondaryEnrollment.points || 0} points from enrollment in project ${secondaryEnrollment.projectId.substring(0, 8)}...`);
+        }
+      }
+
+      // 6. MERGE POINTS - Add secondary's points to primary
+      const totalSecondaryPoints = secondaryUser.points || 0;
+      if (totalSecondaryPoints > 0) {
+        await primaryEntity.mutate(state => ({
+          ...state,
+          points: (state.points || 0) + totalSecondaryPoints
+        }));
+        mergeLog.push(`Added ${totalSecondaryPoints} points from secondary user`);
+      }
+
+      // 7. MERGE OTHER DATA - Copy missing fields from secondary to primary
+      const updates: Partial<User> = {};
+      if (!primaryUser.avatarUrl && secondaryUser.avatarUrl) {
+        updates.avatarUrl = secondaryUser.avatarUrl;
+        mergeLog.push('Copied avatar from secondary user');
+      }
+      if (!primaryUser.email && secondaryUser.email) {
+        updates.email = secondaryUser.email;
+        mergeLog.push('Copied email from secondary user');
+      }
+      if (!primaryUser.cartLink && secondaryUser.cartLink) {
+        updates.cartLink = secondaryUser.cartLink;
+        mergeLog.push('Copied cart link from secondary user');
+      }
+      if (Object.keys(updates).length > 0) {
+        await primaryEntity.patch(updates);
+      }
+
+      // 8. UPDATE MAPPINGS - All should point to primary user
+      // Phone mapping
+      if (secondaryUser.phone) {
+        const phoneDigits = secondaryUser.phone.replace(/\D/g, '').slice(-10);
+        if (phoneDigits.length === 10) {
+          const normalizedPhone = `+1${phoneDigits}`;
+          const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
+          await phoneMapping.save({ userId: primaryUserId });
+          mergeLog.push('Updated phone mapping to primary user');
+        }
+      }
+
+      // Email mapping
+      if (secondaryUser.email) {
+        const normalizedEmail = secondaryUser.email.toLowerCase().trim();
+        const emailMapping = new EmailMapping(c.env, normalizedEmail);
+        await emailMapping.save({ userId: primaryUserId });
+        mergeLog.push('Updated email mapping to primary user');
+      }
+
+      // 9. SOFT-DELETE SECONDARY USER
+      const now = Date.now();
+      await secondaryEntity.patch({
+        deletedAt: now,
+        deletedBy: admin.id,
+        mergedInto: primaryUserId,
+        isActive: false
+      });
+
+      // Move from users index to deleted-users index
+      const usersIndex = new Index(c.env, 'users');
+      const deletedUsersIndex = new Index(c.env, 'deleted-users');
+      await usersIndex.remove(secondaryUserId);
+      await deletedUsersIndex.add(secondaryUserId);
+
+      mergeLog.push(`Soft-deleted secondary user ${secondaryUser.name} (${secondaryUserId.substring(0, 8)}...)`);
+
+      return ok(c, {
+        success: true,
+        message: `Successfully merged ${secondaryUser.name} into ${primaryUser.name}`,
+        primaryUserId,
+        secondaryUserId,
+        mergeLog,
+        primaryUser: {
+          id: primaryUser.id,
+          name: primaryUser.name,
+          referralCode: primaryUser.referralCode,
+          secondaryReferralCode: secondaryUser.referralCode
+        }
+      });
+    } catch (e: any) {
+      console.error('Merge users error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // DEBUG: Test duplicate detection without admin auth (TEMPORARY)
+  app.get('/api/debug/duplicates-test', async (c) => {
+    try {
+      const userIndex = new Index(c.env, 'users');
+      const userIds = await userIndex.list();
+
+      const allUsers = await Promise.all(userIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        return userEntity.getState();
+      }));
+
+      const activeUsers = allUsers.filter(u => u.id && !u.deletedAt);
+
+      // Check for phone duplicates
+      const phoneCounts: Record<string, { count: number; names: string[] }> = {};
+      for (const user of activeUsers) {
+        if (user.phone) {
+          const phoneDigits = user.phone.replace(/\D/g, '').slice(-10);
+          if (!phoneCounts[phoneDigits]) phoneCounts[phoneDigits] = { count: 0, names: [] };
+          phoneCounts[phoneDigits].count++;
+          phoneCounts[phoneDigits].names.push(user.name);
+        }
+      }
+
+      const phoneDupes = Object.entries(phoneCounts)
+        .filter(([, data]) => data.count > 1)
+        .map(([phone, data]) => ({ phone, ...data }));
+
+      // Check for email duplicates
+      const emailCounts: Record<string, { count: number; names: string[] }> = {};
+      for (const user of activeUsers) {
+        if (user.email) {
+          const normalizedEmail = user.email.toLowerCase().trim();
+          if (!emailCounts[normalizedEmail]) emailCounts[normalizedEmail] = { count: 0, names: [] };
+          emailCounts[normalizedEmail].count++;
+          emailCounts[normalizedEmail].names.push(user.name);
+        }
+      }
+
+      const emailDupes = Object.entries(emailCounts)
+        .filter(([, data]) => data.count > 1)
+        .map(([email, data]) => ({ email, ...data }));
+
+      return c.json({
+        totalUserIds: userIds.length,
+        totalUsers: allUsers.length,
+        activeUsers: activeUsers.length,
+        phoneDuplicates: phoneDupes,
+        emailDuplicates: emailDupes
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message, stack: e.stack }, 500);
+    }
+  });
+
+  // Admin: Find duplicate users by phone or email
+  // Now includes both active-active duplicates AND active-deleted duplicates
+  // Note: Using /duplicates path to avoid conflict with /api/admin/users/:userId route
+  app.get('/api/admin/duplicates', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      // Get ALL users by manually fetching all pages (Durable Objects has a limit per list call)
+      const userIndex = new Index(c.env, 'users');
+      const userIds = await userIndex.list();
+      const allUsers = await Promise.all(userIds.map(async (id) => {
+        const userEntity = new UserEntity(c.env, id);
+        return userEntity.getState();
+      }));
+
+      console.log(`[Duplicates] Total users from DB: ${allUsers.length} (from ${userIds.length} IDs)`);
+
+      // Separate active and deleted users
+      const activeUsers = allUsers.filter(u => u.id && !u.deletedAt);
+      const deletedUsers = allUsers.filter(u => u.id && u.deletedAt);
+
+      console.log(`[Duplicates] Active: ${activeUsers.length}, Deleted: ${deletedUsers.length}`);
+
+      // Debug: Log all phones to check for duplicates directly
+      const phoneCounts: Record<string, string[]> = {};
+      for (const user of activeUsers) {
+        if (user.phone) {
+          const phoneDigits = user.phone.replace(/\D/g, '').slice(-10);
+          if (!phoneCounts[phoneDigits]) phoneCounts[phoneDigits] = [];
+          phoneCounts[phoneDigits].push(user.name);
+        }
+      }
+      const directDupes = Object.entries(phoneCounts).filter(([, names]) => names.length > 1);
+      console.log(`[Duplicates] Direct phone duplicates found: ${directDupes.length}`);
+      if (directDupes.length > 0) {
+        console.log(`[Duplicates] First 3 dupes:`, JSON.stringify(directDupes.slice(0, 3)));
+      }
+
+      // Group ALL users (including deleted) by normalized phone number
+      const phoneGroups: Record<string, { active: User[]; deleted: User[] }> = {};
+      const emailGroups: Record<string, { active: User[]; deleted: User[] }> = {};
+
+      // Process active users
+      for (const user of activeUsers) {
+        // Group by phone
+        if (user.phone) {
+          const phoneDigits = user.phone.replace(/\D/g, '').slice(-10);
+          if (phoneDigits.length === 10) {
+            if (!phoneGroups[phoneDigits]) phoneGroups[phoneDigits] = { active: [], deleted: [] };
+            phoneGroups[phoneDigits].active.push(user);
+          }
+        }
+
+        // Group by email
+        if (user.email) {
+          const normalizedEmail = user.email.toLowerCase().trim();
+          if (!emailGroups[normalizedEmail]) emailGroups[normalizedEmail] = { active: [], deleted: [] };
+          emailGroups[normalizedEmail].active.push(user);
+        }
+      }
+
+      // Process deleted users
+      for (const user of deletedUsers) {
+        // Group by phone
+        if (user.phone) {
+          const phoneDigits = user.phone.replace(/\D/g, '').slice(-10);
+          if (phoneDigits.length === 10) {
+            if (!phoneGroups[phoneDigits]) phoneGroups[phoneDigits] = { active: [], deleted: [] };
+            phoneGroups[phoneDigits].deleted.push(user);
+          }
+        }
+
+        // Group by email
+        if (user.email) {
+          const normalizedEmail = user.email.toLowerCase().trim();
+          if (!emailGroups[normalizedEmail]) emailGroups[normalizedEmail] = { active: [], deleted: [] };
+          emailGroups[normalizedEmail].deleted.push(user);
+        }
+      }
+
+      // Find duplicates:
+      // - Multiple active users with same phone/email
+      // - Active user(s) that match deleted user(s) with same phone/email
+      const duplicates: Array<{
+        type: 'phone' | 'email';
+        value: string;
+        users: Array<{
+          id: string;
+          name: string;
+          referralCode: string;
+          phone: string;
+          email: string;
+          avatarUrl: string;
+          points: number;
+          createdAt: number;
+          isRecommendedPrimary: boolean;
+          isDeleted: boolean;
+        }>;
+      }> = [];
+
+      // Count phone groups with potential duplicates
+      const phoneGroupsWithDupes = Object.entries(phoneGroups).filter(([, { active, deleted }]) =>
+        active.length > 1 || (active.length > 0 && deleted.length > 0)
+      );
+      console.log(`[Duplicates] Phone groups with duplicates: ${phoneGroupsWithDupes.length}`);
+      if (phoneGroupsWithDupes.length > 0) {
+        console.log(`[Duplicates] First phone dupe group:`, JSON.stringify(phoneGroupsWithDupes[0]));
+      }
+
+      // Process phone duplicates
+      for (const [phone, { active, deleted }] of Object.entries(phoneGroups)) {
+        // Include if: multiple active users OR (active users exist AND deleted users exist)
+        if (active.length > 1 || (active.length > 0 && deleted.length > 0)) {
+          const allMatching = [...active, ...deleted];
+          // Sort: active first, then by avatar > points > creation date
+          const sortedUsers = allMatching.sort((a, b) => {
+            // Active users first
+            const aDeleted = !!a.deletedAt;
+            const bDeleted = !!b.deletedAt;
+            if (!aDeleted && bDeleted) return -1;
+            if (aDeleted && !bDeleted) return 1;
+            // Prefer user with avatar
+            if (a.avatarUrl && !b.avatarUrl) return -1;
+            if (!a.avatarUrl && b.avatarUrl) return 1;
+            // Then prefer more points
+            if ((a.points || 0) !== (b.points || 0)) return (b.points || 0) - (a.points || 0);
+            // Then prefer more recent creation
+            return b.createdAt - a.createdAt;
+          });
+
+          duplicates.push({
+            type: 'phone',
+            value: phone,
+            users: sortedUsers.map((u, idx) => ({
+              id: u.id,
+              name: u.name,
+              referralCode: u.referralCode,
+              phone: u.phone,
+              email: u.email || '',
+              avatarUrl: u.avatarUrl || '',
+              points: u.points || 0,
+              createdAt: u.createdAt,
+              isRecommendedPrimary: idx === 0 && !u.deletedAt,
+              isDeleted: !!u.deletedAt
+            }))
+          });
+        }
+      }
+
+      // Process email duplicates (only if not already captured by phone)
+      const phoneDuplicateUserIds = new Set(duplicates.flatMap(d => d.users.map(u => u.id)));
+      for (const [email, { active, deleted }] of Object.entries(emailGroups)) {
+        if (active.length > 1 || (active.length > 0 && deleted.length > 0)) {
+          const allMatching = [...active, ...deleted];
+          // Skip if all users are already in phone duplicates
+          if (allMatching.every(u => phoneDuplicateUserIds.has(u.id))) continue;
+
+          const sortedUsers = allMatching.sort((a, b) => {
+            const aDeleted = !!a.deletedAt;
+            const bDeleted = !!b.deletedAt;
+            if (!aDeleted && bDeleted) return -1;
+            if (aDeleted && !bDeleted) return 1;
+            if (a.avatarUrl && !b.avatarUrl) return -1;
+            if (!a.avatarUrl && b.avatarUrl) return 1;
+            if ((a.points || 0) !== (b.points || 0)) return (b.points || 0) - (a.points || 0);
+            return b.createdAt - a.createdAt;
+          });
+
+          duplicates.push({
+            type: 'email',
+            value: email,
+            users: sortedUsers.map((u, idx) => ({
+              id: u.id,
+              name: u.name,
+              referralCode: u.referralCode,
+              phone: u.phone,
+              email: u.email || '',
+              avatarUrl: u.avatarUrl || '',
+              points: u.points || 0,
+              createdAt: u.createdAt,
+              isRecommendedPrimary: idx === 0 && !u.deletedAt,
+              isDeleted: !!u.deletedAt
+            }))
+          });
+        }
+      }
+
+      return ok(c, {
+        totalDuplicateSets: duplicates.length,
+        duplicates,
+        stats: {
+          totalActiveUsers: activeUsers.length,
+          totalDeletedUsers: deletedUsers.length
+        }
+      });
+    } catch (e: any) {
+      console.error('Find duplicates error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: View coupon usage history
+  app.get('/api/admin/coupons/usage', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const { items: allUsages } = await CouponUsageEntity.list(c.env);
+
+      // Group by coupon code
+      const byCode: Record<string, typeof allUsages> = {};
+      for (const usage of allUsages) {
+        if (!byCode[usage.couponCode]) byCode[usage.couponCode] = [];
+        byCode[usage.couponCode].push(usage);
+      }
+
+      // Create summary
+      const summary = Object.entries(byCode).map(([code, usages]) => ({
+        couponCode: code,
+        totalUsages: usages.length,
+        usages: usages.sort((a, b) => b.usedAt - a.usedAt)
+      }));
+
+      return ok(c, {
+        totalUsages: allUsages.length,
+        coupons: summary
+      });
+    } catch (e: any) {
+      console.error('Get coupon usage error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Clear OTP record for a phone number
+  // This allows admins to help users who have OTP issues
+  app.delete('/api/admin/otp/:phone', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const phone = c.req.param('phone');
+      if (!phone) return bad(c, 'Phone number required');
+
+      const normalizedPhone = toE164(decodeURIComponent(phone));
+      const otpEntity = new OtpEntity(c.env, normalizedPhone);
+      const otp = await otpEntity.getState();
+
+      if (!otp.id) {
+        return ok(c, { success: true, message: 'No OTP record found for this phone' });
+      }
+
+      // Clear the OTP record
+      await otpEntity.patch({
+        id: '',
+        code: '',
+        verified: false,
+        attempts: 0,
+        createdAt: 0,
+        expiresAt: 0
+      });
+
+      return ok(c, {
+        success: true,
+        message: 'OTP record cleared successfully',
+        phone: normalizedPhone
       });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);

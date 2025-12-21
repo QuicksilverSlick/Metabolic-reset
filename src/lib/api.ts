@@ -51,10 +51,25 @@ export const authApi = {
 
 // Payment API - for creating payment intents
 export const paymentApi = {
-  createIntent: (amount: number) =>
+  createIntent: (amount: number, idempotencyKey?: string) =>
     api<{ clientSecret: string | null; mock: boolean }>('/api/create-payment-intent', {
       method: 'POST',
-      body: JSON.stringify({ amount })
+      body: JSON.stringify({ amount, idempotencyKey })
+    }),
+};
+
+// Coupon API - for validating coupon codes
+export const couponApi = {
+  validate: (couponCode: string) =>
+    api<{
+      valid: boolean;
+      message?: string;
+      discount?: number;
+      description?: string;
+      bypassPayment?: boolean;
+    }>('/api/validate-coupon', {
+      method: 'POST',
+      body: JSON.stringify({ couponCode })
     }),
 };
 
@@ -69,19 +84,24 @@ export const usersApi = {
     hasScale: boolean;
     timezone: string;
     projectId?: string;
+    couponCode?: string; // Coupon code for free/discounted registration
   }) =>
     api<{ user: User; enrolledProjectId: string | null }>('/api/register', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // User Profile API - for updating profile info
 export const userApi = {
-  // Update user profile (avatarUrl, name, timezone)
-  updateProfile: (userId: string, updates: { avatarUrl?: string; name?: string; timezone?: string }) =>
+  // Update user profile (avatarUrl, name, email, phone, timezone, cartLink, hasScale)
+  updateProfile: (userId: string, updates: { avatarUrl?: string; name?: string; email?: string; phone?: string; timezone?: string; cartLink?: string; hasScale?: boolean }) =>
     api<User>('/api/users/me', {
       method: 'PATCH',
       body: JSON.stringify(updates),
       headers: { 'X-User-ID': userId }
     }),
+
+  // Get coach info (cart link, phone) for kit ordering
+  getCoachInfo: (coachId: string) =>
+    api<{ id: string; name: string; phone: string; cartLink?: string }>(`/api/users/${coachId}/coach-info`),
 };
 
 // OTP (SMS) Authentication API
@@ -185,6 +205,10 @@ export const adminApi = {
     isTestMode?: boolean;
     points?: number;
     role?: 'challenger' | 'coach';
+    name?: string;
+    email?: string;
+    phone?: string;
+    timezone?: string;
   }) =>
     api<User>(`/api/admin/users/${targetUserId}`, {
       method: 'PATCH',
@@ -241,6 +265,58 @@ export const adminApi = {
   permanentlyDeleteUser: (adminUserId: string, targetUserId: string) =>
     api<{ message: string; userId: string }>(`/api/admin/users/${targetUserId}/permanent`, {
       method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Clear OTP record for a phone number (admin only)
+  clearOtp: (adminUserId: string, phone: string) =>
+    api<{ success: boolean; message: string; phone: string }>(`/api/admin/otp/${encodeURIComponent(phone)}`, {
+      method: 'DELETE',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Find duplicate users by phone or email (includes active-deleted matches)
+  findDuplicates: (adminUserId: string) =>
+    api<{
+      totalDuplicateSets: number;
+      duplicates: Array<{
+        type: 'phone' | 'email';
+        value: string;
+        users: Array<{
+          id: string;
+          name: string;
+          referralCode: string;
+          phone: string;
+          email: string;
+          avatarUrl: string;
+          points: number;
+          createdAt: number;
+          isRecommendedPrimary: boolean;
+          isDeleted: boolean;
+        }>;
+      }>;
+      stats?: {
+        totalActiveUsers: number;
+        totalDeletedUsers: number;
+      };
+    }>('/api/admin/duplicates', {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Merge two duplicate users into one
+  mergeUsers: (adminUserId: string, primaryUserId: string, secondaryUserId: string) =>
+    api<{
+      success: boolean;
+      message: string;
+      primaryUserId: string;
+      secondaryUserId: string;
+      mergeLog: string[];
+      primaryUser: {
+        id: string;
+        name: string;
+        referralCode: string;
+        secondaryReferralCode: string;
+      };
+    }>('/api/admin/users/merge', {
+      method: 'POST',
+      body: JSON.stringify({ primaryUserId, secondaryUserId }),
       headers: { 'X-User-ID': adminUserId }
     }),
 };

@@ -32,6 +32,7 @@ import { AdminPage } from '@/pages/app/AdminPage';
 import { MyProjectsPage } from '@/pages/app/MyProjectsPage';
 import { EnrollProjectPage } from '@/pages/app/EnrollProjectPage';
 import { CoursePage } from '@/pages/app/CoursePage';
+import { CoachResourcesPage } from '@/pages/app/CoachResourcesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 // Onboarding Pages
@@ -40,6 +41,8 @@ import ProfilePhotoPage from '@/pages/app/onboarding/ProfilePhotoPage';
 import PhoneVerificationPage from '@/pages/app/onboarding/PhoneVerificationPage';
 import VideoOrientationPage from '@/pages/app/onboarding/VideoOrientationPage';
 import KitConfirmationPage from '@/pages/app/onboarding/KitConfirmationPage';
+import CoachCartLinkPage from '@/pages/app/onboarding/CoachCartLinkPage';
+import AllAudienceVideoPage from '@/pages/app/onboarding/AllAudienceVideoPage';
 
 // Redirect component for /register that preserves query params
 function RegisterRedirect() {
@@ -118,6 +121,14 @@ const router = createBrowserRouter([
         element: <KitConfirmationPage />,
       },
       {
+        path: "/app/onboarding/cart-link",
+        element: <CoachCartLinkPage />,
+      },
+      {
+        path: "/app/onboarding/final-video",
+        element: <AllAudienceVideoPage />,
+      },
+      {
         path: "/app",
         element: (
           <AppLayout container>
@@ -161,6 +172,10 @@ const router = createBrowserRouter([
           {
             path: "course",
             element: <CoursePage />
+          },
+          {
+            path: "resources",
+            element: <CoachResourcesPage />
           }
         ]
       },

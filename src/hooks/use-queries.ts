@@ -25,13 +25,13 @@ export function useUser() {
   });
 }
 
-// Update user profile (avatarUrl, name, timezone)
+// Update user profile (avatarUrl, name, email, phone, timezone, cartLink, hasScale)
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
   return useMutation({
-    mutationFn: (updates: { avatarUrl?: string; name?: string; timezone?: string }) => {
+    mutationFn: (updates: { avatarUrl?: string; name?: string; email?: string; phone?: string; timezone?: string; cartLink?: string; hasScale?: boolean }) => {
       if (!userId) throw new Error('Not authenticated');
       return userApi.updateProfile(userId, updates);
     },
@@ -164,6 +164,20 @@ export function useTeamRoster() {
   });
 }
 
+// Get referral stats for the current coach (derived from roster)
+export function useReferralStats() {
+  const { data: roster } = useTeamRoster();
+  // Compute stats from roster data
+  const totalReferred = roster?.length || 0;
+  return {
+    data: {
+      totalReferred,
+      pointsEarned: totalReferred, // 1 point per referral
+    },
+    isLoading: false,
+  };
+}
+
 export function useTeamMemberBiometrics(recruitId: string | null) {
   const userId = useAuthStore(s => s.userId);
   const user = useAuthStore(s => s.user);
@@ -227,7 +241,17 @@ export function useAdminUpdateUser() {
   return useMutation({
     mutationFn: ({ targetUserId, updates }: {
       targetUserId: string;
-      updates: { isAdmin?: boolean; isActive?: boolean; points?: number; role?: 'challenger' | 'coach' }
+      updates: {
+        isAdmin?: boolean;
+        isActive?: boolean;
+        isTestMode?: boolean;
+        points?: number;
+        role?: 'challenger' | 'coach';
+        name?: string;
+        email?: string;
+        phone?: string;
+        timezone?: string;
+      }
     }) => {
       if (!userId) throw new Error('Not authenticated');
       return adminApi.updateUser(userId, targetUserId, updates);
@@ -335,6 +359,63 @@ export function useAdminPermanentDeleteUser() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to permanently delete user');
+    }
+  });
+}
+
+// Clear OTP record for a phone (admin)
+export function useAdminClearOtp() {
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (phone: string) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminApi.clearOtp(userId, phone);
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'OTP record cleared successfully');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to clear OTP record');
+    }
+  });
+}
+
+// Find duplicate users by phone or email (admin)
+export function useAdminFindDuplicates() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['admin', 'duplicates'],
+    queryFn: async () => {
+      if (!userId) throw new Error('Not authenticated');
+      console.log('[useAdminFindDuplicates] Calling API with userId:', userId);
+      const result = await adminApi.findDuplicates(userId);
+      console.log('[useAdminFindDuplicates] API returned:', result);
+      return result;
+    },
+    enabled: !!userId,
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache
+  });
+}
+
+// Merge duplicate users (admin)
+export function useAdminMergeUsers() {
+  const userId = useAuthStore(s => s.userId);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ primaryUserId, secondaryUserId }: { primaryUserId: string; secondaryUserId: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return adminApi.mergeUsers(userId, primaryUserId, secondaryUserId);
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Users merged successfully');
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['admin', 'duplicates'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'deleted'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to merge users');
     }
   });
 }
@@ -828,6 +909,20 @@ export function useAdminUpdateCohort() {
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update cohort');
     }
+  });
+}
+
+// =========================================
+// Coach Info hooks
+// =========================================
+
+// Get coach info (cart link, phone) for kit ordering
+export function useCoachInfo(coachId: string | null) {
+  return useQuery({
+    queryKey: ['coach-info', coachId],
+    queryFn: () => coachId ? userApi.getCoachInfo(coachId) : null,
+    enabled: !!coachId,
+    staleTime: 1000 * 60 * 10, // 10 minutes - coach info rarely changes
   });
 }
 

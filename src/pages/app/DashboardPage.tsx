@@ -37,6 +37,7 @@ import { getChallengeProgress, getTodayInTimezone } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { BugReportDialog } from '@/components/BugReportDialog';
 import { KitReminderBanner } from '@/components/kit-reminder-banner';
+import { ScaleReminderBanner } from '@/components/scale-reminder-banner';
 import {
   Dialog,
   DialogContent,
@@ -270,8 +271,9 @@ export function DashboardPage() {
   const progressDisplay = Math.max(0, Math.min(100, progressPercentage));
   return (
     <div className="space-y-8">
-      {/* Kit Reminder Banner for Group A */}
+      {/* Reminder Banners */}
       <KitReminderBanner />
+      <ScaleReminderBanner />
 
       {/* Orphan Alert */}
       {isOrphan && (

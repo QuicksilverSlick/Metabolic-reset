@@ -26,7 +26,10 @@ import {
   useAdminDeletedUsers,
   useAdminDeleteUser,
   useAdminRestoreUser,
-  useAdminPermanentDeleteUser
+  useAdminPermanentDeleteUser,
+  useAdminClearOtp,
+  useAdminFindDuplicates,
+  useAdminMergeUsers
 } from '@/hooks/use-queries';
 import { Navigate } from 'react-router-dom';
 import {
@@ -75,6 +78,7 @@ import {
   Filter,
   XCircle,
   GitBranch,
+  GitMerge,
   Coins,
   Undo2,
   AlertTriangle,
@@ -83,7 +87,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,6 +150,17 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ContentManager } from '@/components/admin/ContentManager';
 
+// Common US timezones
+const US_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Phoenix', label: 'Arizona (MST)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+];
+
 export function AdminPage() {
   const currentUser = useAuthStore(s => s.user);
   const isAdmin = currentUser?.isAdmin;
@@ -155,6 +172,9 @@ export function AdminPage() {
   const deleteUserMutation = useAdminDeleteUser();
   const restoreUserMutation = useAdminRestoreUser();
   const permanentDeleteMutation = useAdminPermanentDeleteUser();
+  const clearOtpMutation = useAdminClearOtp();
+  const { data: duplicatesData, isLoading: duplicatesLoading, refetch: refetchDuplicates, isFetching: duplicatesFetching, error: duplicatesError } = useAdminFindDuplicates();
+  const mergeUsersMutation = useAdminMergeUsers();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'name' | 'points' | 'createdAt'>('createdAt');
@@ -166,7 +186,7 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'settings' | 'genealogy' | 'deleted'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'settings' | 'genealogy' | 'deleted' | 'duplicates'>('users');
 
   // Delete user state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -195,6 +215,9 @@ export function AdminPage() {
   // Genealogy state
   const [selectedGenealogyUserId, setSelectedGenealogyUserId] = useState<string | null>(null);
   const [genealogyViewMode, setGenealogyViewMode] = useState<'tree' | 'list'>('list');
+
+  // Quiz link copy state
+  const [copiedQuizLink, setCopiedQuizLink] = useState(false);
 
   // Project management state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -243,6 +266,8 @@ export function AdminPage() {
   const [settingsGroupAVideo, setSettingsGroupAVideo] = useState('');
   const [settingsGroupBVideo, setSettingsGroupBVideo] = useState('');
   const [settingsKitOrderUrl, setSettingsKitOrderUrl] = useState('');
+  const [settingsScaleOrderUrl, setSettingsScaleOrderUrl] = useState('');
+  const [settingsFallbackPhone, setSettingsFallbackPhone] = useState('');
   const [settingsInitialized, setSettingsInitialized] = useState(false);
 
   // Point settings form state
@@ -258,6 +283,8 @@ export function AdminPage() {
       setSettingsGroupAVideo(systemSettings.groupAVideoUrl || '');
       setSettingsGroupBVideo(systemSettings.groupBVideoUrl || '');
       setSettingsKitOrderUrl(systemSettings.kitOrderUrl || '');
+      setSettingsScaleOrderUrl(systemSettings.scaleOrderUrl || '');
+      setSettingsFallbackPhone(systemSettings.fallbackPhone || '5039741671');
       setSettingsInitialized(true);
     }
   }, [systemSettings, settingsInitialized]);
@@ -279,6 +306,11 @@ export function AdminPage() {
   const [editIsTestMode, setEditIsTestMode] = useState(false);
   const [editIsActive, setEditIsActive] = useState(true);
   const [editRole, setEditRole] = useState<'challenger' | 'coach'>('challenger');
+  // Profile fields for admin editing
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTimezone, setEditTimezone] = useState('');
 
   // If not admin, show bootstrap option (allows first admin to be created)
   if (!isAdmin) {
@@ -377,6 +409,11 @@ export function AdminPage() {
     setEditIsTestMode(user.isTestMode || false);
     setEditIsActive(user.isActive !== false);
     setEditRole(user.role || 'challenger');
+    // Populate profile fields
+    setEditName(user.name || '');
+    setEditEmail(user.email || '');
+    setEditPhone(user.phone || '');
+    setEditTimezone(user.timezone || '');
     setEditDialogOpen(true);
   };
 
@@ -396,6 +433,11 @@ export function AdminPage() {
           isTestMode: editIsTestMode,
           isActive: editIsActive,
           role: editRole,
+          // Profile fields
+          name: editName.trim() || undefined,
+          email: editEmail.trim() || undefined,
+          phone: editPhone.trim() || undefined,
+          timezone: editTimezone || undefined,
         },
       },
       {
@@ -728,6 +770,7 @@ export function AdminPage() {
     totalBugs: bugReports?.length || 0,
     openBugs: bugReports?.filter(b => b.status === 'open').length || 0,
     deletedUsers: deletedUsers?.length || 0,
+    duplicateSets: duplicatesData?.totalDuplicateSets || 0,
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -959,6 +1002,22 @@ export function AdminPage() {
             {stats.deletedUsers > 0 && (
               <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400 rounded-full">
                 {stats.deletedUsers}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('duplicates')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'duplicates'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <GitMerge className="h-4 w-4 inline mr-1.5" />
+            Duplicates
+            {stats.duplicateSets > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400 rounded-full">
+                {stats.duplicateSets}
               </span>
             )}
           </button>
@@ -1857,7 +1916,7 @@ export function AdminPage() {
                 <div className="space-y-2">
                   <Label htmlFor="kit-order-url" className="flex items-center gap-2">
                     <LinkIcon className="h-4 w-4 text-amber-500" />
-                    Nutrition Kit Order URL
+                    Nutrition Kit Order URL (Fallback)
                   </Label>
                   <Input
                     id="kit-order-url"
@@ -1868,7 +1927,45 @@ export function AdminPage() {
                     className="font-mono text-sm"
                   />
                   <p className="text-xs text-slate-500">
-                    Where Protocol group users are redirected to order their Clinical Nutrition Kit.
+                    Fallback URL for kit orders when user has no coach or coach has no cart link.
+                  </p>
+                </div>
+
+                {/* Scale Order URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="scale-order-url" className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4 text-blue-500" />
+                    Smart Scale Order URL
+                  </Label>
+                  <Input
+                    id="scale-order-url"
+                    type="url"
+                    placeholder="https://amazon.com/..."
+                    value={settingsScaleOrderUrl}
+                    onChange={(e) => setSettingsScaleOrderUrl(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Amazon or other link for users to purchase a smart scale.
+                  </p>
+                </div>
+
+                {/* Fallback Phone */}
+                <div className="space-y-2">
+                  <Label htmlFor="fallback-phone" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-green-500" />
+                    Fallback Phone Number
+                  </Label>
+                  <Input
+                    id="fallback-phone"
+                    type="tel"
+                    placeholder="5039741671"
+                    value={settingsFallbackPhone}
+                    onChange={(e) => setSettingsFallbackPhone(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Phone number shown when user has no coach or coach has no cart link (digits only).
                   </p>
                 </div>
 
@@ -1879,7 +1976,9 @@ export function AdminPage() {
                       updateSettingsMutation.mutate({
                         groupAVideoUrl: settingsGroupAVideo,
                         groupBVideoUrl: settingsGroupBVideo,
-                        kitOrderUrl: settingsKitOrderUrl
+                        kitOrderUrl: settingsKitOrderUrl,
+                        scaleOrderUrl: settingsScaleOrderUrl,
+                        fallbackPhone: settingsFallbackPhone
                       });
                     }}
                     disabled={updateSettingsMutation.isPending}
@@ -2272,9 +2371,31 @@ export function AdminPage() {
                   <CardTitle className="text-lg">Profile</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500">Phone:</span>
-                    <span className="font-mono">{userDetails.user.phone}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{userDetails.user.phone}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Clear OTP verification for ${userDetails.user.phone}?\n\nThis will allow the user to re-verify their phone number.`)) {
+                            clearOtpMutation.mutate(userDetails.user.phone);
+                          }
+                        }}
+                        disabled={clearOtpMutation.isPending}
+                        className="h-6 px-2 text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/20 border-orange-500/50"
+                      >
+                        {clearOtpMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Phone className="h-3 w-3 mr-1" />
+                            Clear OTP
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Role:</span>
@@ -2290,6 +2411,41 @@ export function AdminPage() {
                     <span className="text-slate-500">Referral Code:</span>
                     <span className="font-mono text-xs">{userDetails.user.referralCode}</span>
                   </div>
+                  {/* Quiz Referral Link with Copy */}
+                  {userDetails.user.referralCode && (
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-slate-500 text-sm">Quiz Referral Link:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded font-mono break-all">
+                          {`https://28dayreset.com/quiz?ref=${userDetails.user.referralCode}${userEnrollments?.[0]?.projectId ? `&project=${userEnrollments[0].projectId}` : ''}`}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          onClick={() => {
+                            const link = `https://28dayreset.com/quiz?ref=${userDetails.user.referralCode}${userEnrollments?.[0]?.projectId ? `&project=${userEnrollments[0].projectId}` : ''}`;
+                            navigator.clipboard.writeText(link);
+                            setCopiedQuizLink(true);
+                            setTimeout(() => setCopiedQuizLink(false), 2000);
+                          }}
+                        >
+                          {copiedQuizLink ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {userEnrollments?.[0]?.projectId && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Includes project: {userEnrollments[0].projectId.substring(0, 8)}...
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-500">Joined:</span>
                     <span>{userDetails.user.createdAt ? new Date(userDetails.user.createdAt).toLocaleDateString() : 'N/A'}</span>
@@ -2551,76 +2707,139 @@ export function AdminPage() {
               {selectedUser?.name} ({selectedUser?.email})
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-points">Points</Label>
-              <Input
-                id="edit-points"
-                type="number"
-                value={editPoints}
-                onChange={(e) => setEditPoints(parseInt(e.target.value) || 0)}
-              />
-            </div>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            {/* Profile Information Section */}
+            <div className="space-y-4 pb-4 border-b">
+              <Label className="text-xs uppercase text-slate-500 font-medium">Profile Information</Label>
 
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={editRole === 'challenger' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setEditRole('challenger')}
-                >
-                  Challenger
-                </Button>
-                <Button
-                  type="button"
-                  variant={editRole === 'coach' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setEditRole('coach')}
-                >
-                  Coach
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Full name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="email@example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-timezone">Timezone</Label>
+                <Select value={editTimezone} onValueChange={setEditTimezone}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {US_TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Active Status</Label>
-                <p className="text-xs text-slate-500">User can access the app</p>
+            {/* Points & Role Section */}
+            <div className="space-y-4 pb-4 border-b">
+              <Label className="text-xs uppercase text-slate-500 font-medium">Points & Role</Label>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-points">Points</Label>
+                <Input
+                  id="edit-points"
+                  type="number"
+                  value={editPoints}
+                  onChange={(e) => setEditPoints(parseInt(e.target.value) || 0)}
+                />
               </div>
-              <Switch
-                checked={editIsActive}
-                onCheckedChange={setEditIsActive}
-              />
+
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={editRole === 'challenger' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEditRole('challenger')}
+                  >
+                    Challenger
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={editRole === 'coach' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setEditRole('coach')}
+                  >
+                    Coach
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="space-y-0.5">
-                <Label className="flex items-center gap-1 text-blue-700">
-                  <Eye className="h-4 w-4" />
-                  Test Mode
-                </Label>
-                <p className="text-xs text-slate-500">Preview all content like an admin (no admin privileges)</p>
-              </div>
-              <Switch
-                checked={editIsTestMode}
-                onCheckedChange={setEditIsTestMode}
-              />
-            </div>
+            {/* Access Controls Section */}
+            <div className="space-y-4">
+              <Label className="text-xs uppercase text-slate-500 font-medium">Access Controls</Label>
 
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="space-y-0.5">
-                <Label className="flex items-center gap-1 text-green-700">
-                  <ShieldCheck className="h-4 w-4" />
-                  Admin Access
-                </Label>
-                <p className="text-xs text-slate-500">Full system management access</p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Active Status</Label>
+                  <p className="text-xs text-slate-500">User can access the app</p>
+                </div>
+                <Switch
+                  checked={editIsActive}
+                  onCheckedChange={setEditIsActive}
+                />
               </div>
-              <Switch
-                checked={editIsAdmin}
-                onCheckedChange={setEditIsAdmin}
-              />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-1 text-blue-700">
+                    <Eye className="h-4 w-4" />
+                    Test Mode
+                  </Label>
+                  <p className="text-xs text-slate-500">Preview all content like an admin (no admin privileges)</p>
+                </div>
+                <Switch
+                  checked={editIsTestMode}
+                  onCheckedChange={setEditIsTestMode}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-1 text-green-700">
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin Access
+                  </Label>
+                  <p className="text-xs text-slate-500">Full system management access</p>
+                </div>
+                <Switch
+                  checked={editIsAdmin}
+                  onCheckedChange={setEditIsAdmin}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -2955,6 +3174,172 @@ export function AdminPage() {
                 <p>No deleted users.</p>
                 <p className="text-sm text-slate-400 mt-1">
                   Users you delete will appear here for 30 days.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Duplicates Tab */}
+      {activeTab === 'duplicates' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GitMerge className="h-5 w-5 text-orange-500" />
+                  Duplicate Users
+                </CardTitle>
+                <CardDescription>
+                  Users with matching phone or email addresses. Merge duplicates to consolidate referrals and data.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => refetchDuplicates()}
+                disabled={duplicatesFetching}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                {duplicatesFetching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Scanning...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Scan for Duplicates
+                  </>
+                )}
+              </Button>
+            </div>
+            {duplicatesData?.stats && (
+              <div className="flex gap-4 mt-2 text-sm text-slate-500">
+                <span>Active users: {duplicatesData.stats.totalActiveUsers}</span>
+                <span>Deleted users: {duplicatesData.stats.totalDeletedUsers}</span>
+                <span>Duplicate sets found: {duplicatesData.totalDuplicateSets}</span>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {duplicatesError ? (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 rounded-lg p-4 mb-4">
+                <p className="text-red-600 font-medium">Error loading duplicates:</p>
+                <p className="text-red-500 text-sm mt-1">{String(duplicatesError)}</p>
+              </div>
+            ) : null}
+            {duplicatesLoading || duplicatesFetching ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
+                <p className="text-sm text-slate-500 mt-2">Scanning all users for duplicates...</p>
+              </div>
+            ) : duplicatesData?.duplicates && duplicatesData.duplicates.length > 0 ? (
+              <div className="space-y-6">
+                {duplicatesData.duplicates.map((duplicateSet, setIndex) => (
+                  <Card key={`${duplicateSet.type}-${duplicateSet.value}-${setIndex}`} className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={duplicateSet.type === 'phone' ? 'border-blue-500 text-blue-600' : 'border-green-500 text-green-600'}>
+                          {duplicateSet.type === 'phone' ? <Phone className="h-3 w-3 mr-1" /> : <UserIcon className="h-3 w-3 mr-1" />}
+                          {duplicateSet.type === 'phone' ? 'Phone Match' : 'Email Match'}
+                        </Badge>
+                        <span className="text-sm font-mono text-slate-600 dark:text-slate-400">
+                          {duplicateSet.value}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          ({duplicateSet.users.length} users)
+                        </span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {duplicateSet.users.map((user, userIndex) => (
+                          <Card key={user.id} className={`border ${
+                            user.isDeleted
+                              ? 'border-red-300 bg-red-50 dark:bg-red-900/20 opacity-75'
+                              : user.isRecommendedPrimary
+                                ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
+                                : 'border-slate-200 dark:border-slate-700'
+                          }`}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-10 w-10">
+                                  {user.avatarUrl ? (
+                                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                                  ) : null}
+                                  <AvatarFallback className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs">
+                                    {user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`font-medium truncate ${user.isDeleted ? 'line-through text-slate-500' : ''}`}>{user.name}</span>
+                                    {user.isDeleted && (
+                                      <Badge variant="destructive" className="text-xs">Deleted</Badge>
+                                    )}
+                                    {user.isRecommendedPrimary && (
+                                      <Badge className="bg-green-500 text-white text-xs">Recommended Primary</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-slate-600 dark:text-slate-400 font-mono">{user.referralCode}</p>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                    <span>{user.points} pts</span>
+                                    <span>Created: {new Date(user.createdAt).toLocaleDateString()}</span>
+                                    {user.avatarUrl && <span className="text-green-600">Has Avatar</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action buttons */}
+                              {!user.isRecommendedPrimary && (
+                                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                                  {user.isDeleted ? (
+                                    // For deleted users, show info about what merge would do
+                                    <div className="text-xs text-slate-500 mb-2">
+                                      This account is deleted. Merging will transfer any referrals/data to the primary account.
+                                    </div>
+                                  ) : null}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-orange-600 border-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                                    disabled={mergeUsersMutation.isPending}
+                                    onClick={() => {
+                                      const primaryUser = duplicateSet.users.find(u => u.isRecommendedPrimary);
+                                      if (primaryUser) {
+                                        const deleteStatus = user.isDeleted ? ' (already deleted)' : '';
+                                        if (confirm(`Merge "${user.name}"${deleteStatus} into "${primaryUser.name}"?\n\nThis will:\n• Transfer all referrals from ${user.referralCode} to ${primaryUser.referralCode}\n• Combine points and enrollments\n• ${user.isDeleted ? 'Keep this profile deleted' : 'Soft-delete this profile'}\n\nBoth referral codes will continue to work.`)) {
+                                          mergeUsersMutation.mutate({
+                                            primaryUserId: primaryUser.id,
+                                            secondaryUserId: user.id
+                                          });
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    {mergeUsersMutation.isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : (
+                                      <GitMerge className="h-4 w-4 mr-2" />
+                                    )}
+                                    Merge into Primary
+                                  </Button>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-3" />
+                <p>No duplicate users found.</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  All users have unique phone numbers and emails.
                 </p>
               </div>
             )}
