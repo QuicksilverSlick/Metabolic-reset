@@ -410,7 +410,7 @@ export function HomePage() {
                 <div>
                   <h3 className="font-bold text-white text-xl mb-2 flex items-center gap-3">
                     <span className="bg-gold-500 text-navy-900 text-xs px-2 py-1 rounded uppercase tracking-wider font-bold">Coach Option</span>
-                    Are you an Optivia Coach?
+                    Are you an Optavia Coach?
                   </h3>
                   <p className="text-slate-400 text-base">
                     Register as a Captain ($49) to lead a team and access advanced study data.
