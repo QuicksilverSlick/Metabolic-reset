@@ -65,6 +65,11 @@ export interface User {
   deletedBy?: string; // Admin user ID who performed the deletion
   mergedInto?: string; // User ID this account was merged into (for duplicate resolution)
   couponCodeUsed?: string; // Coupon code used during registration (if any)
+  // PWA Install Analytics
+  pwaPromptShownAt?: number; // Timestamp when install prompt was first shown
+  pwaPromptDismissedAt?: number; // Timestamp when user dismissed the prompt
+  pwaInstalledAt?: number; // Timestamp when user installed the PWA
+  pwaInstallSource?: 'android' | 'ios' | 'desktop'; // Platform where installed
 }
 
 // Coupon Usage - tracks who used which coupon codes

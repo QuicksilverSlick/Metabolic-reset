@@ -1,6 +1,15 @@
 import '@/lib/errorReporter';
 import { enableMapSet } from "immer";
 enableMapSet();
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Service worker registration failed - silently ignore
+    });
+  });
+}
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import {

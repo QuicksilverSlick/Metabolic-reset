@@ -38,6 +38,8 @@ import { Badge } from '@/components/ui/badge';
 import { BugReportDialog } from '@/components/BugReportDialog';
 import { KitReminderBanner } from '@/components/kit-reminder-banner';
 import { ScaleReminderBanner } from '@/components/scale-reminder-banner';
+import { AddToHomeScreenModal } from '@/components/AddToHomeScreenModal';
+import { userApi } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -269,8 +271,35 @@ export function DashboardPage() {
   // Clamp values for display
   const dayDisplay = day > 28 ? 28 : (day < 1 ? 0 : day);
   const progressDisplay = Math.max(0, Math.min(100, progressPercentage));
+
+  // PWA Install tracking callbacks
+  const handlePWAPromptShown = useCallback(() => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'prompt_shown').catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handlePWADismissed = useCallback(() => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'prompt_dismissed').catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handlePWAInstalled = useCallback((source: 'android' | 'ios' | 'desktop') => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'installed', source).catch(() => {});
+    }
+  }, [user?.id]);
+
   return (
     <div className="space-y-8">
+      {/* PWA Install Prompt Modal */}
+      <AddToHomeScreenModal
+        onPromptShown={handlePWAPromptShown}
+        onDismissed={handlePWADismissed}
+        onInstalled={handlePWAInstalled}
+      />
+
       {/* Reminder Banners */}
       <KitReminderBanner />
       <ScaleReminderBanner />

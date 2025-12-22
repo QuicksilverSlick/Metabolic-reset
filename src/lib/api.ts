@@ -102,6 +102,14 @@ export const userApi = {
   // Get coach info (cart link, phone) for kit ordering
   getCoachInfo: (coachId: string) =>
     api<{ id: string; name: string; phone: string; cartLink?: string }>(`/api/users/${coachId}/coach-info`),
+
+  // Track PWA install analytics
+  trackPWAEvent: (userId: string, event: 'prompt_shown' | 'prompt_dismissed' | 'installed', source?: 'android' | 'ios' | 'desktop') =>
+    api<{ success: boolean }>('/api/users/me/pwa-analytics', {
+      method: 'POST',
+      body: JSON.stringify({ event, source }),
+      headers: { 'X-User-ID': userId }
+    }),
 };
 
 // OTP (SMS) Authentication API

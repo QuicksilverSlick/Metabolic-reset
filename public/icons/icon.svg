@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#0F172A"/>
+
+  <!-- Heartbeat line -->
+  <path d="M40 280 L160 280 L190 200 L220 340 L250 240 L280 280 L472 280"
+        stroke="#F59E0B"
+        stroke-width="12"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- Heart shape -->
+  <path d="M256 140 C220 90, 160 90, 140 140 C120 190, 160 250, 256 320 C352 250, 392 190, 372 140 C352 90, 292 90, 256 140"
+        fill="#F59E0B"/>
+
+  <!-- Leaf -->
+  <path d="M244 100 C210 50, 244 35, 256 70 C268 35, 302 50, 268 100 L256 140 L244 100"
+        fill="#22C55E"/>
+  <path d="M256 70 L256 140"
+        stroke="#22C55E"
+        stroke-width="6"/>
+</svg>

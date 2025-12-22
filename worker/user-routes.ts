@@ -540,6 +540,56 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
+  // --- PWA Analytics ---
+  app.post('/api/users/me/pwa-analytics', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const body = await c.req.json<{
+        event: 'prompt_shown' | 'prompt_dismissed' | 'installed';
+        source?: 'android' | 'ios' | 'desktop';
+      }>();
+
+      if (!body.event) return bad(c, 'Event type required');
+
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+
+      const now = Date.now();
+      const updates: Partial<typeof user> = {};
+
+      switch (body.event) {
+        case 'prompt_shown':
+          // Only set if not already set (first time shown)
+          if (!user.pwaPromptShownAt) {
+            updates.pwaPromptShownAt = now;
+          }
+          break;
+        case 'prompt_dismissed':
+          updates.pwaPromptDismissedAt = now;
+          break;
+        case 'installed':
+          updates.pwaInstalledAt = now;
+          if (body.source) {
+            updates.pwaInstallSource = body.source;
+          }
+          break;
+        default:
+          return bad(c, 'Invalid event type');
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await userEntity.patch(updates);
+      }
+
+      return ok(c, { success: true });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // --- Daily Scores ---
   app.get('/api/scores', async (c) => {
     try {

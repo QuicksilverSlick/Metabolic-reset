@@ -2454,6 +2454,26 @@ export function AdminPage() {
                     <span className="text-slate-500">Admin:</span>
                     <span>{userDetails.user.isAdmin ? 'Yes' : 'No'}</span>
                   </div>
+                  {/* PWA Install Status */}
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">App Installed:</span>
+                      <span className={userDetails.user.pwaInstalledAt ? 'text-green-600 font-medium' : 'text-slate-400'}>
+                        {userDetails.user.pwaInstalledAt ? (
+                          <>Yes ({userDetails.user.pwaInstallSource || 'unknown'})</>
+                        ) : userDetails.user.pwaPromptShownAt ? (
+                          'Prompt shown'
+                        ) : (
+                          'Not yet'
+                        )}
+                      </span>
+                    </div>
+                    {userDetails.user.pwaInstalledAt && (
+                      <p className="text-xs text-slate-400 text-right">
+                        {new Date(userDetails.user.pwaInstalledAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
