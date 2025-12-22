@@ -52,6 +52,14 @@ import VideoOrientationPage from '@/pages/app/onboarding/VideoOrientationPage';
 import KitConfirmationPage from '@/pages/app/onboarding/KitConfirmationPage';
 import CoachCartLinkPage from '@/pages/app/onboarding/CoachCartLinkPage';
 import AllAudienceVideoPage from '@/pages/app/onboarding/AllAudienceVideoPage';
+// Legal Pages
+import MedicalDisclaimerPage from '@/pages/legal/MedicalDisclaimerPage';
+import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage';
+import TermsOfServicePage from '@/pages/legal/TermsOfServicePage';
+import AssumptionOfRiskPage from '@/pages/legal/AssumptionOfRiskPage';
+import RefundPolicyPage from '@/pages/legal/RefundPolicyPage';
+import CookiePolicyPage from '@/pages/legal/CookiePolicyPage';
+import AccessibilityStatementPage from '@/pages/legal/AccessibilityStatementPage';
 
 // Redirect component for /register that preserves query params
 function RegisterRedirect() {
@@ -107,6 +115,35 @@ const router = createBrowserRouter([
       {
         path: "/login/legacy",
         element: <LoginPage />,
+      },
+      // Legal pages
+      {
+        path: "/legal/medical-disclaimer",
+        element: <MedicalDisclaimerPage />,
+      },
+      {
+        path: "/legal/privacy",
+        element: <PrivacyPolicyPage />,
+      },
+      {
+        path: "/legal/terms",
+        element: <TermsOfServicePage />,
+      },
+      {
+        path: "/legal/assumption-of-risk",
+        element: <AssumptionOfRiskPage />,
+      },
+      {
+        path: "/legal/refunds",
+        element: <RefundPolicyPage />,
+      },
+      {
+        path: "/legal/cookies",
+        element: <CookiePolicyPage />,
+      },
+      {
+        path: "/legal/accessibility",
+        element: <AccessibilityStatementPage />,
       },
       // Onboarding routes (full-screen, no AppLayout)
       {

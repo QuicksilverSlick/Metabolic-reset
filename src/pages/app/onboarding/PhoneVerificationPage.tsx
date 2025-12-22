@@ -86,7 +86,30 @@ export default function PhoneVerificationPage() {
   };
 
   const handleOtpChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
+    // Handle paste via onChange (some browsers/devices trigger this instead of onPaste)
+    const cleanedValue = value.replace(/\D/g, '');
+
+    // If more than one digit, treat as paste
+    if (cleanedValue.length > 1) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < Math.min(cleanedValue.length, 6); i++) {
+        newCode[i] = cleanedValue[i];
+      }
+      setOtpCode(newCode);
+      setOtpError(null);
+
+      // Focus appropriate input and auto-submit if complete
+      if (cleanedValue.length >= 6) {
+        otpInputRefs.current[5]?.focus();
+        setTimeout(() => handleVerifyOtp(newCode), 100);
+      } else {
+        otpInputRefs.current[cleanedValue.length]?.focus();
+      }
+      return;
+    }
+
+    // Single digit entry
+    const digit = cleanedValue.slice(-1);
     const newCode = [...otpCode];
     newCode[index] = digit;
     setOtpCode(newCode);
@@ -111,21 +134,37 @@ export default function PhoneVerificationPage() {
     if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
       otpInputRefs.current[index - 1]?.focus();
     }
+    // Arrow key navigation
+    if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      otpInputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < 5) {
+      e.preventDefault();
+      otpInputRefs.current[index + 1]?.focus();
+    }
   };
 
   const handleOtpPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pastedData) {
-      const newCode = [...otpCode];
+      const newCode = ['', '', '', '', '', ''];
       for (let i = 0; i < pastedData.length; i++) {
         newCode[i] = pastedData[i];
       }
       setOtpCode(newCode);
       // Clear any existing error when user pastes
       setOtpError(null);
-      const nextEmpty = newCode.findIndex(d => !d);
-      otpInputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
+
+      // Focus the last filled input and auto-submit if complete
+      if (pastedData.length >= 6) {
+        otpInputRefs.current[5]?.focus();
+        setTimeout(() => handleVerifyOtp(newCode), 100);
+      } else {
+        const nextEmpty = newCode.findIndex(d => !d);
+        otpInputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
+      }
     }
   };
 
@@ -407,14 +446,15 @@ export default function PhoneVerificationPage() {
               {/* OTP Input */}
               {codeSent && (
                 <>
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-center gap-2" role="group" aria-label="Verification code input">
                     {otpCode.map((digit, index) => (
                       <Input
                         key={index}
                         ref={(el) => (otpInputRefs.current[index] = el)}
                         type="text"
                         inputMode="numeric"
-                        maxLength={1}
+                        autoComplete={index === 0 ? "one-time-code" : "off"}
+                        aria-label={`Digit ${index + 1} of 6`}
                         value={digit}
                         onChange={(e) => handleOtpChange(index, e.target.value)}
                         onKeyDown={(e) => handleOtpKeyDown(index, e)}

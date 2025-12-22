@@ -92,7 +92,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                         setIsOpen(false);
                         navigate('/login');
                       }}
-                      className="border-navy-700 text-slate-300 hover:bg-navy-800 w-full rounded-full py-6 text-lg"
+                      className="border-gold-500 text-gold-400 hover:bg-gold-500/10 hover:text-gold-300 w-full rounded-full py-6 text-lg font-medium"
                     >
                       Sign In
                     </Button>
@@ -135,15 +135,19 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             <div>
               <h3 className="font-display font-semibold text-white mb-4">Legal</h3>
               <ul className="space-y-3 text-sm">
-                <li><a href="#" className="text-slate-400 hover:text-gold-400 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-gold-400 transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-gold-400 transition-colors">Medical Disclaimer</a></li>
+                <li><Link to="/legal/privacy" className="text-slate-400 hover:text-gold-400 transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/legal/terms" className="text-slate-400 hover:text-gold-400 transition-colors">Terms of Service</Link></li>
+                <li><Link to="/legal/medical-disclaimer" className="text-slate-400 hover:text-gold-400 transition-colors">Medical Disclaimer</Link></li>
+                <li><Link to="/legal/assumption-of-risk" className="text-slate-400 hover:text-gold-400 transition-colors">Assumption of Risk</Link></li>
+                <li><Link to="/legal/refunds" className="text-slate-400 hover:text-gold-400 transition-colors">Refund Policy</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-display font-semibold text-white mb-4">Contact</h3>
+              <h3 className="font-display font-semibold text-white mb-4">Resources</h3>
               <ul className="space-y-3 text-sm">
-                <li><a href="#" className="text-slate-400 hover:text-gold-400 transition-colors">Support</a></li>
+                <li><Link to="/legal/cookies" className="text-slate-400 hover:text-gold-400 transition-colors">Cookie Policy</Link></li>
+                <li><Link to="/legal/accessibility" className="text-slate-400 hover:text-gold-400 transition-colors">Accessibility</Link></li>
+                <li><a href="mailto:support@craveoptimalhealth.com" className="text-slate-400 hover:text-gold-400 transition-colors">Contact Support</a></li>
                 <li><Link to="/login" className="text-slate-400 hover:text-gold-400 transition-colors">Sign In</Link></li>
               </ul>
             </div>

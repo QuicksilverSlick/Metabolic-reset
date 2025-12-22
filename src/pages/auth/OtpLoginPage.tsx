@@ -106,8 +106,30 @@ export function OtpLoginPage() {
   };
 
   const handleCodeChange = (index: number, value: string) => {
-    // Only allow digits
-    const digit = value.replace(/\D/g, '').slice(-1);
+    // Handle paste via onChange (some browsers/devices trigger this instead of onPaste)
+    const cleanedValue = value.replace(/\D/g, '');
+
+    // If more than one digit, treat as paste
+    if (cleanedValue.length > 1) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < Math.min(cleanedValue.length, 6); i++) {
+        newCode[i] = cleanedValue[i];
+      }
+      setCode(newCode);
+      setError(null);
+
+      // Focus appropriate input and auto-submit if complete
+      if (cleanedValue.length >= 6) {
+        inputRefs.current[5]?.focus();
+        setTimeout(() => handleVerifyOtp(newCode), 100);
+      } else {
+        inputRefs.current[cleanedValue.length]?.focus();
+      }
+      return;
+    }
+
+    // Single digit entry
+    const digit = cleanedValue.slice(-1);
     const newCode = [...code];
     newCode[index] = digit;
     setCode(newCode);
@@ -133,22 +155,37 @@ export function OtpLoginPage() {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
+    // Arrow key navigation
+    if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < 5) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
   };
 
   const handleCodePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pastedData) {
-      const newCode = [...code];
+      const newCode = ['', '', '', '', '', ''];
       for (let i = 0; i < pastedData.length; i++) {
         newCode[i] = pastedData[i];
       }
       setCode(newCode);
       // Clear any existing error when user pastes
       setError(null);
-      // Focus the next empty input or the last one
-      const nextEmpty = newCode.findIndex(d => !d);
-      inputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
+
+      // Focus the last filled input and auto-submit if complete
+      if (pastedData.length >= 6) {
+        inputRefs.current[5]?.focus();
+        setTimeout(() => handleVerifyOtp(newCode), 100);
+      } else {
+        const nextEmpty = newCode.findIndex(d => !d);
+        inputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
+      }
     }
   };
 
@@ -290,7 +327,7 @@ export function OtpLoginPage() {
                       </Alert>
                     )}
 
-                    <div className="flex justify-center gap-2 sm:gap-3">
+                    <div className="flex justify-center gap-2 sm:gap-3" role="group" aria-label="Verification code input">
                       {code.map((digit, index) => {
                         const allDigitsEntered = code.every(d => d !== '');
                         return (
@@ -299,7 +336,8 @@ export function OtpLoginPage() {
                             ref={(el) => (inputRefs.current[index] = el)}
                             type="text"
                             inputMode="numeric"
-                            maxLength={1}
+                            autoComplete={index === 0 ? "one-time-code" : "off"}
+                            aria-label={`Digit ${index + 1} of 6`}
                             value={digit}
                             onChange={(e) => handleCodeChange(index, e.target.value)}
                             onKeyDown={(e) => handleCodeKeyDown(index, e)}
