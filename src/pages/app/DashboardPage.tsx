@@ -127,6 +127,25 @@ export function DashboardPage() {
     });
   }, []);
 
+  // PWA Install tracking callbacks
+  const handlePWAPromptShown = useCallback(() => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'prompt_shown').catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handlePWADismissed = useCallback(() => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'prompt_dismissed').catch(() => {});
+    }
+  }, [user?.id]);
+
+  const handlePWAInstalled = useCallback((source: 'android' | 'ios' | 'desktop') => {
+    if (user?.id) {
+      userApi.trackPWAEvent(user.id, 'installed', source).catch(() => {});
+    }
+  }, [user?.id]);
+
   // Check if all habits are completed to trigger big celebration
   const triggerAllCompleteConfetti = useCallback(() => {
     const duration = 2000;
@@ -271,25 +290,6 @@ export function DashboardPage() {
   // Clamp values for display
   const dayDisplay = day > 28 ? 28 : (day < 1 ? 0 : day);
   const progressDisplay = Math.max(0, Math.min(100, progressPercentage));
-
-  // PWA Install tracking callbacks
-  const handlePWAPromptShown = useCallback(() => {
-    if (user?.id) {
-      userApi.trackPWAEvent(user.id, 'prompt_shown').catch(() => {});
-    }
-  }, [user?.id]);
-
-  const handlePWADismissed = useCallback(() => {
-    if (user?.id) {
-      userApi.trackPWAEvent(user.id, 'prompt_dismissed').catch(() => {});
-    }
-  }, [user?.id]);
-
-  const handlePWAInstalled = useCallback((source: 'android' | 'ios' | 'desktop') => {
-    if (user?.id) {
-      userApi.trackPWAEvent(user.id, 'installed', source).catch(() => {});
-    }
-  }, [user?.id]);
 
   return (
     <div className="space-y-8">

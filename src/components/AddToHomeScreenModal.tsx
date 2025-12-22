@@ -86,7 +86,7 @@ export function AddToHomeScreenModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDismiss()}>
-      <DialogContent className="sm:max-w-md bg-navy-900 border-navy-700">
+      <DialogContent className="sm:max-w-md bg-navy-900 border-navy-700" aria-describedby="pwa-install-description">
         {showSuccess ? (
           // Success state
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -117,7 +117,7 @@ export function AddToHomeScreenModal({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
+            <div id="pwa-install-description" className="space-y-4 py-4">
               {/* Value proposition */}
               <p className="text-slate-400 text-center">
                 Add Metabolic Reset to your home screen for instant access to your daily habits,
