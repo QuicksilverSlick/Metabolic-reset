@@ -18,12 +18,20 @@ declare global {
 export type InstallSource = 'android' | 'ios' | 'desktop';
 
 interface UsePWAInstallReturn {
-  /** Whether the app can be installed (prompt available or iOS) */
+  /** Whether the app can be installed (prompt available or iOS/Android) */
   canInstall: boolean;
+  /** Whether this is a platform that supports PWA install (may need to wait for prompt) */
+  isPWACapable: boolean;
   /** Whether the app is already installed (running in standalone mode) */
   isInstalled: boolean;
   /** Whether this is an iOS device (requires manual install instructions) */
   isIOS: boolean;
+  /** Whether this is an Android device */
+  isAndroid: boolean;
+  /** Whether this is a desktop browser */
+  isDesktop: boolean;
+  /** Whether the native install prompt is available */
+  hasNativePrompt: boolean;
   /** The platform type for analytics */
   installSource: InstallSource;
   /** Trigger the native install prompt (Android/Desktop only) */
@@ -34,8 +42,11 @@ interface UsePWAInstallReturn {
  * Hook for managing PWA installation
  * Handles both the native beforeinstallprompt (Android/Desktop) and iOS detection
  */
+// Store the deferred prompt globally so it persists across re-renders and can be accessed synchronously
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+
 export function usePWAInstall(): UsePWAInstallReturn {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(globalDeferredPrompt);
   const [isInstalled, setIsInstalled] = useState(false);
 
   // Detect platform
@@ -68,6 +79,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
     // Capture the beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
+      globalDeferredPrompt = e;
       setDeferredPrompt(e);
     };
 
@@ -108,13 +120,23 @@ export function usePWAInstall(): UsePWAInstallReturn {
     }
   }, [deferredPrompt]);
 
-  // Can install if we have a deferred prompt (Android/Desktop) or it's iOS (manual install)
-  const canInstall = !isInstalled && (deferredPrompt !== null || isIOS);
+  // Can install if we have a deferred prompt (Android/Desktop) or it's iOS/Android (manual install)
+  const hasNativePrompt = deferredPrompt !== null;
+  const isDesktop = !isIOS && !isAndroid;
+  const canInstall = !isInstalled && (hasNativePrompt || isIOS || isAndroid);
+
+  // isPWACapable means the platform supports PWA install (prompt may come later on desktop/Android)
+  // This is true for all platforms except installed state
+  const isPWACapable = !isInstalled;
 
   return {
     canInstall,
+    isPWACapable,
     isInstalled,
     isIOS,
+    isAndroid,
+    isDesktop,
+    hasNativePrompt,
     installSource,
     promptInstall,
   };

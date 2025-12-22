@@ -887,12 +887,13 @@ export function QuizPage() {
     // Generate or reuse idempotency key for this payment session
     // Key includes leadId, role, and amount to ensure unique payments per combination
     // but same key if user refreshes during the same session
-    let idempotencyKey = sessionStorage.getItem('quizPaymentIdempotencyKey');
+    const storageKeyName = `quizPaymentIdempotencyKey_${role}_${amount}`;
+    let idempotencyKey = sessionStorage.getItem(storageKeyName);
     if (!idempotencyKey) {
       // Create a unique key based on lead + role + amount + timestamp
       const keyBase = `quiz_${leadId || 'unknown'}_${role}_${amount}_${Date.now()}`;
       idempotencyKey = keyBase;
-      sessionStorage.setItem('quizPaymentIdempotencyKey', idempotencyKey);
+      sessionStorage.setItem(storageKeyName, idempotencyKey);
     }
 
     console.log(`Creating payment intent for role: ${role}, amount: $${amount / 100}, idempotencyKey: ${idempotencyKey.substring(0, 20)}...`);
