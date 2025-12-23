@@ -899,7 +899,15 @@ export function QuizPage() {
     console.log(`Creating payment intent for role: ${role}, amount: $${amount / 100}, idempotencyKey: ${idempotencyKey.substring(0, 20)}...`);
 
     try {
-      const { clientSecret: secret, mock } = await paymentApi.createIntent(amount, idempotencyKey);
+      // Include user metadata for Stripe tracking (name, phone, email, role)
+      const metadata = {
+        name: leadData?.name,
+        phone: leadData?.phone,
+        email: email || undefined,
+        role: role === 'group_leader' ? 'coach' : 'challenger'
+      };
+
+      const { clientSecret: secret, mock } = await paymentApi.createIntent(amount, idempotencyKey, metadata);
       if (mock) {
         setIsMockPayment(true);
       } else if (secret) {
@@ -931,8 +939,16 @@ export function QuizPage() {
       sessionStorage.removeItem('quizPaymentIntentId');
       sessionStorage.removeItem('quizPaymentIdempotencyKey');
       sessionStorage.removeItem('quizRegistrationCompleted');
+      sessionStorage.removeItem('quizRegistrationInProgress');
       // Redirect to onboarding (they should already be logged in)
       navigate('/app/onboarding/profile');
+      return;
+    }
+
+    // Prevent double-clicks while registration is in progress
+    // This is separate from "completed" - allows retry if the API call fails
+    if (sessionStorage.getItem('quizRegistrationInProgress') === 'true') {
+      console.log('Registration already in progress, ignoring duplicate call');
       return;
     }
 
@@ -943,13 +959,16 @@ export function QuizPage() {
       return;
     }
 
-    // Mark registration as in-progress BEFORE the API call
-    // This prevents race conditions if this function is called twice quickly
-    sessionStorage.setItem('quizRegistrationCompleted', 'true');
+    // Mark registration as in-progress (NOT completed yet)
+    // This prevents double-clicks but allows retry if the API fails
+    sessionStorage.setItem('quizRegistrationInProgress', 'true');
 
     setIsProcessingPayment(true);
     setEmailError(null);
     try {
+      // Get payment intent ID for idempotency (if payment was made)
+      const paymentIntentId = sessionStorage.getItem('quizPaymentIntentId');
+
       // Register the user (convert lead to user)
       const result = await usersApi.register({
         name: leadData.name,
@@ -960,8 +979,12 @@ export function QuizPage() {
         hasScale,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         projectId: projectIdFromUrl || undefined,
-        couponCode: couponApplied?.bypassPayment ? couponCode : undefined
+        couponCode: couponApplied?.bypassPayment ? couponCode : undefined,
+        paymentIntentId: paymentIntentId || undefined // For idempotency on backend
       });
+
+      // SUCCESS: Now mark as completed (prevents any future retries)
+      sessionStorage.setItem('quizRegistrationCompleted', 'true');
 
       // Log the user in
       if (result.user) {
@@ -972,7 +995,8 @@ export function QuizPage() {
       sessionStorage.removeItem('quizPaymentCompleted');
       sessionStorage.removeItem('quizPaymentIntentId');
       sessionStorage.removeItem('quizPaymentIdempotencyKey');
-      sessionStorage.removeItem('quizRegistrationCompleted');
+      sessionStorage.removeItem('quizRegistrationInProgress');
+      // Note: quizRegistrationCompleted is cleared on next page load or redirect
 
       // Trigger celebration confetti
       confetti({
@@ -997,9 +1021,22 @@ export function QuizPage() {
       }
     } catch (err) {
       console.error('Registration failed:', err);
-      // Clear the registration flag so user can retry
-      sessionStorage.removeItem('quizRegistrationCompleted');
-      setStripeError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      // Clear the in-progress flag so user can retry
+      // Note: We do NOT clear quizPaymentCompleted - payment was successful, just registration failed
+      sessionStorage.removeItem('quizRegistrationInProgress');
+
+      // Check if this is a "user already exists" error - means registration actually succeeded
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      if (errorMessage.includes('already exists')) {
+        // User was created, likely a network timeout on the response
+        // Clear everything and redirect to login
+        sessionStorage.removeItem('quizPaymentCompleted');
+        sessionStorage.removeItem('quizPaymentIntentId');
+        sessionStorage.removeItem('quizPaymentIdempotencyKey');
+        setStripeError('Your account was created! Please log in with your phone number.');
+      } else {
+        setStripeError(errorMessage);
+      }
     } finally {
       setIsProcessingPayment(false);
     }

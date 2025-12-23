@@ -29,9 +29,13 @@ import {
   useAdminPermanentDeleteUser,
   useAdminClearOtp,
   useAdminFindDuplicates,
-  useAdminMergeUsers
+  useAdminMergeUsers,
+  useStartImpersonation,
+  useAllCoaches,
+  useReassignCaptain,
+  useBulkReassignCaptain
 } from '@/hooks/use-queries';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Shield,
   ShieldCheck,
@@ -48,6 +52,7 @@ import {
   Crown,
   Eye,
   X,
+  UserCog,
   Calendar,
   Scale,
   Droplets,
@@ -89,7 +94,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Copy,
-  Check
+  Check,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,6 +155,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ContentManager } from '@/components/admin/ContentManager';
+import { DocsTab } from '@/components/admin/docs';
+import { BugAIAnalysisPanel } from '@/components/admin/BugAIAnalysisPanel';
+import { PaymentsTab } from '@/components/admin/PaymentsTab';
 
 // Common US timezones
 const US_TIMEZONES = [
@@ -176,6 +185,19 @@ export function AdminPage() {
   const { data: duplicatesData, isLoading: duplicatesLoading, refetch: refetchDuplicates, isFetching: duplicatesFetching, error: duplicatesError } = useAdminFindDuplicates();
   const mergeUsersMutation = useAdminMergeUsers();
 
+  // Impersonation and captain reassignment
+  const startImpersonationMutation = useStartImpersonation();
+  const { data: coachesData, isLoading: coachesLoading } = useAllCoaches();
+  const reassignCaptainMutation = useReassignCaptain();
+  const bulkReassignMutation = useBulkReassignCaptain();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Read URL params for tab and doc navigation (for opening docs in new tab)
+  const urlTab = searchParams.get('tab');
+  const urlSection = searchParams.get('section');
+  const urlArticle = searchParams.get('article');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'name' | 'points' | 'createdAt'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -186,7 +208,9 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'settings' | 'genealogy' | 'deleted' | 'duplicates'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'payments' | 'settings' | 'genealogy' | 'deleted' | 'duplicates' | 'docs'>(
+    urlTab === 'docs' ? 'docs' : 'users'
+  );
 
   // Delete user state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -218,6 +242,13 @@ export function AdminPage() {
 
   // Quiz link copy state
   const [copiedQuizLink, setCopiedQuizLink] = useState(false);
+
+  // Captain reassignment state
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [selectedCaptainId, setSelectedCaptainId] = useState<string | null>(null);
+  const [bulkSelectedUserIds, setBulkSelectedUserIds] = useState<string[]>([]);
+  const [bulkReassignDialogOpen, setBulkReassignDialogOpen] = useState(false);
+  const [bulkSelectedCaptainId, setBulkSelectedCaptainId] = useState<string | null>(null);
 
   // Project management state
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -299,6 +330,11 @@ export function AdminPage() {
       setPointSettingsInitialized(true);
     }
   }, [pointSettings, pointSettingsInitialized]);
+
+  // State for navigating to specific docs from bug analysis
+  // Initialize from URL params if present (for opening docs in new tab)
+  const [targetDocSection, setTargetDocSection] = useState<string | null>(urlSection);
+  const [targetDocArticle, setTargetDocArticle] = useState<string | null>(urlArticle);
 
   // Form state for edit dialog
   const [editPoints, setEditPoints] = useState(0);
@@ -968,6 +1004,17 @@ export function AdminPage() {
             )}
           </button>
           <button
+            onClick={() => setActiveTab('payments')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'payments'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <CreditCard className="h-4 w-4 inline mr-1.5" />
+            Payments
+          </button>
+          <button
             onClick={() => setActiveTab('genealogy')}
             className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'genealogy'
@@ -1020,6 +1067,17 @@ export function AdminPage() {
                 {stats.duplicateSets}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('docs')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'docs'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <BookOpen className="h-4 w-4 inline mr-1.5" />
+            Docs
           </button>
         </div>
       </div>
@@ -1158,11 +1216,51 @@ export function AdminPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Bulk Actions Bar */}
+            {bulkSelectedUserIds.length > 0 && (
+              <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {bulkSelectedUserIds.length} user{bulkSelectedUserIds.length !== 1 ? 's' : ''} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBulkSelectedUserIds([])}
+                  >
+                    Clear Selection
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setBulkReassignDialogOpen(true)}
+                  >
+                    <UserCog className="h-4 w-4 mr-1" />
+                    Bulk Reassign Captain
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Desktop Table View - Hidden on mobile */}
             <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                        checked={bulkSelectedUserIds.length === paginatedUsers.filter(u => !u.isAdmin).length && paginatedUsers.filter(u => !u.isAdmin).length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setBulkSelectedUserIds(paginatedUsers.filter(u => !u.isAdmin).map(u => u.id));
+                          } else {
+                            setBulkSelectedUserIds([]);
+                          }
+                        }}
+                        title="Select all on this page"
+                      />
+                    </TableHead>
                     <TableHead
                       className="cursor-pointer hover:bg-slate-50 dark:hover:bg-navy-800"
                       onClick={() => handleSort('name')}
@@ -1185,6 +1283,22 @@ export function AdminPage() {
                 <TableBody>
                   {paginatedUsers.map((user) => (
                     <TableRow key={user.id}>
+                      <TableCell>
+                        {!user.isAdmin && (
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                            checked={bulkSelectedUserIds.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setBulkSelectedUserIds([...bulkSelectedUserIds, user.id]);
+                              } else {
+                                setBulkSelectedUserIds(bulkSelectedUserIds.filter(id => id !== user.id));
+                              }
+                            }}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
@@ -1730,6 +1844,11 @@ export function AdminPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Payments Tab */}
+      {activeTab === 'payments' && currentUser && (
+        <PaymentsTab userId={currentUser.id} users={users} />
       )}
 
       {/* Genealogy Tab */}
@@ -2292,6 +2411,13 @@ export function AdminPage() {
                 </CardContent>
               </Card>
 
+              {/* AI Bug Analysis */}
+              <BugAIAnalysisPanel
+                bugId={selectedBug.id}
+                hasScreenshot={!!selectedBug.screenshotUrl && selectedBug.screenshotUrl.length > 0}
+                hasVideo={!!selectedBug.videoUrl && selectedBug.videoUrl.length > 0}
+              />
+
               {/* Admin Notes */}
               <Card>
                 <CardHeader className="pb-3">
@@ -2454,6 +2580,59 @@ export function AdminPage() {
                     <span className="text-slate-500">Admin:</span>
                     <span>{userDetails.user.isAdmin ? 'Yes' : 'No'}</span>
                   </div>
+                  {/* Payment Verification - Source of Truth */}
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-slate-500 font-medium">Payment Status:</span>
+                      {userDetails.user.stripePaymentId ? (
+                        <Badge className="bg-green-600 text-white">
+                          Verified
+                        </Badge>
+                      ) : userDetails.user.couponCodeUsed ? (
+                        <Badge className="bg-blue-600 text-white">
+                          Coupon: {userDetails.user.couponCodeUsed}
+                        </Badge>
+                      ) : userDetails.user.role === 'coach' ? (
+                        <Badge variant="secondary">
+                          Coach (Free)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                          No Payment Record
+                        </Badge>
+                      )}
+                    </div>
+                    {userDetails.user.stripePaymentId && (
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Amount:</span>
+                          <span className="font-mono text-green-600">
+                            ${((userDetails.user.stripePaymentAmount || 0) / 100).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Stripe ID:</span>
+                          <a
+                            href={`https://dashboard.stripe.com/payments/${userDetails.user.stripePaymentId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-blue-500 hover:underline"
+                          >
+                            {userDetails.user.stripePaymentId.slice(0, 20)}...
+                          </a>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Paid:</span>
+                          <span>
+                            {userDetails.user.stripePaymentAt
+                              ? new Date(userDetails.user.stripePaymentAt).toLocaleString()
+                              : 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* PWA Install Status */}
                   <div className="pt-2 border-t">
                     <div className="flex justify-between items-center">
@@ -2474,6 +2653,70 @@ export function AdminPage() {
                       </p>
                     )}
                   </div>
+
+                  {/* Captain Assignment */}
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Captain:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">
+                          {userDetails.user.captainId
+                            ? (users?.find(u => u.id === userDetails.user.captainId)?.name || 'Unknown')
+                            : 'None assigned'}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCaptainId(userDetails.user.captainId || null);
+                            setReassignDialogOpen(true);
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <UserCog className="h-3 w-3 mr-1" />
+                          {userDetails.user.captainId ? 'Reassign' : 'Assign'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* View As User Button */}
+                  {!userDetails.user.isAdmin && (
+                    <div className="pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          console.log('[Impersonation] Starting for user:', userDetails.user.id, userDetails.user.name);
+                          startImpersonationMutation.mutate({
+                            targetUserId: userDetails.user.id,
+                            reason: 'Tech support from admin panel'
+                          }, {
+                            onSuccess: (data) => {
+                              console.log('[Impersonation] Success:', data);
+                              setDetailSheetOpen(false);
+                              navigate('/app');
+                            },
+                            onError: (error) => {
+                              console.error('[Impersonation] Error:', error);
+                            }
+                          });
+                        }}
+                        disabled={startImpersonationMutation.isPending}
+                        className="w-full bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/50 text-amber-600 dark:text-amber-400"
+                      >
+                        {startImpersonationMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Eye className="h-4 w-4 mr-2" />
+                        )}
+                        View As This User
+                      </Button>
+                      <p className="text-xs text-slate-400 mt-1 text-center">
+                        View-only mode for tech support
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -3367,6 +3610,18 @@ export function AdminPage() {
         </Card>
       )}
 
+      {/* Docs Tab */}
+      {activeTab === 'docs' && (
+        <DocsTab
+          targetSection={targetDocSection}
+          targetArticle={targetDocArticle}
+          onClearTarget={() => {
+            setTargetDocSection(null);
+            setTargetDocArticle(null);
+          }}
+        />
+      )}
+
       {/* Delete User Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -3440,6 +3695,138 @@ export function AdminPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Captain Reassignment Dialog */}
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog className="h-5 w-5" />
+              {userDetails?.user?.captainId ? 'Reassign Captain' : 'Assign Captain'}
+            </DialogTitle>
+            <DialogDescription>
+              Select a captain for {userDetails?.user?.name || 'this user'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="captain-select">Captain</Label>
+            <Select
+              value={selectedCaptainId || 'none'}
+              onValueChange={(value) => setSelectedCaptainId(value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select a captain" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-slate-500">No captain (remove assignment)</span>
+                </SelectItem>
+                {coachesData?.coaches?.map((coach) => (
+                  <SelectItem key={coach.id} value={coach.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{coach.name}</span>
+                      <span className="text-xs text-slate-500 ml-2">
+                        ({coach.teamSize} members)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (detailUserId) {
+                  reassignCaptainMutation.mutate({
+                    targetUserId: detailUserId,
+                    newCaptainId: selectedCaptainId
+                  }, {
+                    onSuccess: () => setReassignDialogOpen(false)
+                  });
+                }
+              }}
+              disabled={reassignCaptainMutation.isPending}
+            >
+              {reassignCaptainMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {selectedCaptainId ? 'Assign Captain' : 'Remove Captain'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Captain Reassignment Dialog */}
+      <Dialog open={bulkReassignDialogOpen} onOpenChange={setBulkReassignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Bulk Reassign Captains
+            </DialogTitle>
+            <DialogDescription>
+              Reassign {bulkSelectedUserIds.length} selected users to a new captain
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="bulk-captain-select">New Captain</Label>
+            <Select
+              value={bulkSelectedCaptainId || 'none'}
+              onValueChange={(value) => setBulkSelectedCaptainId(value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select a captain" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-slate-500">No captain (remove assignment)</span>
+                </SelectItem>
+                {coachesData?.coaches?.map((coach) => (
+                  <SelectItem key={coach.id} value={coach.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{coach.name}</span>
+                      <span className="text-xs text-slate-500 ml-2">
+                        ({coach.teamSize} members)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setBulkReassignDialogOpen(false);
+              setBulkSelectedUserIds([]);
+            }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                bulkReassignMutation.mutate({
+                  userIds: bulkSelectedUserIds,
+                  newCaptainId: bulkSelectedCaptainId
+                }, {
+                  onSuccess: () => {
+                    setBulkReassignDialogOpen(false);
+                    setBulkSelectedUserIds([]);
+                  }
+                });
+              }}
+              disabled={bulkReassignMutation.isPending}
+            >
+              {bulkReassignMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Reassign {bulkSelectedUserIds.length} Users
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
   BugReportSubmitRequest,
   BugReportUpdateRequest,
   BugStatus,
+  BugAIAnalysis,
+  AnalyzeBugRequest,
   SendOtpRequest,
   SendOtpResponse,
   VerifyOtpRequest,
@@ -33,7 +35,9 @@ import {
   CourseOverview,
   DayContentWithProgress,
   QuizResultResponse,
-  ContentComment
+  ContentComment,
+  Notification,
+  ImpersonationSession
 } from '@shared/types';
 export const authApi = {
   register: (data: RegisterRequest) =>
@@ -51,10 +55,15 @@ export const authApi = {
 
 // Payment API - for creating payment intents
 export const paymentApi = {
-  createIntent: (amount: number, idempotencyKey?: string) =>
+  createIntent: (amount: number, idempotencyKey?: string, metadata?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    role?: string;
+  }) =>
     api<{ clientSecret: string | null; mock: boolean }>('/api/create-payment-intent', {
       method: 'POST',
-      body: JSON.stringify({ amount, idempotencyKey })
+      body: JSON.stringify({ amount, idempotencyKey, metadata })
     }),
 };
 
@@ -325,6 +334,39 @@ export const adminApi = {
     }>('/api/admin/users/merge', {
       method: 'POST',
       body: JSON.stringify({ primaryUserId, secondaryUserId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Get recent Stripe payments (for linking orphan payments)
+  getStripePayments: (adminUserId: string, limit?: number, startingAfter?: string) =>
+    api<{
+      payments: Array<{
+        id: string;
+        amount: number;
+        amountFormatted: string;
+        status: string;
+        createdAt: number;
+        metadata: { name?: string; phone?: string; email?: string; role?: string };
+        receiptEmail?: string;
+        cardLast4: string | null;
+        cardBrand: string | null;
+        billingName: string | null;
+        billingEmail: string | null;
+        linkedUser: { id: string; name: string; phone: string } | null;
+      }>;
+      hasMore: boolean;
+      lastId: string | null;
+    }>(`/api/admin/stripe/payments?limit=${limit || 25}${startingAfter ? `&starting_after=${startingAfter}` : ''}`, {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Link a Stripe payment to a user
+  linkStripePayment: (adminUserId: string, paymentIntentId: string, userId: string) =>
+    api<{
+      message: string;
+      user: { id: string; name: string };
+      payment: { id: string; amount: number; status: string };
+    }>('/api/admin/stripe/link', {
+      method: 'POST',
+      body: JSON.stringify({ paymentIntentId, userId }),
       headers: { 'X-User-ID': adminUserId }
     }),
 };
@@ -719,6 +761,45 @@ export const adminBugApi = {
       method: 'DELETE',
       headers: { 'X-User-ID': adminUserId }
     }),
+
+  // AI Analysis - trigger analysis for a bug
+  analyzeBug: async (adminUserId: string, bugId: string, options?: Partial<AnalyzeBugRequest>) => {
+    console.log('[adminBugApi.analyzeBug] Called');
+    console.log('[adminBugApi.analyzeBug] adminUserId:', adminUserId);
+    console.log('[adminBugApi.analyzeBug] bugId:', bugId);
+    console.log('[adminBugApi.analyzeBug] options:', options);
+
+    const requestBody = JSON.stringify(options || { includeScreenshot: true, includeVideo: true });
+    console.log('[adminBugApi.analyzeBug] Request body:', requestBody);
+
+    const result = await api<{ analysis: BugAIAnalysis }>(`/api/admin/bugs/${bugId}/analyze`, {
+      method: 'POST',
+      body: requestBody,
+      headers: { 'X-User-ID': adminUserId }
+    });
+
+    console.log('[adminBugApi.analyzeBug] Response:', result);
+    if (result.analysis) {
+      console.log('[adminBugApi.analyzeBug] Analysis summary:', result.analysis.summary);
+      console.log('[adminBugApi.analyzeBug] Analysis error:', result.analysis.error);
+      console.log('[adminBugApi.analyzeBug] Analysis confidence:', result.analysis.confidence);
+      console.log('[adminBugApi.analyzeBug] Processing time:', result.analysis.processingTimeMs, 'ms');
+    }
+
+    return result;
+  },
+
+  // AI Analysis - get existing analysis for a bug
+  getBugAnalysis: (adminUserId: string, bugId: string) =>
+    api<{ analysis: BugAIAnalysis | null }>(`/api/admin/bugs/${bugId}/analysis`, {
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // AI Analysis - get all recent analyses
+  getAllAnalyses: (adminUserId: string) =>
+    api<{ analyses: BugAIAnalysis[] }>('/api/admin/ai-analyses', {
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };
 
 // Genealogy API - for viewing referral trees
@@ -939,4 +1020,101 @@ export const contentLikesApi = {
   // Get content details (for polling likes)
   getContent: (userId: string, contentId: string) =>
     api<{ content: CourseContent }>(`/api/course/content/${contentId}`, { headers: { 'X-User-ID': userId } }),
+};
+
+// Notifications API - for in-app notifications
+export const notificationsApi = {
+  // Get user's notifications
+  getNotifications: (userId: string, limit?: number) =>
+    api<{ notifications: Notification[]; unreadCount: number }>(
+      `/api/notifications${limit ? `?limit=${limit}` : ''}`,
+      { headers: { 'X-User-ID': userId } }
+    ),
+
+  // Get unread count (for badge)
+  getUnreadCount: (userId: string) =>
+    api<{ count: number }>('/api/notifications/unread-count', { headers: { 'X-User-ID': userId } }),
+
+  // Mark notification as read
+  markAsRead: (userId: string, notificationId: string) =>
+    api<{ notification: Notification }>(`/api/notifications/${notificationId}/read`, {
+      method: 'POST',
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Mark all notifications as read
+  markAllAsRead: (userId: string) =>
+    api<{ markedCount: number }>('/api/notifications/mark-all-read', {
+      method: 'POST',
+      headers: { 'X-User-ID': userId }
+    }),
+};
+
+// Admin Impersonation API - for viewing user accounts (view-only)
+export const impersonationApi = {
+  // Start impersonation session
+  startSession: (adminUserId: string, targetUserId: string, reason?: string) =>
+    api<{
+      session: ImpersonationSession;
+      targetUser: User;
+    }>('/api/admin/impersonate/start', {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId, reason }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // End impersonation session
+  endSession: (adminUserId: string, sessionId: string) =>
+    api<{ session: ImpersonationSession }>('/api/admin/impersonate/end', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Get audit log of impersonation sessions
+  getAuditLog: (adminUserId: string, limit?: number) =>
+    api<{ sessions: ImpersonationSession[] }>(
+      `/api/admin/impersonate/audit${limit ? `?limit=${limit}` : ''}`,
+      { headers: { 'X-User-ID': adminUserId } }
+    ),
+};
+
+// Admin Captain Reassignment API - for assigning participants to captains
+export const captainApi = {
+  // Get all coaches (for dropdown)
+  getAllCoaches: (adminUserId: string) =>
+    api<{ coaches: Array<{ id: string; name: string; referralCode: string; teamSize: number }> }>(
+      '/api/admin/coaches',
+      { headers: { 'X-User-ID': adminUserId } }
+    ),
+
+  // Reassign a single user to a new captain
+  reassignCaptain: (adminUserId: string, userId: string, newCaptainId: string | null) =>
+    api<{
+      user: User;
+      oldCaptainId: string | null;
+      newCaptainId: string | null;
+      notificationsSent: string[];
+    }>(`/api/admin/users/${userId}/reassign-captain`, {
+      method: 'POST',
+      body: JSON.stringify({ newCaptainId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Bulk reassign multiple users to a new captain
+  bulkReassign: (adminUserId: string, userIds: string[], newCaptainId: string | null) =>
+    api<{
+      reassigned: number;
+      failed: number;
+      results: Array<{
+        userId: string;
+        success: boolean;
+        oldCaptainId: string | null;
+        error?: string;
+      }>;
+    }>('/api/admin/users/bulk-reassign-captain', {
+      method: 'POST',
+      body: JSON.stringify({ userIds, newCaptainId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };

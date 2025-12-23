@@ -29,8 +29,12 @@ import {
   calculateCurrentDay,
   isContentUnlocked,
   ContentCommentEntity,
-  CouponUsageEntity
+  CouponUsageEntity,
+  NotificationEntity,
+  ImpersonationSessionEntity,
+  BugAIAnalysisEntity
 } from './entities';
+import { analyzeBug } from './ai-utils';
 import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress, AddCommentRequest, LikeCommentRequest, LikeContentRequest } from "@shared/types";
 
 // Helper: Convert phone to E.164 format (moved outside for reuse)
@@ -58,10 +62,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     // Cast env to any to access STRIPE_SECRET_KEY which is injected at runtime but not in the core Env type
     const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
     try {
-      const body = await c.req.json() as { amount: number; idempotencyKey?: string };
+      const body = await c.req.json() as {
+        amount: number;
+        idempotencyKey?: string;
+        metadata?: {
+          name?: string;
+          phone?: string;
+          email?: string;
+          role?: string;
+        };
+      };
       // Ensure amount is an integer (cents)
       const amount = Math.floor(Number(body.amount) || 0);
       const idempotencyKey = body.idempotencyKey;
+      const metadata = body.metadata;
 
       // Only bypass for truly free transactions ($0)
       if (amount === 0) {
@@ -88,6 +102,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       } else {
         // Enable automatic payment methods for better compatibility (cards, wallets, etc.) in production
         params.append('automatic_payment_methods[enabled]', 'true');
+      }
+
+      // Add metadata for tracking payments to users (viewable in Stripe dashboard)
+      if (metadata) {
+        if (metadata.name) params.append('metadata[name]', metadata.name);
+        if (metadata.phone) params.append('metadata[phone]', metadata.phone);
+        if (metadata.email) params.append('metadata[email]', metadata.email);
+        if (metadata.role) params.append('metadata[role]', metadata.role);
+        // Also set receipt_email for Stripe receipts
+        if (metadata.email) params.append('receipt_email', metadata.email);
+        console.log(`[PaymentIntent] Attaching metadata: name=${metadata.name}, phone=${metadata.phone}, email=${metadata.email}, role=${metadata.role}`);
       }
 
       // Build headers - include idempotency key if provided
@@ -159,7 +184,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/register', async (c) => {
     try {
       const body = await c.req.json() as any;
-      const { name, email, phone, referralCodeUsed, role, hasScale, projectId, timezone, couponCode } = body;
+      const { name, email, phone, referralCodeUsed, role, hasScale, projectId, timezone, couponCode, paymentIntentId } = body;
       // Email is now optional - can be added later in profile setup
       if (!name || !phone) {
         return c.json({ error: 'Missing required fields' }, 400);
@@ -183,6 +208,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const normalizedPhone = `+1${phoneDigits}`;
 
       // CHECK FOR DUPLICATE PHONE (Primary - Phone is the login mechanism)
+      // This also serves as idempotency - if user already exists, return success with their data
       const existingUserByPhone = await UserEntity.findByPhone(c.env, normalizedPhone);
       if (existingUserByPhone) {
         // Check if this is a deleted user trying to re-register
@@ -191,9 +217,21 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
             error: 'An account with this phone number was recently deactivated. Please contact support to restore your account.'
           }, 409);
         }
-        return c.json({
-          error: 'An account with this phone number already exists. Please login instead.'
-        }, 409);
+
+        // IDEMPOTENCY: If user already exists, this is likely a retry after payment success
+        // Return the existing user data instead of an error - this prevents the "stuck" scenario
+        console.log(`[Register] Idempotent registration - user already exists for phone ${normalizedPhone}, returning existing user`);
+
+        // Find their enrollment to return the correct project ID
+        const userEnrollmentsIndex = new Index(c.env, `user_enrollments:${existingUserByPhone.id}`);
+        const enrolledProjectIds = await userEnrollmentsIndex.list();
+        const enrolledProjectId = enrolledProjectIds.length > 0 ? enrolledProjectIds[0] : null;
+
+        return ok(c, {
+          user: existingUserByPhone,
+          enrolledProjectId,
+          idempotent: true // Flag to indicate this was an idempotent response
+        });
       }
 
       // CHECK FOR DUPLICATE EMAIL (if provided)
@@ -258,6 +296,55 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (role === 'coach') {
         captainId = userId;
       }
+
+      // Fetch Stripe payment details if paymentIntentId was provided
+      let stripePaymentData: {
+        stripePaymentId?: string;
+        stripePaymentAmount?: number;
+        stripePaymentStatus?: 'succeeded' | 'pending' | 'failed';
+        stripePaymentAt?: number;
+      } = {};
+
+      if (paymentIntentId && paymentIntentId !== 'mock') {
+        try {
+          const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
+          if (rawStripeKey) {
+            const stripeKey = rawStripeKey.trim();
+            console.log(`[Register] Fetching Stripe payment details for ${paymentIntentId}`);
+
+            const response = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+              headers: {
+                'Authorization': `Bearer ${stripeKey}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+              }
+            });
+
+            if (response.ok) {
+              const paymentIntent = await response.json() as {
+                id: string;
+                amount: number;
+                status: string;
+                created: number;
+              };
+
+              stripePaymentData = {
+                stripePaymentId: paymentIntent.id,
+                stripePaymentAmount: paymentIntent.amount, // In cents
+                stripePaymentStatus: paymentIntent.status === 'succeeded' ? 'succeeded' :
+                                     paymentIntent.status === 'requires_payment_method' || paymentIntent.status === 'requires_confirmation' ? 'pending' : 'failed',
+                stripePaymentAt: paymentIntent.created * 1000 // Convert to milliseconds
+              };
+              console.log(`[Register] Stripe payment verified: $${(paymentIntent.amount / 100).toFixed(2)} - ${paymentIntent.status}`);
+            } else {
+              console.error(`[Register] Failed to fetch Stripe payment: ${response.status}`);
+            }
+          }
+        } catch (stripeError) {
+          console.error('[Register] Error fetching Stripe payment details:', stripeError);
+          // Don't fail registration if we can't fetch payment details
+        }
+      }
+
       await UserEntity.create(c.env, {
         id: userId,
         phone,
@@ -271,7 +358,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         points: 0,
         createdAt: now,
         isActive: true,
-        couponCodeUsed: validCouponUsed || undefined
+        couponCodeUsed: validCouponUsed || undefined,
+        // Stripe payment tracking
+        ...stripePaymentData
       });
       // If user is a coach, add to CaptainIndex
       if (role === 'coach') {
@@ -2489,6 +2578,201 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // =========================================
+  // Stripe Payment Admin Routes
+  // =========================================
+
+  // Get recent Stripe payments (admin only) - for viewing/linking orphan payments
+  app.get('/api/admin/stripe/payments', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
+      if (!rawStripeKey) {
+        return c.json({ error: 'Stripe not configured' }, 500);
+      }
+      const stripeKey = rawStripeKey.trim();
+
+      // Get query params for filtering
+      const limit = parseInt(c.req.query('limit') || '25');
+      const startingAfter = c.req.query('starting_after');
+
+      // Fetch recent payment intents from Stripe with expanded payment_method
+      const params = new URLSearchParams();
+      params.append('limit', Math.min(limit, 100).toString());
+      params.append('expand[]', 'data.payment_method');
+      params.append('expand[]', 'data.latest_charge');
+      if (startingAfter) params.append('starting_after', startingAfter);
+
+      const response = await fetch(`https://api.stripe.com/v1/payment_intents?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${stripeKey}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as any;
+        return c.json({ error: error.error?.message || 'Failed to fetch Stripe payments' }, 500);
+      }
+
+      const data = await response.json() as {
+        data: Array<{
+          id: string;
+          amount: number;
+          status: string;
+          created: number;
+          metadata?: { name?: string; phone?: string; email?: string; role?: string };
+          receipt_email?: string;
+          payment_method?: {
+            id: string;
+            card?: {
+              brand: string;
+              last4: string;
+              exp_month: number;
+              exp_year: number;
+            };
+          } | string;
+          latest_charge?: {
+            id: string;
+            billing_details?: {
+              name?: string;
+              email?: string;
+              phone?: string;
+            };
+          } | string;
+        }>;
+        has_more: boolean;
+      };
+
+      // Map to a cleaner format and check if linked to a user
+      const payments = await Promise.all(data.data.map(async (pi) => {
+        // Try to find a user with this payment ID
+        let linkedUser = null;
+
+        // Search by metadata phone if available
+        if (pi.metadata?.phone) {
+          const user = await UserEntity.findByPhone(c.env, pi.metadata.phone);
+          if (user) {
+            linkedUser = { id: user.id, name: user.name, phone: user.phone };
+          }
+        }
+
+        // Extract card details if available
+        let cardLast4: string | null = null;
+        let cardBrand: string | null = null;
+        if (pi.payment_method && typeof pi.payment_method === 'object' && pi.payment_method.card) {
+          cardLast4 = pi.payment_method.card.last4;
+          cardBrand = pi.payment_method.card.brand;
+        }
+
+        // Extract billing details from charge if available
+        let billingName: string | null = null;
+        let billingEmail: string | null = null;
+        if (pi.latest_charge && typeof pi.latest_charge === 'object' && pi.latest_charge.billing_details) {
+          billingName = pi.latest_charge.billing_details.name || null;
+          billingEmail = pi.latest_charge.billing_details.email || null;
+        }
+
+        return {
+          id: pi.id,
+          amount: pi.amount,
+          amountFormatted: `$${(pi.amount / 100).toFixed(2)}`,
+          status: pi.status,
+          createdAt: pi.created * 1000,
+          metadata: pi.metadata || {},
+          receiptEmail: pi.receipt_email || billingEmail,
+          cardLast4,
+          cardBrand,
+          billingName,
+          billingEmail,
+          linkedUser
+        };
+      }));
+
+      return ok(c, {
+        payments,
+        hasMore: data.has_more,
+        lastId: payments.length > 0 ? payments[payments.length - 1].id : null
+      });
+    } catch (e: any) {
+      console.error('Stripe payments fetch error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Link a Stripe payment to a user (admin only)
+  app.post('/api/admin/stripe/link', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const { paymentIntentId, userId } = await c.req.json() as {
+        paymentIntentId: string;
+        userId: string;
+      };
+
+      if (!paymentIntentId || !userId) {
+        return bad(c, 'Missing paymentIntentId or userId');
+      }
+
+      const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
+      if (!rawStripeKey) {
+        return c.json({ error: 'Stripe not configured' }, 500);
+      }
+      const stripeKey = rawStripeKey.trim();
+
+      // Fetch the payment intent from Stripe to verify it exists
+      const response = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+        headers: {
+          'Authorization': `Bearer ${stripeKey}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as any;
+        return c.json({ error: error.error?.message || 'Payment not found in Stripe' }, 404);
+      }
+
+      const paymentIntent = await response.json() as {
+        id: string;
+        amount: number;
+        status: string;
+        created: number;
+      };
+
+      // Verify the user exists
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) {
+        return notFound(c, 'User not found');
+      }
+
+      // Update the user with the Stripe payment data
+      await userEntity.patch({
+        stripePaymentId: paymentIntent.id,
+        stripePaymentAmount: paymentIntent.amount,
+        stripePaymentStatus: paymentIntent.status === 'succeeded' ? 'succeeded' : 'pending',
+        stripePaymentAt: paymentIntent.created * 1000
+      });
+
+      console.log(`[Admin] Linked Stripe payment ${paymentIntent.id} to user ${user.name} (${userId}) - $${(paymentIntent.amount / 100).toFixed(2)}`);
+
+      return ok(c, {
+        message: 'Payment linked successfully',
+        user: { id: user.id, name: user.name },
+        payment: {
+          id: paymentIntent.id,
+          amount: paymentIntent.amount,
+          status: paymentIntent.status
+        }
+      });
+    } catch (e: any) {
+      console.error('Stripe link error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
   // Reset Project (Challenge) Routes
   // =========================================
 
@@ -3437,6 +3721,129 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       await bugEntity.delete();
 
       return ok(c, { message: 'Bug report deleted successfully' });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // AI Bug Analysis Routes
+  // =========================================
+
+  // Trigger AI analysis for a bug report (admin only)
+  app.post('/api/admin/bugs/:bugId/analyze', async (c) => {
+    console.log('[API /analyze] ===== STARTING AI ANALYSIS REQUEST =====');
+    const startTime = Date.now();
+
+    try {
+      console.log('[API /analyze] Checking admin access...');
+      const admin = await requireAdmin(c);
+      if (!admin) {
+        console.log('[API /analyze] Admin access denied');
+        return c.json({ error: 'Admin access required' }, 403);
+      }
+      console.log('[API /analyze] Admin verified:', admin.id);
+
+      const bugId = c.req.param('bugId');
+      console.log('[API /analyze] Bug ID:', bugId);
+
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+      console.log('[API /analyze] Bug loaded:', { id: bug.id, title: bug.title, hasScreenshot: !!bug.screenshotUrl, hasVideo: !!bug.videoUrl });
+
+      if (!bug.id) {
+        console.log('[API /analyze] Bug not found');
+        return notFound(c, 'Bug report not found');
+      }
+
+      // Parse request body for options
+      let options: { includeScreenshot?: boolean; includeVideo?: boolean } = {};
+      try {
+        options = await c.req.json();
+        console.log('[API /analyze] Options from body:', options);
+      } catch {
+        // Default options if no body provided
+        options = { includeScreenshot: true, includeVideo: true };
+        console.log('[API /analyze] Using default options:', options);
+      }
+
+      // Create pending analysis record
+      console.log('[API /analyze] Creating pending analysis...');
+      const pendingAnalysis = await BugAIAnalysisEntity.createPending(c.env, bugId);
+      console.log('[API /analyze] Pending analysis created:', pendingAnalysis.id);
+
+      // Mark as processing
+      console.log('[API /analyze] Marking as processing...');
+      await BugAIAnalysisEntity.markProcessing(c.env, pendingAnalysis.id);
+
+      // Run the AI analysis
+      console.log('[API /analyze] Calling analyzeBug()...');
+      const result = await analyzeBug(c.env, bug, options);
+      console.log('[API /analyze] analyzeBug() returned:', {
+        summary: result.summary?.slice(0, 50),
+        hasError: !!result.error,
+        error: result.error,
+        processingTimeMs: result.processingTimeMs
+      });
+
+      // Complete the analysis
+      console.log('[API /analyze] Completing analysis...');
+      await BugAIAnalysisEntity.complete(c.env, pendingAnalysis.id, {
+        analyzedAt: Date.now(),
+        summary: result.summary || '',
+        suggestedCause: result.suggestedCause || '',
+        suggestedSolutions: result.suggestedSolutions || [],
+        screenshotAnalysis: result.screenshotAnalysis,
+        videoAnalysis: result.videoAnalysis,
+        relatedDocs: result.relatedDocs,
+        modelUsed: result.modelUsed || 'unknown',
+        confidence: result.confidence || 'low',
+        processingTimeMs: result.processingTimeMs || 0,
+        error: result.error
+      });
+
+      // Fetch the completed analysis
+      console.log('[API /analyze] Fetching completed analysis...');
+      const completedAnalysis = await BugAIAnalysisEntity.getLatestForBug(c.env, bugId);
+      console.log('[API /analyze] ===== ANALYSIS COMPLETE ===== Total time:', Date.now() - startTime, 'ms');
+
+      return ok(c, { analysis: completedAnalysis });
+    } catch (e: any) {
+      console.error('[API /analyze] ===== ANALYSIS FAILED =====');
+      console.error('[API /analyze] Error:', e.message);
+      console.error('[API /analyze] Stack:', e.stack);
+      console.error('[API /analyze] Total time:', Date.now() - startTime, 'ms');
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get existing AI analysis for a bug (admin only)
+  app.get('/api/admin/bugs/:bugId/analysis', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const bugId = c.req.param('bugId');
+      const analysis = await BugAIAnalysisEntity.getLatestForBug(c.env, bugId);
+
+      if (!analysis) {
+        return ok(c, { analysis: null });
+      }
+
+      return ok(c, { analysis });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get all AI analyses (for admin debugging/monitoring)
+  app.get('/api/admin/ai-analyses', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const analyses = await BugAIAnalysisEntity.getRecent(c.env, 50);
+      return ok(c, { analyses });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -4794,6 +5201,435 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       return ok(c, { content });
     } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ============================================
+  // NOTIFICATION SYSTEM
+  // ============================================
+
+  // Get user's notifications
+  app.get('/api/notifications', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const notifications = await NotificationEntity.findByUser(c.env, userId);
+      const unreadCount = notifications.filter(n => !n.read).length;
+
+      return ok(c, { notifications, unreadCount });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get unread notification count only (for badge)
+  app.get('/api/notifications/unread-count', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const unreadCount = await NotificationEntity.getUnreadCount(c.env, userId);
+      return ok(c, { unreadCount });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Mark a notification as read
+  app.post('/api/notifications/:notificationId/read', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const notificationId = c.req.param('notificationId');
+
+      // Verify notification belongs to user
+      const entity = new NotificationEntity(c.env, notificationId);
+      const notification = await entity.getState();
+
+      if (!notification.id) return notFound(c, 'Notification not found');
+      if (notification.userId !== userId) return c.json({ error: 'Not authorized' }, 403);
+
+      await NotificationEntity.markAsRead(c.env, notificationId);
+      return ok(c, { success: true });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Mark all notifications as read
+  app.post('/api/notifications/mark-all-read', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return c.json({ error: 'User ID required' }, 401);
+
+      const count = await NotificationEntity.markAllAsRead(c.env, userId);
+      return ok(c, { markedRead: count });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ============================================
+  // ADMIN: USER IMPERSONATION (VIEW-ONLY)
+  // ============================================
+
+  // Helper to check if user is admin (reused)
+  const requireAdminForImpersonation = async (c: any): Promise<User | null> => {
+    const userId = c.req.header('X-User-ID');
+    if (!userId) return null;
+    const userEntity = new UserEntity(c.env, userId);
+    const user = await userEntity.getState();
+    if (!user.id || !user.isAdmin) return null;
+    return user;
+  };
+
+  // Start impersonation session (admin only)
+  app.post('/api/admin/impersonate/start', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json<{ targetUserId: string; reason?: string }>();
+      const { targetUserId, reason } = body;
+
+      if (!targetUserId) return bad(c, 'Target user ID required');
+
+      // Get target user
+      const targetEntity = new UserEntity(c.env, targetUserId);
+      const targetUser = await targetEntity.getState();
+
+      if (!targetUser.id) return notFound(c, 'Target user not found');
+
+      // Cannot impersonate other admins
+      if (targetUser.isAdmin) {
+        return bad(c, 'Cannot impersonate admin users');
+      }
+
+      // Create impersonation session for audit
+      const session = await ImpersonationSessionEntity.startSession(
+        c.env,
+        admin.id,
+        admin.name,
+        targetUser.id,
+        targetUser.name,
+        reason
+      );
+
+      // Return target user data for frontend to use
+      return ok(c, {
+        session,
+        targetUser: {
+          id: targetUser.id,
+          name: targetUser.name,
+          email: targetUser.email,
+          phone: targetUser.phone,
+          role: targetUser.role,
+          avatarUrl: targetUser.avatarUrl,
+          currentProjectId: targetUser.currentProjectId
+        }
+      });
+    } catch (e: any) {
+      console.error('Start impersonation error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // End impersonation session
+  app.post('/api/admin/impersonate/end', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json<{ sessionId: string }>();
+      const { sessionId } = body;
+
+      if (!sessionId) return bad(c, 'Session ID required');
+
+      await ImpersonationSessionEntity.endSession(c.env, sessionId);
+      return ok(c, { success: true });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get impersonation audit log (admin only)
+  app.get('/api/admin/impersonate/audit', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const sessions = await ImpersonationSessionEntity.getRecent(c.env, 100);
+      return ok(c, { sessions });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // ============================================
+  // ADMIN: CAPTAIN/TEAM REASSIGNMENT
+  // ============================================
+
+  // Get all coaches (for reassignment dropdown)
+  app.get('/api/admin/coaches', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const captainIndex = new CaptainIndex(c.env);
+      const captainIds = await captainIndex.list();
+
+      const coaches = await Promise.all(
+        captainIds.map(async (id) => {
+          const entity = new UserEntity(c.env, id);
+          const user = await entity.getState();
+          if (!user.id || user.deletedAt) return null;
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            referralCode: user.referralCode,
+            avatarUrl: user.avatarUrl
+          };
+        })
+      );
+
+      return ok(c, {
+        coaches: coaches.filter(Boolean).sort((a, b) => a!.name.localeCompare(b!.name))
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Reassign a user to a different captain (admin only)
+  app.post('/api/admin/users/:userId/reassign-captain', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const body = await c.req.json<{
+        newCaptainId: string | null;
+        projectId?: string;
+        notify?: boolean;
+      }>();
+      const { newCaptainId, projectId, notify = true } = body;
+
+      // Get target user
+      const targetEntity = new UserEntity(c.env, targetUserId);
+      const targetUser = await targetEntity.getState();
+      if (!targetUser.id) return notFound(c, 'User not found');
+
+      // Get old captain info (if any)
+      let oldCaptain: User | null = null;
+      const oldCaptainId = targetUser.captainId;
+      if (oldCaptainId) {
+        const oldCaptainEntity = new UserEntity(c.env, oldCaptainId);
+        oldCaptain = await oldCaptainEntity.getState();
+        if (!oldCaptain.id) oldCaptain = null;
+      }
+
+      // Get new captain info (if provided)
+      let newCaptain: User | null = null;
+      if (newCaptainId) {
+        const newCaptainEntity = new UserEntity(c.env, newCaptainId);
+        newCaptain = await newCaptainEntity.getState();
+        if (!newCaptain.id) return notFound(c, 'New captain not found');
+      }
+
+      // Update user's global captainId
+      await targetEntity.patch({ captainId: newCaptainId });
+
+      // If project specified, also update project enrollment
+      if (projectId) {
+        const enrollmentId = `${projectId}:${targetUserId}`;
+        const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+        const enrollment = await enrollmentEntity.getState();
+        if (enrollment.id) {
+          await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
+        }
+      }
+
+      // Send notifications if requested
+      if (notify) {
+        // Notify the user being reassigned
+        await NotificationEntity.createNotification(
+          c.env,
+          targetUserId,
+          'captain_reassigned',
+          'Team Assignment Changed',
+          newCaptain
+            ? `You have been assigned to ${newCaptain.name}'s team.`
+            : 'You have been removed from your team assignment.',
+          {
+            oldCaptainId,
+            oldCaptainName: oldCaptain?.name,
+            newCaptainId,
+            newCaptainName: newCaptain?.name,
+            adminId: admin.id,
+            adminName: admin.name
+          }
+        );
+
+        // Notify old captain (if there was one)
+        if (oldCaptain && oldCaptainId !== newCaptainId) {
+          await NotificationEntity.createNotification(
+            c.env,
+            oldCaptainId,
+            'team_member_removed',
+            'Team Member Reassigned',
+            `${targetUser.name} has been reassigned to ${newCaptain ? newCaptain.name + "'s team" : 'no team'}.`,
+            {
+              memberId: targetUserId,
+              memberName: targetUser.name,
+              newCaptainId,
+              newCaptainName: newCaptain?.name,
+              adminId: admin.id,
+              adminName: admin.name
+            }
+          );
+        }
+
+        // Notify new captain (if there is one and it's different)
+        if (newCaptain && newCaptainId !== oldCaptainId) {
+          await NotificationEntity.createNotification(
+            c.env,
+            newCaptainId,
+            'new_team_member',
+            'New Team Member',
+            `${targetUser.name} has been added to your team.`,
+            {
+              memberId: targetUserId,
+              memberName: targetUser.name,
+              previousCaptainId: oldCaptainId,
+              previousCaptainName: oldCaptain?.name,
+              adminId: admin.id,
+              adminName: admin.name
+            }
+          );
+        }
+      }
+
+      return ok(c, {
+        success: true,
+        user: {
+          id: targetUser.id,
+          name: targetUser.name,
+          oldCaptainId,
+          newCaptainId
+        }
+      });
+    } catch (e: any) {
+      console.error('Reassign captain error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Bulk reassign multiple users to a captain (admin only)
+  app.post('/api/admin/users/bulk-reassign-captain', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json<{
+        userIds: string[];
+        newCaptainId: string | null;
+        projectId?: string;
+        notify?: boolean;
+      }>();
+      const { userIds, newCaptainId, projectId, notify = true } = body;
+
+      if (!userIds || userIds.length === 0) {
+        return bad(c, 'No user IDs provided');
+      }
+
+      // Get new captain info
+      let newCaptain: User | null = null;
+      if (newCaptainId) {
+        const newCaptainEntity = new UserEntity(c.env, newCaptainId);
+        newCaptain = await newCaptainEntity.getState();
+        if (!newCaptain.id) return notFound(c, 'New captain not found');
+      }
+
+      const results: Array<{ userId: string; success: boolean; error?: string }> = [];
+
+      for (const userId of userIds) {
+        try {
+          const targetEntity = new UserEntity(c.env, userId);
+          const targetUser = await targetEntity.getState();
+
+          if (!targetUser.id) {
+            results.push({ userId, success: false, error: 'User not found' });
+            continue;
+          }
+
+          const oldCaptainId = targetUser.captainId;
+
+          // Update user's captainId
+          await targetEntity.patch({ captainId: newCaptainId });
+
+          // Update project enrollment if specified
+          if (projectId) {
+            const enrollmentId = `${projectId}:${userId}`;
+            const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
+            const enrollment = await enrollmentEntity.getState();
+            if (enrollment.id) {
+              await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
+            }
+          }
+
+          // Send notification to user
+          if (notify) {
+            await NotificationEntity.createNotification(
+              c.env,
+              userId,
+              'captain_reassigned',
+              'Team Assignment Changed',
+              newCaptain
+                ? `You have been assigned to ${newCaptain.name}'s team.`
+                : 'You have been removed from your team assignment.',
+              { oldCaptainId, newCaptainId, newCaptainName: newCaptain?.name }
+            );
+          }
+
+          results.push({ userId, success: true });
+        } catch (err: any) {
+          results.push({ userId, success: false, error: err.message });
+        }
+      }
+
+      // Notify new captain about all new members
+      if (notify && newCaptain && results.filter(r => r.success).length > 0) {
+        const successCount = results.filter(r => r.success).length;
+        await NotificationEntity.createNotification(
+          c.env,
+          newCaptainId!,
+          'new_team_member',
+          'New Team Members Added',
+          `${successCount} member${successCount > 1 ? 's have' : ' has'} been added to your team.`,
+          {
+            memberIds: userIds,
+            count: successCount,
+            adminId: admin.id,
+            adminName: admin.name
+          }
+        );
+      }
+
+      return ok(c, {
+        success: true,
+        results,
+        summary: {
+          total: userIds.length,
+          succeeded: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length
+        }
+      });
+    } catch (e: any) {
+      console.error('Bulk reassign error:', e);
       return c.json({ error: e.message }, 500);
     }
   });

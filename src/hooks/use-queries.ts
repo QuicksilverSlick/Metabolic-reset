@@ -1,26 +1,86 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi, commentsApi, contentLikesApi } from '@/lib/api';
+import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi, commentsApi, contentLikesApi, notificationsApi, impersonationApi, captainApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
 import { ScoreSubmitRequest, BiometricSubmitRequest, RegisterRequest, LoginRequest, User, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugStatus, CohortType, SystemSettings, CreateCourseContentRequest, UpdateCourseContentRequest } from '@shared/types';
+
+// Helper hook: Returns the effective user ID for data fetching
+// When impersonating, returns the impersonated user's ID; otherwise returns the logged-in user's ID
+export function useEffectiveUserId() {
+  const userId = useAuthStore(s => s.userId);
+  const impersonation = useAuthStore(s => s.impersonation);
+
+  // If impersonating, use the impersonated user's ID for data fetching
+  if (impersonation.isImpersonating && impersonation.impersonatedUser?.id) {
+    return impersonation.impersonatedUser.id;
+  }
+  return userId;
+}
+
+// Helper hook: Returns the effective user object for display
+// When impersonating, returns the impersonated user; otherwise returns the logged-in user
+export function useEffectiveUser() {
+  const user = useAuthStore(s => s.user);
+  const impersonation = useAuthStore(s => s.impersonation);
+
+  // If impersonating, return the impersonated user for display
+  if (impersonation.isImpersonating && impersonation.impersonatedUser) {
+    return {
+      data: impersonation.impersonatedUser,
+      isLoading: false,
+      isImpersonating: true,
+    };
+  }
+
+  return {
+    data: user,
+    isLoading: false,
+    isImpersonating: false,
+  };
+}
+
+// Helper hook: Returns whether we are currently impersonating
+// Use this to disable mutations during impersonation (view-only mode)
+export function useIsImpersonating() {
+  const impersonation = useAuthStore(s => s.impersonation);
+  return impersonation.isImpersonating;
+}
+
+// Helper function: Throws error if trying to mutate during impersonation
+function assertNotImpersonating(isImpersonating: boolean) {
+  if (isImpersonating) {
+    throw new Error('Actions are disabled in view-only mode');
+  }
+}
+
+// Fetch user data - but during impersonation, fetch the impersonated user's data
 export function useUser() {
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
+  const impersonation = useAuthStore(s => s.impersonation);
+
+  // During impersonation, we don't want to refetch and sync the admin user
+  // Instead, we'll use the impersonated user data from the store
+  const effectiveUserId = useEffectiveUserId();
+  const isImpersonating = impersonation.isImpersonating;
+
   return useQuery({
-    queryKey: ['user', userId],
+    queryKey: ['user', effectiveUserId],
     queryFn: async () => {
-      if (!userId) return null;
+      if (!effectiveUserId) return null;
       try {
-        const user = await authApi.getMe(userId);
-        login(user); // Sync store with latest data
+        const user = await authApi.getMe(effectiveUserId);
+        // Only sync to store if NOT impersonating (we don't want to overwrite admin's login)
+        if (!isImpersonating) {
+          login(user);
+        }
         return user;
       } catch (error) {
-        // If user not found or error, maybe logout?
         console.error('Failed to fetch user', error);
         return null;
       }
     },
-    enabled: !!userId,
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -30,8 +90,10 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
   const login = useAuthStore(s => s.login);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (updates: { avatarUrl?: string; name?: string; email?: string; phone?: string; timezone?: string; cartLink?: string; hasScale?: boolean }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return userApi.updateProfile(userId, updates);
     },
@@ -46,18 +108,20 @@ export function useUpdateProfile() {
   });
 }
 export function useDailyScore(date: string) {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['score', date, userId],
-    queryFn: () => userId ? scoreApi.getDailyScore(userId, date) : null,
-    enabled: !!userId && !!date,
+    queryKey: ['score', date, effectiveUserId],
+    queryFn: () => effectiveUserId ? scoreApi.getDailyScore(effectiveUserId, date) : null,
+    enabled: !!effectiveUserId && !!date,
   });
 }
 export function useSubmitScore() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (data: ScoreSubmitRequest) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return scoreApi.submitScore(userId, data);
     },
@@ -74,43 +138,43 @@ export function useSubmitScore() {
   });
 }
 export function useWeeklyBiometrics(weekNumber: number) {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['biometrics', weekNumber, userId],
-    queryFn: () => userId ? biometricApi.getBiometrics(userId, weekNumber) : null,
-    enabled: !!userId && weekNumber > 0,
+    queryKey: ['biometrics', weekNumber, effectiveUserId],
+    queryFn: () => effectiveUserId ? biometricApi.getBiometrics(effectiveUserId, weekNumber) : null,
+    enabled: !!effectiveUserId && weekNumber > 0,
   });
 }
 
-// Get all biometrics history for the current user
+// Get all biometrics history for the current user (or impersonated user)
 export function useBiometricsHistory() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['biometrics', 'history', userId],
-    queryFn: () => userId ? biometricApi.getBiometricsHistory(userId) : [],
-    enabled: !!userId,
+    queryKey: ['biometrics', 'history', effectiveUserId],
+    queryFn: () => effectiveUserId ? biometricApi.getBiometricsHistory(effectiveUserId) : [],
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
-// Get daily score history for the current user
+// Get daily score history for the current user (or impersonated user)
 export function useScoreHistory(limit?: number) {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['scores', 'history', userId, limit],
-    queryFn: () => userId ? scoreApi.getScoreHistory(userId, limit) : [],
-    enabled: !!userId,
+    queryKey: ['scores', 'history', effectiveUserId, limit],
+    queryFn: () => effectiveUserId ? scoreApi.getScoreHistory(effectiveUserId, limit) : [],
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes - scores change more frequently
   });
 }
 
-// Get referral activity history for the current user
+// Get referral activity history for the current user (or impersonated user)
 export function useReferralHistory() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['referrals', 'history', userId],
-    queryFn: () => userId ? referralApi.getReferralHistory(userId) : [],
-    enabled: !!userId,
+    queryKey: ['referrals', 'history', effectiveUserId],
+    queryFn: () => effectiveUserId ? referralApi.getReferralHistory(effectiveUserId) : [],
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -118,8 +182,10 @@ export function useReferralHistory() {
 export function useSubmitBiometrics() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (data: BiometricSubmitRequest) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return biometricApi.submitBiometrics(userId, data);
     },
@@ -156,11 +222,11 @@ export function usePaymentIntent() {
   });
 }
 export function useTeamRoster() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['roster', userId],
-    queryFn: () => userId ? rosterApi.getTeamRoster(userId) : [],
-    enabled: !!userId,
+    queryKey: ['roster', effectiveUserId],
+    queryFn: () => effectiveUserId ? rosterApi.getTeamRoster(effectiveUserId) : [],
+    enabled: !!effectiveUserId,
   });
 }
 
@@ -420,14 +486,18 @@ export function useAdminMergeUsers() {
   });
 }
 
-// Quiz Leads hooks - for captains to view their leads from quiz funnel
+// Quiz Leads hooks - for captains to view their leads from quiz funnel (or impersonated user)
 export function useCaptainLeads() {
-  const userId = useAuthStore(s => s.userId);
-  const user = useAuthStore(s => s.user);
+  const effectiveUserId = useEffectiveUserId();
+  const impersonation = useAuthStore(s => s.impersonation);
+  // Use impersonated user's role if impersonating, otherwise use logged-in user
+  const effectiveUser = impersonation.isImpersonating && impersonation.impersonatedUser
+    ? impersonation.impersonatedUser
+    : useAuthStore.getState().user;
   return useQuery({
-    queryKey: ['leads', userId],
-    queryFn: () => userId ? leadsApi.getMyLeads(userId) : [],
-    enabled: !!userId && user?.role === 'coach',
+    queryKey: ['leads', effectiveUserId],
+    queryFn: () => effectiveUserId ? leadsApi.getMyLeads(effectiveUserId) : [],
+    enabled: !!effectiveUserId && effectiveUser?.role === 'coach',
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
@@ -483,14 +553,18 @@ export function useProjectWeek(projectId: string | null) {
   });
 }
 
-// Get group participants for a project (for group leaders)
+// Get group participants for a project (for group leaders or impersonated coach)
 export function useGroupParticipants(projectId: string | null) {
-  const userId = useAuthStore(s => s.userId);
-  const user = useAuthStore(s => s.user);
+  const effectiveUserId = useEffectiveUserId();
+  const impersonation = useAuthStore(s => s.impersonation);
+  // Use impersonated user's role if impersonating, otherwise use logged-in user
+  const effectiveUser = impersonation.isImpersonating && impersonation.impersonatedUser
+    ? impersonation.impersonatedUser
+    : useAuthStore.getState().user;
   return useQuery({
-    queryKey: ['projects', projectId, 'group', userId],
-    queryFn: () => userId && projectId ? projectApi.getGroupParticipants(userId, projectId) : [],
-    enabled: !!userId && !!projectId && user?.role === 'coach',
+    queryKey: ['projects', projectId, 'group', effectiveUserId],
+    queryFn: () => effectiveUserId && projectId ? projectApi.getGroupParticipants(effectiveUserId, projectId) : [],
+    enabled: !!effectiveUserId && !!projectId && effectiveUser?.role === 'coach',
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
@@ -499,13 +573,13 @@ export function useGroupParticipants(projectId: string | null) {
 // Project Enrollment hooks
 // =========================================
 
-// Get current user's enrollments
+// Get current user's enrollments (or impersonated user's)
 export function useMyEnrollments() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['enrollments', userId],
-    queryFn: () => userId ? enrollmentApi.getMyEnrollments(userId) : [],
-    enabled: !!userId,
+    queryKey: ['enrollments', effectiveUserId],
+    queryFn: () => effectiveUserId ? enrollmentApi.getMyEnrollments(effectiveUserId) : [],
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -542,8 +616,10 @@ export function useEnrollment(projectId: string | null) {
 export function useEnrollInProject() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ projectId, groupLeaderId }: { projectId: string; groupLeaderId?: string }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return enrollmentApi.enroll(userId, projectId, groupLeaderId);
     },
@@ -697,8 +773,10 @@ export function useAdminRemoveUserFromProject() {
 export function useSubmitBugReport() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (data: BugReportSubmitRequest) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return bugApi.submitBug(userId, data);
     },
@@ -804,6 +882,84 @@ export function useAdminDeleteBugReport() {
 }
 
 // =========================================
+// AI Bug Analysis hooks
+// =========================================
+
+// Get AI analysis for a specific bug (admin only)
+export function useBugAIAnalysis(bugId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'bugs', bugId, 'analysis'],
+    queryFn: () => adminBugApi.getBugAnalysis(userId!, bugId!),
+    enabled: !!userId && !!user?.isAdmin && !!bugId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Trigger AI analysis for a bug (admin only)
+export function useAnalyzeBug() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: async ({ bugId, options }: { bugId: string; options?: { includeScreenshot?: boolean; includeVideo?: boolean } }) => {
+      console.log('[useAnalyzeBug] Starting mutation');
+      console.log('[useAnalyzeBug] userId:', userId);
+      console.log('[useAnalyzeBug] bugId:', bugId);
+      console.log('[useAnalyzeBug] options:', options);
+
+      if (!userId) {
+        console.error('[useAnalyzeBug] Not authenticated!');
+        throw new Error('Not authenticated');
+      }
+
+      console.log('[useAnalyzeBug] Calling adminBugApi.analyzeBug...');
+      const result = await adminBugApi.analyzeBug(userId, bugId, options);
+      console.log('[useAnalyzeBug] API returned:', result);
+
+      return result;
+    },
+    onSuccess: (data, variables) => {
+      console.log('[useAnalyzeBug] onSuccess called');
+      console.log('[useAnalyzeBug] data:', data);
+      console.log('[useAnalyzeBug] variables:', variables);
+
+      // Check if analysis has an error
+      if (data?.analysis?.error) {
+        console.warn('[useAnalyzeBug] Analysis completed with error:', data.analysis.error);
+        toast.error(`Analysis failed: ${data.analysis.error}`);
+      } else if (data?.analysis?.summary === 'Analysis failed') {
+        console.warn('[useAnalyzeBug] Analysis failed (summary indicates failure)');
+        toast.error('AI analysis failed - check console for details');
+      } else {
+        toast.success('AI analysis complete!');
+      }
+
+      // Update the analysis cache for this bug
+      queryClient.setQueryData(['admin', 'bugs', variables.bugId, 'analysis'], data);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'ai-analyses'] });
+    },
+    onError: (error) => {
+      console.error('[useAnalyzeBug] onError called');
+      console.error('[useAnalyzeBug] error:', error);
+      toast.error(error instanceof Error ? error.message : 'AI analysis failed');
+    }
+  });
+}
+
+// Get all recent AI analyses (admin only)
+export function useAllAIAnalyses() {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'ai-analyses'],
+    queryFn: () => adminBugApi.getAllAnalyses(userId!),
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+// =========================================
 // System Settings hooks
 // =========================================
 
@@ -843,12 +999,14 @@ export function useUpdateSystemSettings() {
 export function useUpdateCohort() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ projectId, cohortId }: { projectId: string; cohortId: CohortType }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return enrollmentApi.updateCohort(userId, projectId, cohortId);
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
       // Don't show toast - onboarding flow will handle navigation
     },
@@ -862,11 +1020,13 @@ export function useUpdateCohort() {
 export function useUpdateOnboarding() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ projectId, updates }: {
       projectId: string;
       updates: { hasKit?: boolean; kitOrderClicked?: boolean; onboardingComplete?: boolean }
     }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return enrollmentApi.updateOnboarding(userId, projectId, updates);
     },
@@ -930,13 +1090,13 @@ export function useCoachInfo(coachId: string | null) {
 // Genealogy hooks
 // =========================================
 
-// Get current user's genealogy tree
+// Get current user's genealogy tree (or impersonated user's)
 export function useMyGenealogy() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['genealogy', 'me', userId],
-    queryFn: () => userId ? genealogyApi.getMyTree(userId) : null,
-    enabled: !!userId,
+    queryKey: ['genealogy', 'me', effectiveUserId],
+    queryFn: () => effectiveUserId ? genealogyApi.getMyTree(effectiveUserId) : null,
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -980,13 +1140,13 @@ export function useAdminGenealogyRoots() {
 // Points Ledger hooks
 // =========================================
 
-// Get current user's point transaction history
+// Get current user's point transaction history (or impersonated user's)
 export function useMyPointsHistory() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['points', 'history', userId],
-    queryFn: () => userId ? pointsApi.getMyHistory(userId) : [],
-    enabled: !!userId,
+    queryKey: ['points', 'history', effectiveUserId],
+    queryFn: () => effectiveUserId ? pointsApi.getMyHistory(effectiveUserId) : [],
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
@@ -1173,24 +1333,24 @@ export function useAdminCopyContent() {
   });
 }
 
-// User: Get course overview
+// User: Get course overview (or impersonated user's)
 export function useCourseOverview() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['course', 'overview', userId],
-    queryFn: () => userId ? courseApi.getOverview(userId) : null,
-    enabled: !!userId,
+    queryKey: ['course', 'overview', effectiveUserId],
+    queryFn: () => effectiveUserId ? courseApi.getOverview(effectiveUserId) : null,
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
-// Get day's content (polls for real-time like updates)
+// Get day's content (polls for real-time like updates) (or impersonated user's)
 export function useDayContent(dayNumber: number | null) {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['course', 'day', dayNumber],
-    queryFn: () => userId && dayNumber ? courseApi.getDayContent(userId, dayNumber) : null,
-    enabled: !!userId && !!dayNumber,
+    queryKey: ['course', 'day', dayNumber, effectiveUserId],
+    queryFn: () => effectiveUserId && dayNumber ? courseApi.getDayContent(effectiveUserId, dayNumber) : null,
+    enabled: !!effectiveUserId && !!dayNumber,
     staleTime: 1000 * 10, // 10 seconds
     refetchInterval: 5000, // Poll every 5 seconds for real-time like updates
     refetchIntervalInBackground: false,
@@ -1201,8 +1361,10 @@ export function useDayContent(dayNumber: number | null) {
 export function useUpdateVideoProgress() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, watchedPercentage, lastPosition }: { contentId: string; watchedPercentage: number; lastPosition: number }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return courseApi.updateVideoProgress(userId, contentId, watchedPercentage, lastPosition);
     },
@@ -1222,8 +1384,10 @@ export function useUpdateVideoProgress() {
 export function useCompleteVideo() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (contentId: string) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return courseApi.completeVideo(userId, contentId);
     },
@@ -1243,8 +1407,10 @@ export function useCompleteVideo() {
 export function useSubmitQuiz() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, answers }: { contentId: string; answers: Record<string, number> }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return courseApi.submitQuiz(userId, contentId, answers);
     },
@@ -1262,13 +1428,13 @@ export function useSubmitQuiz() {
   });
 }
 
-// User: Get all progress
+// User: Get all progress (or impersonated user's)
 export function useCourseProgress() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['course', 'progress', userId],
-    queryFn: () => userId ? courseApi.getProgress(userId) : null,
-    enabled: !!userId,
+    queryKey: ['course', 'progress', effectiveUserId],
+    queryFn: () => effectiveUserId ? courseApi.getProgress(effectiveUserId) : null,
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
@@ -1292,8 +1458,10 @@ export function useContentComments(contentId: string | null) {
 export function useAddComment() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, text }: { contentId: string; text: string }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return commentsApi.addComment(userId, contentId, text);
     },
@@ -1311,8 +1479,10 @@ export function useAddComment() {
 export function useLikeComment() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ commentId, contentId }: { commentId: string; contentId: string }) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return commentsApi.likeComment(userId, commentId);
     },
@@ -1344,8 +1514,10 @@ export function useContentDetails(contentId: string | null) {
 export function useLikeContent() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (contentId: string) => {
+      assertNotImpersonating(isImpersonating);
       if (!userId) throw new Error('Not authenticated');
       return contentLikesApi.likeContent(userId, contentId);
     },
@@ -1355,6 +1527,195 @@ export function useLikeContent() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to like content');
+    }
+  });
+}
+
+// =========================================
+// Notification hooks
+// =========================================
+
+// Get user's notifications
+export function useNotifications(limit?: number) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['notifications', userId, limit],
+    queryFn: () => userId ? notificationsApi.getNotifications(userId, limit) : null,
+    enabled: !!userId,
+    staleTime: 1000 * 30, // 30 seconds
+  });
+}
+
+// Get unread notification count (for badge)
+export function useUnreadNotificationCount() {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['notifications', 'unread-count', userId],
+    queryFn: () => userId ? notificationsApi.getUnreadCount(userId) : { count: 0 },
+    enabled: !!userId,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 1000 * 60, // Poll every minute
+  });
+}
+
+// Mark notification as read
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
+  return useMutation({
+    mutationFn: (notificationId: string) => {
+      assertNotImpersonating(isImpersonating);
+      if (!userId) throw new Error('Not authenticated');
+      return notificationsApi.markAsRead(userId, notificationId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to mark notification as read');
+    }
+  });
+}
+
+// Mark all notifications as read
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  const isImpersonating = useIsImpersonating();
+  return useMutation({
+    mutationFn: () => {
+      assertNotImpersonating(isImpersonating);
+      if (!userId) throw new Error('Not authenticated');
+      return notificationsApi.markAllAsRead(userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to mark all notifications as read');
+    }
+  });
+}
+
+// =========================================
+// Impersonation hooks (admin only)
+// =========================================
+
+// Start impersonation session
+export function useStartImpersonation() {
+  const userId = useAuthStore(s => s.userId);
+  const startImpersonation = useAuthStore(s => s.startImpersonation);
+  return useMutation({
+    mutationFn: ({ targetUserId, reason }: { targetUserId: string; reason?: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return impersonationApi.startSession(userId, targetUserId, reason);
+    },
+    onSuccess: (result) => {
+      startImpersonation(result.targetUser, result.session.id);
+      toast.success(`Now viewing as ${result.targetUser.name}`);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to start impersonation');
+    }
+  });
+}
+
+// End impersonation session
+export function useEndImpersonation() {
+  const userId = useAuthStore(s => s.userId);
+  const impersonation = useAuthStore(s => s.impersonation);
+  const endImpersonation = useAuthStore(s => s.endImpersonation);
+  return useMutation({
+    mutationFn: () => {
+      if (!userId) throw new Error('Not authenticated');
+      if (!impersonation.impersonationSessionId) throw new Error('No active impersonation session');
+      return impersonationApi.endSession(userId, impersonation.impersonationSessionId);
+    },
+    onSuccess: () => {
+      endImpersonation();
+      toast.success('Impersonation session ended');
+    },
+    onError: (error) => {
+      // End locally anyway
+      endImpersonation();
+      console.error('Failed to end impersonation on server:', error);
+    }
+  });
+}
+
+// Get impersonation audit log (admin only)
+export function useImpersonationAuditLog(limit?: number) {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'impersonation', 'audit', limit],
+    queryFn: () => userId ? impersonationApi.getAuditLog(userId, limit) : null,
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// =========================================
+// Captain Reassignment hooks (admin only)
+// =========================================
+
+// Get all coaches for captain dropdown
+export function useAllCoaches() {
+  const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
+  return useQuery({
+    queryKey: ['admin', 'coaches'],
+    queryFn: () => userId ? captainApi.getAllCoaches(userId) : null,
+    enabled: !!userId && !!user?.isAdmin,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+// Reassign a single user to a new captain
+export function useReassignCaptain() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ targetUserId, newCaptainId }: { targetUserId: string; newCaptainId: string | null }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return captainApi.reassignCaptain(userId, targetUserId, newCaptainId);
+    },
+    onSuccess: (result) => {
+      const newCaptainName = result.newCaptainId ? 'new captain' : 'no captain';
+      toast.success(`User reassigned to ${newCaptainName}`);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'user'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'coaches'] });
+      queryClient.invalidateQueries({ queryKey: ['roster'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to reassign captain');
+    }
+  });
+}
+
+// Bulk reassign multiple users to a new captain
+export function useBulkReassignCaptain() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ userIds, newCaptainId }: { userIds: string[]; newCaptainId: string | null }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return captainApi.bulkReassign(userId, userIds, newCaptainId);
+    },
+    onSuccess: (result) => {
+      if (result.failed > 0) {
+        toast.warning(`Reassigned ${result.reassigned} users, ${result.failed} failed`);
+      } else {
+        toast.success(`Successfully reassigned ${result.reassigned} users`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'coaches'] });
+      queryClient.invalidateQueries({ queryKey: ['roster'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to bulk reassign captains');
     }
   });
 }

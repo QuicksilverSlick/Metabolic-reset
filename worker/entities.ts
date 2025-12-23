@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode, CourseContent, UserProgress, ContentStatus } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode, CourseContent, UserProgress, ContentStatus, Notification, NotificationType, ImpersonationSession, BugAIAnalysis, AIAnalysisStatus } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -1116,6 +1116,268 @@ export class CouponUsageEntity extends IndexedEntity<CouponUsage> {
 export class CouponCodeUsageIndex extends Index<string> {
   constructor(env: Env, couponCode: string) {
     super(env, `coupon-usage:${couponCode}`);
+  }
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+// Notification Entity - in-app notifications for users
+export class NotificationEntity extends IndexedEntity<Notification> {
+  static readonly entityName = "notification";
+  static readonly indexName = "notifications";
+  static readonly initialState: Notification = {
+    id: "",
+    userId: "",
+    type: "general",
+    title: "",
+    message: "",
+    read: false,
+    createdAt: 0
+  };
+
+  // Create a notification for a user
+  static async createNotification(
+    env: Env,
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): Promise<Notification> {
+    const id = `${userId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const notification: Notification = {
+      id,
+      userId,
+      type,
+      title,
+      message,
+      data,
+      read: false,
+      createdAt: Date.now()
+    };
+    await NotificationEntity.create(env, notification);
+
+    // Also add to user-specific index for quick lookup
+    const userNotifIndex = new UserNotificationsIndex(env, userId);
+    await userNotifIndex.add(id);
+
+    return notification;
+  }
+
+  // Get all notifications for a user (most recent first)
+  static async findByUser(env: Env, userId: string, limit = 50): Promise<Notification[]> {
+    const userNotifIndex = new UserNotificationsIndex(env, userId);
+    const ids = await userNotifIndex.list();
+
+    const notifications = await Promise.all(
+      ids.slice(0, limit).map(async (id) => {
+        const entity = new NotificationEntity(env, id);
+        return entity.getState();
+      })
+    );
+
+    // Filter out empty and sort by createdAt descending
+    return notifications
+      .filter(n => n.id)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Get unread count for a user
+  static async getUnreadCount(env: Env, userId: string): Promise<number> {
+    const notifications = await NotificationEntity.findByUser(env, userId);
+    return notifications.filter(n => !n.read).length;
+  }
+
+  // Mark notification as read
+  static async markAsRead(env: Env, notificationId: string): Promise<void> {
+    const entity = new NotificationEntity(env, notificationId);
+    await entity.patch({ read: true, readAt: Date.now() });
+  }
+
+  // Mark all notifications as read for a user
+  static async markAllAsRead(env: Env, userId: string): Promise<number> {
+    const notifications = await NotificationEntity.findByUser(env, userId);
+    const unread = notifications.filter(n => !n.read);
+
+    await Promise.all(
+      unread.map(n => NotificationEntity.markAsRead(env, n.id))
+    );
+
+    return unread.length;
+  }
+}
+
+// Index for user's notifications
+export class UserNotificationsIndex extends Index<string> {
+  constructor(env: Env, userId: string) {
+    super(env, `user-notifications:${userId}`);
+  }
+}
+
+// ============================================
+// IMPERSONATION AUDIT LOGGING
+// ============================================
+
+// Impersonation Session Entity - tracks admin impersonation for audit
+// Sessions auto-expire after 60 minutes for security
+const IMPERSONATION_SESSION_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+
+export class ImpersonationSessionEntity extends IndexedEntity<ImpersonationSession> {
+  static readonly entityName = "impersonation-session";
+  static readonly indexName = "impersonation-sessions";
+  static readonly initialState: ImpersonationSession = {
+    id: "",
+    adminUserId: "",
+    adminUserName: "",
+    targetUserId: "",
+    targetUserName: "",
+    startedAt: 0,
+    expiresAt: 0
+  };
+
+  // Start an impersonation session (auto-expires after 60 minutes)
+  static async startSession(
+    env: Env,
+    adminUserId: string,
+    adminUserName: string,
+    targetUserId: string,
+    targetUserName: string,
+    reason?: string
+  ): Promise<ImpersonationSession> {
+    const id = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const now = Date.now();
+    const session: ImpersonationSession = {
+      id,
+      adminUserId,
+      adminUserName,
+      targetUserId,
+      targetUserName,
+      startedAt: now,
+      expiresAt: now + IMPERSONATION_SESSION_DURATION_MS,
+      reason
+    };
+    await ImpersonationSessionEntity.create(env, session);
+    return session;
+  }
+
+  // Check if a session is expired
+  static isExpired(session: ImpersonationSession): boolean {
+    return Date.now() > session.expiresAt;
+  }
+
+  // End an impersonation session
+  static async endSession(env: Env, sessionId: string): Promise<void> {
+    const entity = new ImpersonationSessionEntity(env, sessionId);
+    await entity.patch({ endedAt: Date.now() });
+  }
+
+  // Get recent impersonation sessions (for admin audit view)
+  static async getRecent(env: Env, limit = 100): Promise<ImpersonationSession[]> {
+    const { items } = await ImpersonationSessionEntity.list(env);
+    return items
+      .filter(s => s.id)
+      .sort((a, b) => b.startedAt - a.startedAt)
+      .slice(0, limit);
+  }
+
+  // Get sessions for a specific target user
+  static async findByTargetUser(env: Env, targetUserId: string): Promise<ImpersonationSession[]> {
+    const { items } = await ImpersonationSessionEntity.list(env);
+    return items
+      .filter(s => s.id && s.targetUserId === targetUserId)
+      .sort((a, b) => b.startedAt - a.startedAt);
+  }
+}
+
+// ============================================
+// AI BUG ANALYSIS (Cloudflare AI Gateway + Gemini)
+// ============================================
+
+export class BugAIAnalysisEntity extends IndexedEntity<BugAIAnalysis> {
+  static readonly entityName = "bug-ai-analysis";
+  static readonly indexName = "bug-ai-analyses";
+  static readonly initialState: BugAIAnalysis = {
+    id: "",
+    bugId: "",
+    status: "pending",
+    analyzedAt: 0,
+    summary: "",
+    suggestedCause: "",
+    suggestedSolutions: [],
+    modelUsed: "",
+    confidence: "low",
+    processingTimeMs: 0
+  };
+
+  // Get analysis for a specific bug
+  static async findByBugId(env: Env, bugId: string): Promise<BugAIAnalysis | null> {
+    const { items } = await BugAIAnalysisEntity.list(env);
+    const analysis = items.find(a => a.bugId === bugId && a.id);
+    return analysis || null;
+  }
+
+  // Get the most recent analysis for a bug
+  static async getLatestForBug(env: Env, bugId: string): Promise<BugAIAnalysis | null> {
+    const { items } = await BugAIAnalysisEntity.list(env);
+    const analyses = items
+      .filter(a => a.bugId === bugId && a.id)
+      .sort((a, b) => b.analyzedAt - a.analyzedAt);
+    return analyses[0] || null;
+  }
+
+  // Create a pending analysis (before processing starts)
+  static async createPending(env: Env, bugId: string): Promise<BugAIAnalysis> {
+    const id = `analysis-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const analysis: BugAIAnalysis = {
+      ...BugAIAnalysisEntity.initialState,
+      id,
+      bugId,
+      status: "pending",
+      analyzedAt: Date.now()
+    };
+    await BugAIAnalysisEntity.create(env, analysis);
+    return analysis;
+  }
+
+  // Update analysis status to processing
+  static async markProcessing(env: Env, analysisId: string): Promise<void> {
+    const entity = new BugAIAnalysisEntity(env, analysisId);
+    await entity.patch({ status: "processing" as AIAnalysisStatus });
+  }
+
+  // Complete an analysis with results
+  static async complete(
+    env: Env,
+    analysisId: string,
+    result: Omit<BugAIAnalysis, "id" | "bugId" | "status">
+  ): Promise<void> {
+    const entity = new BugAIAnalysisEntity(env, analysisId);
+    await entity.patch({
+      ...result,
+      status: "completed" as AIAnalysisStatus,
+      analyzedAt: Date.now()
+    });
+  }
+
+  // Mark analysis as failed
+  static async markFailed(env: Env, analysisId: string, error: string): Promise<void> {
+    const entity = new BugAIAnalysisEntity(env, analysisId);
+    await entity.patch({
+      status: "failed" as AIAnalysisStatus,
+      error,
+      analyzedAt: Date.now()
+    });
+  }
+
+  // Get recent analyses (for debugging/monitoring)
+  static async getRecent(env: Env, limit = 50): Promise<BugAIAnalysis[]> {
+    const { items } = await BugAIAnalysisEntity.list(env);
+    return items
+      .filter(a => a.id)
+      .sort((a, b) => b.analyzedAt - a.analyzedAt)
+      .slice(0, limit);
   }
 }
 

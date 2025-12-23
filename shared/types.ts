@@ -70,6 +70,11 @@ export interface User {
   pwaPromptDismissedAt?: number; // Timestamp when user dismissed the prompt
   pwaInstalledAt?: number; // Timestamp when user installed the PWA
   pwaInstallSource?: 'android' | 'ios' | 'desktop'; // Platform where installed
+  // Stripe Payment Tracking - Source of truth for payment verification
+  stripePaymentId?: string; // Stripe PaymentIntent ID (pi_xxx)
+  stripePaymentAmount?: number; // Amount paid in cents (e.g., 2800 = $28.00)
+  stripePaymentStatus?: 'succeeded' | 'pending' | 'failed'; // Payment status
+  stripePaymentAt?: number; // Unix timestamp when payment was confirmed
 }
 
 // Coupon Usage - tracks who used which coupon codes
@@ -575,4 +580,121 @@ export interface LikeCommentRequest {
 
 export interface LikeContentRequest {
   contentId: string;
+}
+
+// Notification types for in-app notifications
+export type NotificationType =
+  | 'captain_reassigned'      // User was reassigned to a new captain
+  | 'new_team_member'         // Captain received a new team member
+  | 'team_member_removed'     // Captain lost a team member (reassigned away)
+  | 'admin_impersonation'     // Admin viewed user's account (audit)
+  | 'system_announcement'     // System-wide announcements
+  | 'achievement'             // Points, milestones, etc.
+  | 'general';                // General notifications
+
+export interface Notification {
+  id: string;
+  userId: string;             // User who receives the notification
+  type: NotificationType;
+  title: string;
+  message: string;
+  data?: Record<string, unknown>; // Additional data (e.g., { newCaptainId, oldCaptainId })
+  read: boolean;
+  readAt?: number;
+  createdAt: number;
+}
+
+// Impersonation session tracking (for audit)
+// Sessions auto-expire after 60 minutes for security
+export interface ImpersonationSession {
+  id: string;
+  adminUserId: string;        // Admin who initiated impersonation
+  adminUserName: string;
+  targetUserId: string;       // User being impersonated
+  targetUserName: string;
+  startedAt: number;
+  expiresAt: number;          // Auto-expires after 60 minutes
+  endedAt?: number;
+  reason?: string;            // Optional reason for impersonation
+}
+
+// ============================================================================
+// AI Bug Analysis Types (Cloudflare AI Gateway + Gemini)
+// ============================================================================
+
+export type AIAnalysisConfidence = 'low' | 'medium' | 'high';
+export type AIAnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+// Suggested solution from AI analysis
+export interface BugSolution {
+  title: string;
+  description: string;
+  steps: string[];
+  estimatedEffort: 'quick' | 'moderate' | 'significant';
+  confidence: AIAnalysisConfidence;
+}
+
+// Screenshot analysis result
+export interface ScreenshotAnalysis {
+  description: string;            // What the AI sees in the screenshot
+  visibleErrors: string[];        // Any visible error messages
+  uiElements: string[];           // Key UI elements identified
+  potentialIssues: string[];      // Issues spotted in the screenshot
+}
+
+// Video analysis result (Gemini multimodal)
+export interface VideoAnalysis {
+  description: string;            // Overall description of what happens
+  reproductionSteps: string[];    // Steps observed to reproduce the bug
+  userActions: string[];          // What the user did
+  timestamps: Array<{             // Key moments in the video
+    seconds: number;
+    description: string;
+  }>;
+  errorMoments: Array<{           // When errors appeared
+    seconds: number;
+    description: string;
+  }>;
+}
+
+// Documentation reference from AI analysis
+export interface DocReference {
+  sectionId: string;              // Documentation section ID
+  sectionTitle: string;           // Human-readable section title
+  articleId: string;              // Article ID within section
+  articleTitle: string;           // Human-readable article title
+  relevance: string;              // Why this doc is relevant to the bug
+  excerpt?: string;               // Relevant excerpt from the doc
+}
+
+// Full AI analysis result for a bug report
+export interface BugAIAnalysis {
+  id: string;
+  bugId: string;
+  status: AIAnalysisStatus;
+  analyzedAt: number;
+  summary: string;                // Brief summary of the bug
+  suggestedCause: string;         // What likely caused this bug
+  suggestedSolutions: BugSolution[];
+  screenshotAnalysis?: ScreenshotAnalysis;
+  videoAnalysis?: VideoAnalysis;
+  relatedDocs?: DocReference[];   // Relevant documentation articles
+  modelUsed: string;              // e.g., "gemini-1.5-flash", "workers-ai"
+  confidence: AIAnalysisConfidence;
+  processingTimeMs: number;
+  error?: string;                 // Error message if analysis failed
+}
+
+// Request to trigger AI analysis
+export interface AnalyzeBugRequest {
+  bugId: string;
+  includeScreenshot?: boolean;
+  includeVideo?: boolean;
+}
+
+// Response from AI analysis endpoint
+export interface AnalyzeBugResponse {
+  success: boolean;
+  analysis?: BugAIAnalysis;
+  error?: string;
 }
