@@ -12,6 +12,7 @@ import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, 
 import { toast } from 'sonner';
 import { uploadApi } from '@/lib/api';
 import { formatPhoneDisplay, toE164 } from '@/lib/phone-utils';
+import { NotificationPreferencesPanel } from '@/components/notification-preferences';
 
 // Common US timezones
 const US_TIMEZONES = [
@@ -244,11 +245,13 @@ export function ProfilePage() {
     return found ? found.label : tz;
   };
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">My Profile</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* User Info Card */}
-        <Card className="md:col-span-2 border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+    <div className="max-w-4xl mx-auto space-y-6 pb-8">
+      <h1 className="text-2xl sm:text-3xl font-display font-bold text-navy-900 dark:text-white">My Profile</h1>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* User Info Card - Full width on mobile, 2/3 on desktop */}
+        <Card className="lg:col-span-2 border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -483,51 +486,63 @@ export function ProfilePage() {
             )}
           </CardContent>
         </Card>
-        {/* Status Card */}
-        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] transition-colors">
-          <CardHeader>
-            <CardTitle className="text-navy-900 dark:text-white">Status</CardTitle>
+        {/* Status & Actions Card - Sidebar on desktop */}
+        <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-navy-900 dark:text-white text-lg">Quick Info</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
+            {/* Role */}
             <div className="flex items-center gap-3">
-              <div className="bg-gold-100 dark:bg-gold-900/30 p-2 rounded-lg">
+              <div className="bg-gold-100 dark:bg-gold-900/30 p-2.5 rounded-lg">
                 <Shield className="h-5 w-5 text-gold-600 dark:text-gold-400" />
               </div>
               <div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Role</div>
-                <div className="font-bold capitalize text-navy-900 dark:text-white">{user.role}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Role</div>
+                <div className="font-semibold capitalize text-navy-900 dark:text-white">{user.role}</div>
               </div>
             </div>
+
+            {/* Points */}
             <div className="flex items-center gap-3">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-2.5 rounded-lg">
                 <Award className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Total Points</div>
-                <div className="font-bold text-navy-900 dark:text-white">{user.points}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Total Points</div>
+                <div className="font-semibold text-navy-900 dark:text-white">{user.points}</div>
               </div>
             </div>
-            {/* Quiz Link Section */}
+
+            {/* Quiz Link */}
             <div className="pt-4 border-t border-slate-100 dark:border-navy-800">
-              <Label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quiz Link</Label>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-2">Share this link to capture leads</p>
+              <Label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Referral Link</Label>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-3">Share to capture leads</p>
               <Button
                 onClick={handleQuickCopy}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all"
+                size="sm"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white"
               >
                 {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Link className="h-4 w-4 mr-2" />}
                 {copiedLink ? 'Copied!' : 'Copy Quiz Link'}
               </Button>
             </div>
           </CardContent>
-          <CardFooter>
-            <Button variant="destructive" className="w-full bg-red-600 hover:bg-red-700 dark:bg-red-900 dark:hover:bg-red-800" onClick={() => logout()}>
+          <CardFooter className="pt-0">
+            <Button
+              variant="outline"
+              className="w-full border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+              onClick={() => logout()}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>
           </CardFooter>
         </Card>
       </div>
+
+      {/* Notification Settings - Full width section */}
+      <NotificationPreferencesPanel />
 
       {/* Project Selector Dialog */}
       <Dialog open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
