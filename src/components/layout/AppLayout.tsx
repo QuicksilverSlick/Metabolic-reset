@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuthStore } from "@/lib/auth-store";
@@ -8,12 +8,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { FloatingBugCapture } from "@/components/FloatingBugCapture";
 import { BugReportDialog } from "@/components/BugReportDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useMyActiveEnrollment } from "@/hooks/use-queries";
+import { useMyActiveEnrollment, useSystemSettings } from "@/hooks/use-queries";
 import { CohortIndicator } from "@/components/cohort-badge";
 import { Loader2 } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { NotificationBell } from "@/components/notification-bell";
 import { toast } from "sonner";
+import { SystemAnnouncementBanner, SystemStatusBadge } from "@/components/system-announcement-banner";
+import { IOSInstallPrompt } from "@/components/ios-install-prompt";
 
 // Get user initials for avatar fallback
 const getInitials = (name: string) => {
@@ -35,6 +37,21 @@ export function AppLayout({ children, container = false, className, contentClass
   const user = useAuthStore(s => s.user);
   const impersonation = useAuthStore(s => s.impersonation);
   const endImpersonation = useAuthStore(s => s.endImpersonation);
+  const { data: settings } = useSystemSettings();
+
+  // Track if announcement banner is dismissed (to show status badge instead)
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    const storageKey = `announcement_${settings?.announcementTitle || 'default'}_dismissed`;
+    return localStorage.getItem(storageKey) === 'true';
+  });
+
+  // Update dismissed state when settings change
+  useEffect(() => {
+    if (settings?.announcementTitle) {
+      const storageKey = `announcement_${settings.announcementTitle}_dismissed`;
+      setBannerDismissed(localStorage.getItem(storageKey) === 'true');
+    }
+  }, [settings?.announcementTitle]);
 
   // Check for expired impersonation session on page load/navigation
   // This handles the case where the user closed their browser while impersonating
@@ -107,57 +124,114 @@ export function AppLayout({ children, container = false, className, contentClass
   const currentDay = getDayNumber();
   const dayDisplay = currentDay > 28 ? `Day ${currentDay} (Post-Challenge)` : `Day ${currentDay} of 28`;
 
-  // Calculate offset for impersonation banner
-  const headerTopClass = impersonation.isImpersonating ? 'top-12' : 'top-0';
+  // Generate unique storage key based on announcement title
+  const announcementStorageKey = `announcement_${settings?.announcementTitle || 'default'}_dismissed`;
+
+  // Handler for when status badge is clicked to re-show banner
+  const handleStatusBadgeClick = () => {
+    localStorage.removeItem(announcementStorageKey);
+    setBannerDismissed(false);
+  };
+
+  // Check if we have any active banners
+  const hasImpersonationBanner = impersonation.isImpersonating;
+  const hasAnnouncementBanner = settings?.announcementEnabled && !bannerDismissed;
+
+  // Determine if any banner is showing (for safe area calculations)
+  const anyBannerShowing = hasImpersonationBanner || hasAnnouncementBanner;
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      {/* Impersonation banner - fixed at very top */}
-      <ImpersonationBanner />
-      <AppSidebar />
-      <SidebarInset className={`bg-slate-100 dark:bg-navy-900 transition-colors duration-300 ${impersonation.isImpersonating ? 'pt-12' : ''} ${className || ''}`}>
-        <header className={`sticky ${headerTopClass} z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 px-4 shadow-sm transition-colors duration-300`}>
-          <SidebarTrigger className="-ml-1 text-navy-900 dark:text-white" />
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-2" />
-          <div className="flex-1 flex justify-between items-center">
-            <h1 className="font-display font-semibold text-navy-900 dark:text-white text-lg">
-              Metabolic Reset
-            </h1>
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block font-medium">
-                {dayDisplay}
-              </div>
-              <NotificationBell />
-              <ThemeToggle className="relative top-0 right-0" />
-              <Link to="/app/profile" className="flex items-center">
-                <div className="relative">
-                  <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">
-                    {displayUser?.avatarUrl ? (
-                      <AvatarImage src={displayUser.avatarUrl} alt={displayUser.name} />
-                    ) : null}
-                    <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
-                      {displayUser?.name ? getInitials(displayUser.name) : 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <CohortIndicator cohortId={activeEnrollment?.cohortId} />
+    <div className="min-h-screen min-h-[100dvh] flex flex-col">
+      {/*
+        Top-level banners container - sticky at top with highest z-index
+        Uses flex-shrink-0 to maintain size, content below will scroll
+      */}
+      <div className="sticky top-0 z-[70] flex-shrink-0 w-full">
+        {/* Impersonation banner */}
+        {hasImpersonationBanner && <ImpersonationBanner />}
+
+        {/* System announcement banner - only top banner when no impersonation */}
+        <SystemAnnouncementBanner
+          enabled={settings?.announcementEnabled || false}
+          title={settings?.announcementTitle || 'Test Mode'}
+          message={settings?.announcementMessage || ''}
+          videoUrl={settings?.announcementVideoUrl}
+          type={settings?.announcementType || 'info'}
+          storageKey={announcementStorageKey}
+          onDismiss={() => setBannerDismissed(true)}
+          isTopBanner={!hasImpersonationBanner}
+        />
+
+      </div>
+
+      {/* Main app content with sidebar - takes remaining space */}
+      <div className="flex-1 flex min-h-0">
+        <SidebarProvider defaultOpen={true}>
+          <AppSidebar />
+          <SidebarInset className={`bg-slate-100 dark:bg-navy-900 transition-colors duration-300 flex flex-col ${className || ''}`}>
+            <header
+              className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 px-4 shadow-sm transition-colors duration-300"
+              style={!anyBannerShowing ? {
+                paddingTop: 'env(safe-area-inset-top, 0px)',
+                height: 'calc(4rem + env(safe-area-inset-top, 0px))'
+              } : undefined}
+            >
+              <SidebarTrigger className="-ml-1 text-navy-900 dark:text-white" />
+              <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-2" />
+              <div className="flex-1 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <h1 className="font-display font-semibold text-navy-900 dark:text-white text-lg">
+                    Metabolic Reset
+                  </h1>
+                  {/* Status badge shows when banner is dismissed but announcement is still active */}
+                  {bannerDismissed && (
+                    <SystemStatusBadge
+                      enabled={settings?.announcementEnabled || false}
+                      title={settings?.announcementTitle || 'Test Mode'}
+                      type={settings?.announcementType || 'info'}
+                      onClick={handleStatusBadgeClick}
+                    />
+                  )}
                 </div>
-              </Link>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto">
-          {container ? (
-            <div className={"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12" + (contentClassName ? ` ${contentClassName}` : "")}>
-              {children}
-            </div>
-          ) : (
-            children
-          )}
-        </main>
-        {/* Global bug capture components */}
-        <FloatingBugCapture />
-        <BugReportDialog />
-      </SidebarInset>
-    </SidebarProvider>
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block font-medium">
+                    {dayDisplay}
+                  </div>
+                  <NotificationBell />
+                  <ThemeToggle className="relative top-0 right-0" />
+                  <Link to="/app/profile" className="flex items-center">
+                    <div className="relative">
+                      <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">
+                        {displayUser?.avatarUrl ? (
+                          <AvatarImage src={displayUser.avatarUrl} alt={displayUser.name} />
+                        ) : null}
+                        <AvatarFallback className="bg-gold-100 dark:bg-gold-900/50 text-gold-700 dark:text-gold-300 text-xs font-bold">
+                          {displayUser?.name ? getInitials(displayUser.name) : 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <CohortIndicator cohortId={activeEnrollment?.cohortId} />
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            </header>
+            <main className="flex-1 overflow-auto">
+              {container ? (
+                <div className={"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12" + (contentClassName ? ` ${contentClassName}` : "")}>
+                  {children}
+                </div>
+              ) : (
+                children
+              )}
+            </main>
+            {/* Global bug capture components */}
+            <FloatingBugCapture />
+            <BugReportDialog />
+            {/* iOS Install Prompt for push notifications */}
+            <IOSInstallPrompt />
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
+    </div>
   );
 }
