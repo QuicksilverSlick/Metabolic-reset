@@ -75,7 +75,31 @@ export interface User {
   stripePaymentAmount?: number; // Amount paid in cents (e.g., 2800 = $28.00)
   stripePaymentStatus?: 'succeeded' | 'pending' | 'failed'; // Payment status
   stripePaymentAt?: number; // Unix timestamp when payment was confirmed
+  // Notification Preferences
+  notificationPreferences?: NotificationPreferences;
 }
+
+// User notification preferences for controlling what notifications they receive
+export interface NotificationPreferences {
+  // Master push notification toggle
+  pushEnabled: boolean;
+  // Per-category preferences (all default to true)
+  bugUpdates: boolean;        // bug_submitted, bug_status_changed, bug_response
+  teamChanges: boolean;       // captain_reassigned, new_team_member, team_member_removed
+  achievements: boolean;      // achievement, points milestones
+  systemAnnouncements: boolean; // system_announcement
+  courseReminders: boolean;   // daily lesson reminders (future)
+}
+
+// Default notification preferences for new users
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  pushEnabled: true,
+  bugUpdates: true,
+  teamChanges: true,
+  achievements: true,
+  systemAnnouncements: true,
+  courseReminders: true,
+};
 
 // Coupon Usage - tracks who used which coupon codes
 export interface CouponUsage {
@@ -145,6 +169,12 @@ export interface SystemSettings {
   referralPointsChallenger: number; // Points for challenger when they refer someone (default: 5)
   dailyHabitPoints: number; // Points per daily habit completed (default: 1)
   biometricSubmissionPoints: number; // Points for biometric submission (default: 25)
+  // System Announcement Banner
+  announcementEnabled?: boolean; // Whether the announcement banner is shown
+  announcementTitle?: string; // Short title like "Test Mode" or "Maintenance"
+  announcementMessage?: string; // Main message content
+  announcementVideoUrl?: string; // Optional video URL (Google Drive direct link)
+  announcementType?: 'info' | 'warning' | 'success'; // Banner style
 }
 // DTOs
 export interface RegisterRequest {
@@ -295,6 +325,44 @@ export interface BugReportSubmitRequest {
 export interface BugReportUpdateRequest {
   status?: BugStatus;
   adminNotes?: string;
+}
+
+// Bug Message - threaded conversation on bug reports
+export interface BugMessage {
+  id: string;
+  bugId: string;              // Bug report this message belongs to
+  userId: string;             // Who sent the message (empty for system)
+  userName: string;           // Display name (e.g., "System" for automated)
+  userAvatarUrl?: string;
+  isAdmin: boolean;           // Is this from an admin?
+  isSystem: boolean;          // Is this a system-generated message?
+  systemType?: 'submitted' | 'status_change' | 'assigned' | 'resolved'; // Type of system message
+  message: string;
+  createdAt: number;
+}
+
+// Request to add a message to a bug thread
+export interface AddBugMessageRequest {
+  bugId: string;
+  message: string;
+}
+
+// Bug satisfaction rating after resolution
+export type BugSatisfactionRating = 'positive' | 'negative';
+
+export interface BugSatisfaction {
+  id: string;                 // Same as bugId
+  bugId: string;
+  userId: string;
+  rating: BugSatisfactionRating;
+  feedback?: string;          // Optional additional feedback
+  submittedAt: number;
+}
+
+export interface SubmitBugSatisfactionRequest {
+  bugId: string;
+  rating: BugSatisfactionRating;
+  feedback?: string;
 }
 
 // OTP (One-Time Password) for phone verification
@@ -590,6 +658,11 @@ export type NotificationType =
   | 'admin_impersonation'     // Admin viewed user's account (audit)
   | 'system_announcement'     // System-wide announcements
   | 'achievement'             // Points, milestones, etc.
+  | 'bug_submitted'           // User's bug report was received
+  | 'bug_status_changed'      // Bug status updated (in_progress, resolved, etc.)
+  | 'bug_response'            // Admin/user replied to a bug thread
+  | 'new_bug_report'          // Alert to admins when a new bug is submitted
+  | 'bug_satisfaction'        // Satisfaction survey after bug resolution
   | 'general';                // General notifications
 
 export interface Notification {
@@ -697,4 +770,60 @@ export interface AnalyzeBugResponse {
   success: boolean;
   analysis?: BugAIAnalysis;
   error?: string;
+}
+
+// ============================================================================
+// Web Push Notification Types
+// ============================================================================
+
+// Push subscription stored per user/device
+export interface PushSubscription {
+  id: string;                       // Unique ID for this subscription
+  userId: string;                   // User who owns this subscription
+  endpoint: string;                 // Push service endpoint URL
+  keys: {
+    p256dh: string;                 // Public key for encryption
+    auth: string;                   // Auth secret
+  };
+  userAgent?: string;               // Browser/device info
+  createdAt: number;
+  lastUsedAt: number;               // Last time a push was sent successfully
+  failCount: number;                // Consecutive failures (remove after threshold)
+}
+
+// Request to subscribe to push notifications
+export interface PushSubscribeRequest {
+  subscription: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+  userAgent?: string;
+}
+
+// Request to send a push notification
+export interface SendPushRequest {
+  userId: string;
+  title: string;
+  body: string;
+  url?: string;                     // URL to open when clicked
+  tag?: string;                     // Grouping tag
+  data?: Record<string, unknown>;   // Additional data
+}
+
+// Notification preferences (user settings)
+export interface NotificationPreferences {
+  userId: string;
+  pushEnabled: boolean;             // Master toggle for push
+  emailEnabled: boolean;            // Email notifications (future)
+  // Granular settings
+  bugUpdates: boolean;              // Bug report updates
+  systemAnnouncements: boolean;     // Admin announcements
+  teamUpdates: boolean;             // Team member changes
+  achievements: boolean;            // Achievements/milestones
+  dailyReminders: boolean;          // Daily habit reminders
+  quietHoursStart?: string;         // "22:00" - no push during quiet hours
+  quietHoursEnd?: string;           // "08:00"
 }

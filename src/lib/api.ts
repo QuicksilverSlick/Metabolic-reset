@@ -20,6 +20,9 @@ import {
   BugStatus,
   BugAIAnalysis,
   AnalyzeBugRequest,
+  BugMessage,
+  BugSatisfaction,
+  SubmitBugSatisfactionRequest,
   SendOtpRequest,
   SendOtpResponse,
   VerifyOtpRequest,
@@ -336,11 +339,20 @@ export const adminApi = {
       body: JSON.stringify({ primaryUserId, secondaryUserId }),
       headers: { 'X-User-ID': adminUserId }
     }),
-  // Get recent Stripe payments (for linking orphan payments)
-  getStripePayments: (adminUserId: string, limit?: number, startingAfter?: string) =>
-    api<{
+  // Browse Stripe payments with bi-directional pagination
+  getStripePayments: (adminUserId: string, options?: {
+    limit?: number;
+    startingAfter?: string;
+    endingBefore?: string;
+  }) => {
+    const params = new URLSearchParams();
+    params.append('limit', (options?.limit || 25).toString());
+    if (options?.startingAfter) params.append('starting_after', options.startingAfter);
+    if (options?.endingBefore) params.append('ending_before', options.endingBefore);
+    return api<{
       payments: Array<{
         id: string;
+        paymentIntentId: string | null;
         amount: number;
         amountFormatted: string;
         status: string;
@@ -351,13 +363,59 @@ export const adminApi = {
         cardBrand: string | null;
         billingName: string | null;
         billingEmail: string | null;
+        billingPhone: string | null;
         linkedUser: { id: string; name: string; phone: string } | null;
       }>;
       hasMore: boolean;
+      hasPrevious: boolean;
+      firstId: string | null;
       lastId: string | null;
-    }>(`/api/admin/stripe/payments?limit=${limit || 25}${startingAfter ? `&starting_after=${startingAfter}` : ''}`, {
+    }>(`/api/admin/stripe/payments?${params.toString()}`, {
       headers: { 'X-User-ID': adminUserId }
-    }),
+    });
+  },
+  // Search Stripe charges with server-side filtering (card last4, status, amount)
+  searchStripePayments: (adminUserId: string, options: {
+    cardLast4?: string;
+    cardBrand?: string;
+    status?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    limit?: number;
+    page?: string;
+  }) => {
+    const params = new URLSearchParams();
+    params.append('limit', (options.limit || 25).toString());
+    if (options.cardLast4) params.append('card_last4', options.cardLast4);
+    if (options.cardBrand) params.append('card_brand', options.cardBrand);
+    if (options.status) params.append('status', options.status);
+    if (options.minAmount) params.append('min_amount', options.minAmount.toString());
+    if (options.maxAmount) params.append('max_amount', options.maxAmount.toString());
+    if (options.page) params.append('page', options.page);
+    return api<{
+      payments: Array<{
+        id: string;
+        paymentIntentId: string | null;
+        amount: number;
+        amountFormatted: string;
+        status: string;
+        createdAt: number;
+        metadata: { name?: string; phone?: string; email?: string; role?: string };
+        receiptEmail?: string;
+        cardLast4: string | null;
+        cardBrand: string | null;
+        billingName: string | null;
+        billingEmail: string | null;
+        billingPhone: string | null;
+        linkedUser: { id: string; name: string; phone: string } | null;
+      }>;
+      hasMore: boolean;
+      nextPage: string | null;
+      query: string;
+    }>(`/api/admin/stripe/search?${params.toString()}`, {
+      headers: { 'X-User-ID': adminUserId }
+    });
+  },
   // Link a Stripe payment to a user
   linkStripePayment: (adminUserId: string, paymentIntentId: string, userId: string) =>
     api<{
@@ -367,6 +425,17 @@ export const adminApi = {
     }>('/api/admin/stripe/link', {
       method: 'POST',
       body: JSON.stringify({ paymentIntentId, userId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+  // Unlink a Stripe payment from a user
+  unlinkStripePayment: (adminUserId: string, userId: string) =>
+    api<{
+      message: string;
+      user: { id: string; name: string };
+      previousPaymentId: string;
+    }>('/api/admin/stripe/unlink', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
       headers: { 'X-User-ID': adminUserId }
     }),
 };
@@ -573,6 +642,40 @@ export const bugApi = {
   // Get current user's bug reports
   getMyBugs: (userId: string) =>
     api<BugReport[]>('/api/bugs/mine', { headers: { 'X-User-ID': userId } }),
+
+  // Get a single bug with messages and satisfaction (user or admin)
+  getBugWithMessages: (userId: string, bugId: string) =>
+    api<{ bug: BugReport; messages: BugMessage[]; satisfaction: BugSatisfaction | null }>(`/api/bugs/${bugId}`, {
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get messages for a bug
+  getBugMessages: (userId: string, bugId: string) =>
+    api<BugMessage[]>(`/api/bugs/${bugId}/messages`, {
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Add a message to a bug thread
+  addBugMessage: (userId: string, bugId: string, message: string) =>
+    api<BugMessage>(`/api/bugs/${bugId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get satisfaction feedback for a bug
+  getBugSatisfaction: (userId: string, bugId: string) =>
+    api<BugSatisfaction | null>(`/api/bugs/${bugId}/satisfaction`, {
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Submit satisfaction feedback
+  submitSatisfaction: (userId: string, data: SubmitBugSatisfactionRequest) =>
+    api<BugSatisfaction>(`/api/bugs/${data.bugId}/satisfaction`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'X-User-ID': userId }
+    }),
 };
 
 // Media Upload API - for uploading screenshots, videos, and course content
@@ -1047,6 +1150,52 @@ export const notificationsApi = {
     api<{ markedCount: number }>('/api/notifications/mark-all-read', {
       method: 'POST',
       headers: { 'X-User-ID': userId }
+    }),
+};
+
+// Push Notifications API - for web push subscription management
+export const pushApi = {
+  // Get VAPID public key for subscription
+  getVapidKey: () =>
+    api<{ publicKey: string }>('/api/push/vapid-key'),
+
+  // Subscribe to push notifications
+  subscribe: (userId: string, subscription: PushSubscriptionJSON, userAgent?: string) =>
+    api<{ success: boolean; subscriptionId: string }>('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ subscription, userAgent }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Unsubscribe from push notifications
+  unsubscribe: (userId: string, endpoint: string) =>
+    api<{ success: boolean; deleted: boolean }>('/api/push/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint }),
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Get subscription status
+  getStatus: (userId: string) =>
+    api<{
+      subscribed: boolean;
+      subscriptionCount: number;
+      subscriptions: Array<{
+        id: string;
+        createdAt: number;
+        lastUsedAt: number;
+        userAgent?: string;
+      }>;
+    }>('/api/push/status', {
+      headers: { 'X-User-ID': userId }
+    }),
+
+  // Admin: Send test push notification
+  sendTest: (adminUserId: string, targetUserId: string, title: string, body: string, url?: string) =>
+    api<{ success: boolean; sent: number; failed: number }>('/api/admin/push/test', {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId, title, body, url }),
+      headers: { 'X-User-ID': adminUserId }
     }),
 };
 

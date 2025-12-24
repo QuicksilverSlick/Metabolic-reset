@@ -19,6 +19,8 @@ import {
   ProjectIndex,
   BugReportEntity,
   BugReportIndex,
+  BugMessageEntity,
+  BugSatisfactionEntity,
   OtpEntity,
   SystemSettingsEntity,
   PointsLedgerEntity,
@@ -32,10 +34,13 @@ import {
   CouponUsageEntity,
   NotificationEntity,
   ImpersonationSessionEntity,
-  BugAIAnalysisEntity
+  BugAIAnalysisEntity,
+  PushSubscriptionEntity
 } from './entities';
+import { sendPushToUser, sendPushToUsers, VAPID_PUBLIC_KEY } from './push-utils';
+import { sendNotification, sendNotificationToUsers } from './notification-helper';
 import { analyzeBug } from './ai-utils';
-import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress, AddCommentRequest, LikeCommentRequest, LikeContentRequest } from "@shared/types";
+import type { User, QuizLead, ResetProject, ProjectEnrollment, CreateProjectRequest, UpdateProjectRequest, BugReportSubmitRequest, BugReportUpdateRequest, BugReport, SendOtpRequest, VerifyOtpRequest, CohortType, SystemSettings, CourseContent, CreateCourseContentRequest, UpdateCourseContentRequest, UserProgress, ContentStatus, QuizResultResponse, CourseOverview, DayContentWithProgress, AddCommentRequest, LikeCommentRequest, LikeContentRequest, AddBugMessageRequest, SubmitBugSatisfactionRequest, BugSatisfactionRating } from "@shared/types";
 
 // Helper: Convert phone to E.164 format (moved outside for reuse)
 const toE164 = (phone: string): string => {
@@ -2581,7 +2586,153 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // Stripe Payment Admin Routes
   // =========================================
 
-  // Get recent Stripe payments (admin only) - for viewing/linking orphan payments
+  // Search Stripe charges (admin only) - server-side search by card last4, status, amount
+  // Uses Stripe's Charges Search API for proper server-side filtering
+  app.get('/api/admin/stripe/search', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const rawStripeKey = (c.env as any).STRIPE_SECRET_KEY;
+      if (!rawStripeKey) {
+        return c.json({ error: 'Stripe not configured' }, 500);
+      }
+      const stripeKey = rawStripeKey.trim();
+
+      // Get query params
+      const limit = Math.min(parseInt(c.req.query('limit') || '25'), 100);
+      const page = c.req.query('page'); // Cursor for pagination
+      const cardLast4 = c.req.query('card_last4');
+      const cardBrand = c.req.query('card_brand');
+      const status = c.req.query('status');
+      const minAmount = c.req.query('min_amount');
+      const maxAmount = c.req.query('max_amount');
+
+      // Build Stripe search query
+      const queryParts: string[] = [];
+
+      if (cardLast4 && /^\d{4}$/.test(cardLast4)) {
+        queryParts.push(`payment_method_details.card.last4:${cardLast4}`);
+      }
+      if (cardBrand) {
+        queryParts.push(`payment_method_details.card.brand:"${cardBrand.toLowerCase()}"`);
+      }
+      if (status) {
+        queryParts.push(`status:"${status}"`);
+      }
+      if (minAmount) {
+        queryParts.push(`amount>=${minAmount}`);
+      }
+      if (maxAmount) {
+        queryParts.push(`amount<=${maxAmount}`);
+      }
+
+      // Default to succeeded charges if no filters
+      const query = queryParts.length > 0 ? queryParts.join(' AND ') : 'status:"succeeded"';
+
+      // Build request params
+      const params = new URLSearchParams();
+      params.append('query', query);
+      params.append('limit', limit.toString());
+      params.append('expand[]', 'data.payment_intent');
+      if (page) params.append('page', page);
+
+      const response = await fetch(`https://api.stripe.com/v1/charges/search?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${stripeKey}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as any;
+        console.error('Stripe search error:', error);
+        return c.json({ error: error.error?.message || 'Failed to search Stripe charges' }, 500);
+      }
+
+      const data = await response.json() as {
+        data: Array<{
+          id: string;
+          amount: number;
+          status: string;
+          created: number;
+          receipt_email?: string;
+          payment_method_details?: {
+            card?: {
+              brand: string;
+              last4: string;
+              exp_month: number;
+              exp_year: number;
+            };
+          };
+          billing_details?: {
+            name?: string;
+            email?: string;
+            phone?: string;
+          };
+          payment_intent?: {
+            id: string;
+            metadata?: { name?: string; phone?: string; email?: string; role?: string };
+          } | string;
+          metadata?: Record<string, string>;
+        }>;
+        has_more: boolean;
+        next_page: string | null;
+        total_count?: number;
+      };
+
+      // Map to a cleaner format and check if linked to a user
+      const payments = await Promise.all(data.data.map(async (charge) => {
+        let linkedUser = null;
+
+        // Get metadata from payment_intent if expanded
+        const piMetadata = (typeof charge.payment_intent === 'object' && charge.payment_intent?.metadata)
+          ? charge.payment_intent.metadata
+          : {};
+
+        // Try to find user by phone from metadata or billing details
+        const phoneToSearch = piMetadata.phone || charge.billing_details?.phone;
+        if (phoneToSearch) {
+          const user = await UserEntity.findByPhone(c.env, phoneToSearch);
+          if (user) {
+            linkedUser = { id: user.id, name: user.name, phone: user.phone };
+          }
+        }
+
+        // Extract card details
+        const cardLast4 = charge.payment_method_details?.card?.last4 || null;
+        const cardBrand = charge.payment_method_details?.card?.brand || null;
+
+        return {
+          id: charge.id,
+          paymentIntentId: typeof charge.payment_intent === 'object' ? charge.payment_intent?.id : charge.payment_intent,
+          amount: charge.amount,
+          amountFormatted: `$${(charge.amount / 100).toFixed(2)}`,
+          status: charge.status,
+          createdAt: charge.created * 1000,
+          metadata: piMetadata,
+          receiptEmail: charge.receipt_email || charge.billing_details?.email,
+          cardLast4,
+          cardBrand,
+          billingName: charge.billing_details?.name || null,
+          billingEmail: charge.billing_details?.email || null,
+          billingPhone: charge.billing_details?.phone || null,
+          linkedUser
+        };
+      }));
+
+      return ok(c, {
+        payments,
+        hasMore: data.has_more,
+        nextPage: data.next_page,
+        query // Return the query for debugging
+      });
+    } catch (e: any) {
+      console.error('Stripe search error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get recent Stripe payments (admin only) - browse mode with bi-directional pagination
   app.get('/api/admin/stripe/payments', async (c) => {
     try {
       const admin = await requireAdmin(c);
@@ -2593,18 +2744,19 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
       const stripeKey = rawStripeKey.trim();
 
-      // Get query params for filtering
-      const limit = parseInt(c.req.query('limit') || '25');
+      // Get query params for pagination
+      const limit = Math.min(parseInt(c.req.query('limit') || '25'), 100);
       const startingAfter = c.req.query('starting_after');
+      const endingBefore = c.req.query('ending_before');
 
-      // Fetch recent payment intents from Stripe with expanded payment_method
+      // Fetch charges from Stripe (not payment_intents) for consistency with search
       const params = new URLSearchParams();
-      params.append('limit', Math.min(limit, 100).toString());
-      params.append('expand[]', 'data.payment_method');
-      params.append('expand[]', 'data.latest_charge');
+      params.append('limit', limit.toString());
+      params.append('expand[]', 'data.payment_intent');
       if (startingAfter) params.append('starting_after', startingAfter);
+      if (endingBefore) params.append('ending_before', endingBefore);
 
-      const response = await fetch(`https://api.stripe.com/v1/payment_intents?${params.toString()}`, {
+      const response = await fetch(`https://api.stripe.com/v1/charges?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${stripeKey}`
         }
@@ -2621,78 +2773,79 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           amount: number;
           status: string;
           created: number;
-          metadata?: { name?: string; phone?: string; email?: string; role?: string };
           receipt_email?: string;
-          payment_method?: {
-            id: string;
+          payment_method_details?: {
             card?: {
               brand: string;
               last4: string;
               exp_month: number;
               exp_year: number;
             };
-          } | string;
-          latest_charge?: {
+          };
+          billing_details?: {
+            name?: string;
+            email?: string;
+            phone?: string;
+          };
+          payment_intent?: {
             id: string;
-            billing_details?: {
-              name?: string;
-              email?: string;
-              phone?: string;
-            };
+            metadata?: { name?: string; phone?: string; email?: string; role?: string };
           } | string;
         }>;
         has_more: boolean;
       };
 
       // Map to a cleaner format and check if linked to a user
-      const payments = await Promise.all(data.data.map(async (pi) => {
-        // Try to find a user with this payment ID
+      const payments = await Promise.all(data.data.map(async (charge) => {
         let linkedUser = null;
 
-        // Search by metadata phone if available
-        if (pi.metadata?.phone) {
-          const user = await UserEntity.findByPhone(c.env, pi.metadata.phone);
+        // Get metadata from payment_intent if expanded
+        const piMetadata = (typeof charge.payment_intent === 'object' && charge.payment_intent?.metadata)
+          ? charge.payment_intent.metadata
+          : {};
+
+        // Try to find user by phone from metadata or billing details
+        const phoneToSearch = piMetadata.phone || charge.billing_details?.phone;
+        if (phoneToSearch) {
+          const user = await UserEntity.findByPhone(c.env, phoneToSearch);
           if (user) {
             linkedUser = { id: user.id, name: user.name, phone: user.phone };
           }
         }
 
-        // Extract card details if available
-        let cardLast4: string | null = null;
-        let cardBrand: string | null = null;
-        if (pi.payment_method && typeof pi.payment_method === 'object' && pi.payment_method.card) {
-          cardLast4 = pi.payment_method.card.last4;
-          cardBrand = pi.payment_method.card.brand;
-        }
-
-        // Extract billing details from charge if available
-        let billingName: string | null = null;
-        let billingEmail: string | null = null;
-        if (pi.latest_charge && typeof pi.latest_charge === 'object' && pi.latest_charge.billing_details) {
-          billingName = pi.latest_charge.billing_details.name || null;
-          billingEmail = pi.latest_charge.billing_details.email || null;
-        }
+        // Extract card details
+        const cardLast4 = charge.payment_method_details?.card?.last4 || null;
+        const cardBrand = charge.payment_method_details?.card?.brand || null;
 
         return {
-          id: pi.id,
-          amount: pi.amount,
-          amountFormatted: `$${(pi.amount / 100).toFixed(2)}`,
-          status: pi.status,
-          createdAt: pi.created * 1000,
-          metadata: pi.metadata || {},
-          receiptEmail: pi.receipt_email || billingEmail,
+          id: charge.id,
+          paymentIntentId: typeof charge.payment_intent === 'object' ? charge.payment_intent?.id : charge.payment_intent,
+          amount: charge.amount,
+          amountFormatted: `$${(charge.amount / 100).toFixed(2)}`,
+          status: charge.status,
+          createdAt: charge.created * 1000,
+          metadata: piMetadata,
+          receiptEmail: charge.receipt_email || charge.billing_details?.email,
           cardLast4,
           cardBrand,
-          billingName,
-          billingEmail,
+          billingName: charge.billing_details?.name || null,
+          billingEmail: charge.billing_details?.email || null,
+          billingPhone: charge.billing_details?.phone || null,
           linkedUser
         };
       }));
 
+      // For bi-directional pagination, we need first and last IDs
+      const firstId = payments.length > 0 ? payments[0].id : null;
+      const lastId = payments.length > 0 ? payments[payments.length - 1].id : null;
+
       return ok(c, {
         payments,
         hasMore: data.has_more,
-        lastId: payments.length > 0 ? payments[payments.length - 1].id : null
+        firstId,
+        lastId,
+        // If we used ending_before, we need to know if there's more going back
+        hasPrevious: !!endingBefore || !!startingAfter
       });
     } catch (e: any) {
       console.error('Stripe payments fetch error:', e);
@@ -2768,6 +2921,53 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       });
     } catch (e: any) {
       console.error('Stripe link error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Unlink a Stripe payment from a user (admin only)
+  app.post('/api/admin/stripe/unlink', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const { userId } = await c.req.json() as { userId: string };
+
+      if (!userId) {
+        return bad(c, 'Missing userId');
+      }
+
+      // Verify the user exists and has a linked payment
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) {
+        return notFound(c, 'User not found');
+      }
+
+      if (!user.stripePaymentId) {
+        return bad(c, 'User does not have a linked payment');
+      }
+
+      const previousPaymentId = user.stripePaymentId;
+      const previousAmount = user.stripePaymentAmount;
+
+      // Clear the Stripe payment data from the user
+      await userEntity.patch({
+        stripePaymentId: undefined,
+        stripePaymentAmount: undefined,
+        stripePaymentStatus: undefined,
+        stripePaymentAt: undefined
+      });
+
+      console.log(`[Admin] Unlinked Stripe payment ${previousPaymentId} from user ${user.name} (${userId}) - was $${((previousAmount || 0) / 100).toFixed(2)}`);
+
+      return ok(c, {
+        message: 'Payment unlinked successfully',
+        user: { id: user.id, name: user.name },
+        previousPaymentId
+      });
+    } catch (e: any) {
+      console.error('Stripe unlink error:', e);
       return c.json({ error: e.message }, 500);
     }
   });
@@ -3577,6 +3777,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const bugId = crypto.randomUUID();
       const now = Date.now();
 
+      const bugSeverity = severity || 'medium';
       await BugReportEntity.create(c.env, {
         id: bugId,
         userId,
@@ -3584,7 +3785,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         userEmail: user.email,
         title,
         description,
-        severity: severity || 'medium',
+        severity: bugSeverity,
         category: category || 'other',
         status: 'open',
         screenshotUrl: screenshotUrl || '',
@@ -3599,6 +3800,41 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Add to bug report index
       const bugIndex = new BugReportIndex(c.env);
       await bugIndex.add(bugId);
+
+      // Create system message for bug submission (visible in thread)
+      await BugMessageEntity.createSystemMessage(
+        c.env,
+        bugId,
+        'submitted',
+        `Bug report submitted by ${user.name}. Our team will review it shortly.`
+      );
+
+      // Send confirmation notification to user (in-app + push)
+      await sendNotification(
+        c.env,
+        userId,
+        'bug_submitted',
+        'Bug report received!',
+        `Thanks for reporting "${title}". We'll look into it and get back to you soon.`,
+        { data: { bugId }, pushUrl: `/app/my-bug-reports?bugId=${bugId}` }
+      );
+
+      // Notify all admins about the new bug report (in-app + push)
+      const adminIndex = new AdminIndex(c.env);
+      const adminIds = await adminIndex.list();
+      const severityEmoji = bugSeverity === 'critical' ? '🚨' : bugSeverity === 'high' ? '⚠️' : bugSeverity === 'medium' ? '📋' : '📝';
+      await sendNotificationToUsers(
+        c.env,
+        adminIds,
+        'new_bug_report',
+        `${severityEmoji} New ${bugSeverity} bug: ${title}`,
+        `${user.name} reported: "${description.substring(0, 150)}${description.length > 150 ? '...' : ''}"`,
+        {
+          data: { bugId, severity: bugSeverity, userId, userName: user.name },
+          pushUrl: `/app/admin?tab=bugs&bugId=${bugId}`,
+          priority: bugSeverity === 'critical' ? 'urgent' : bugSeverity === 'high' ? 'high' : 'normal'
+        }
+      );
 
       return ok(c, await new BugReportEntity(c.env, bugId).getState());
     } catch (e: any) {
@@ -3682,6 +3918,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       const updates = await c.req.json() as BugReportUpdateRequest;
       const patch: Partial<BugReport> = { updatedAt: Date.now() };
+      const oldStatus = bug.status;
 
       if (updates.status) {
         if (!['open', 'in_progress', 'resolved', 'closed'].includes(updates.status)) {
@@ -3695,6 +3932,72 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       }
 
       await bugEntity.patch(patch);
+
+      // Send notification to user if status changed
+      if (updates.status && updates.status !== oldStatus) {
+        const statusMessages: Record<string, { title: string; message: string }> = {
+          'in_progress': {
+            title: 'Your bug is being worked on!',
+            message: `We're actively investigating "${bug.title}". We'll update you when we have more info.`
+          },
+          'resolved': {
+            title: 'Your bug has been resolved!',
+            message: `Great news! "${bug.title}" has been fixed. Let us know if the issue persists.`
+          },
+          'closed': {
+            title: 'Bug report closed',
+            message: `Your bug report "${bug.title}" has been closed. Thanks for helping us improve!`
+          },
+          'open': {
+            title: 'Bug report reopened',
+            message: `"${bug.title}" has been reopened for further investigation.`
+          }
+        };
+
+        // Create system message in thread for status change
+        const statusLabels: Record<string, string> = {
+          'open': 'Open',
+          'in_progress': 'In Progress',
+          'resolved': 'Resolved',
+          'closed': 'Closed'
+        };
+        const systemType = updates.status === 'resolved' ? 'resolved' : 'status_change';
+        await BugMessageEntity.createSystemMessage(
+          c.env,
+          bugId,
+          systemType,
+          `Status changed from "${statusLabels[oldStatus]}" to "${statusLabels[updates.status]}" by ${admin.name}.`
+        );
+
+        const notifContent = statusMessages[updates.status];
+        if (notifContent) {
+          await sendNotification(
+            c.env,
+            bug.userId,
+            'bug_status_changed',
+            notifContent.title,
+            notifContent.message,
+            {
+              data: { bugId, oldStatus, newStatus: updates.status },
+              pushUrl: `/app/my-bug-reports?bugId=${bugId}`,
+              priority: updates.status === 'resolved' ? 'high' : 'normal'
+            }
+          );
+        }
+
+        // If bug is resolved, also send satisfaction survey notification (skip push - already sent above)
+        if (updates.status === 'resolved') {
+          await sendNotification(
+            c.env,
+            bug.userId,
+            'bug_status_changed',
+            'How was your experience?',
+            `Was the resolution of "${bug.title}" helpful? Click to rate your experience!`,
+            { data: { bugId }, pushUrl: `/app/my-bug-reports?bugId=${bugId}`, skipPush: true }
+          );
+        }
+      }
+
       return ok(c, await bugEntity.getState());
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
@@ -3721,6 +4024,244 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       await bugEntity.delete();
 
       return ok(c, { message: 'Bug report deleted successfully' });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Bug Message System Routes
+  // =========================================
+
+  // Get messages for a bug report (user can see their own bugs, admin can see all)
+  app.get('/api/bugs/:bugId/messages', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      // Check authorization - user must own the bug or be admin
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (bug.userId !== userId && !user.isAdmin) {
+        return c.json({ error: 'Access denied' }, 403);
+      }
+
+      const messages = await BugMessageEntity.findByBug(c.env, bugId);
+      return ok(c, messages);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Add a message to a bug report (user or admin)
+  app.post('/api/bugs/:bugId/messages', async (c) => {
+    try {
+      console.log('[BugMessage] Starting message creation');
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugId = c.req.param('bugId');
+      console.log('[BugMessage] bugId:', bugId, 'userId:', userId);
+
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+      console.log('[BugMessage] Bug found:', bug.title, 'bug.userId:', bug.userId);
+
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return notFound(c, 'User not found');
+      console.log('[BugMessage] User found:', user.name, 'isAdmin:', user.isAdmin);
+
+      // Check authorization - user must own the bug or be admin
+      const isAdmin = !!user.isAdmin;
+      if (bug.userId !== userId && !isAdmin) {
+        return c.json({ error: 'Access denied' }, 403);
+      }
+
+      const body = await c.req.json() as { message: string };
+      if (!body.message?.trim()) {
+        return bad(c, 'Message is required');
+      }
+
+      // Create the message
+      const message = await BugMessageEntity.createMessage(
+        c.env,
+        bugId,
+        userId,
+        user.name,
+        user.avatarUrl,
+        isAdmin,
+        body.message.trim()
+      );
+      console.log('[BugMessage] Message created:', message.id);
+
+      // Send notification to the other party (in-app + push)
+      if (isAdmin) {
+        // Admin sent message - notify the bug reporter
+        console.log('[BugMessage] Admin sending to user:', bug.userId);
+        const result = await sendNotification(
+          c.env,
+          bug.userId,
+          'bug_response',
+          'Response to your bug report',
+          `An admin replied to "${bug.title}": "${body.message.substring(0, 100)}${body.message.length > 100 ? '...' : ''}"`,
+          {
+            data: { bugId, messageId: message.id },
+            pushUrl: `/app/my-bug-reports?bugId=${bugId}`,
+            priority: 'high'
+          }
+        );
+        console.log('[BugMessage] Notification created for user:', result.notification.id, 'Push:', result.pushResult);
+      } else {
+        // User sent message - notify all admins
+        const adminIndex = new AdminIndex(c.env);
+        const adminIds = await adminIndex.list();
+        console.log('[BugMessage] User sending to admins:', adminIds);
+        await sendNotificationToUsers(
+          c.env,
+          adminIds,
+          'bug_response',
+          `User replied to bug: ${bug.title}`,
+          `${user.name} replied: "${body.message.substring(0, 100)}${body.message.length > 100 ? '...' : ''}"`,
+          {
+            data: { bugId, messageId: message.id, userId: bug.userId },
+            pushUrl: `/app/admin?tab=bugs&bugId=${bugId}`,
+            priority: 'high'
+          }
+        );
+        console.log('[BugMessage] Notifications created for all admins');
+      }
+
+      return ok(c, message);
+    } catch (e: any) {
+      console.error('[BugMessage] Error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get bug satisfaction feedback (user or admin)
+  app.get('/api/bugs/:bugId/satisfaction', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      // Check authorization
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (bug.userId !== userId && !user.isAdmin) {
+        return c.json({ error: 'Access denied' }, 403);
+      }
+
+      const satisfaction = await BugSatisfactionEntity.findByBug(c.env, bugId);
+      return ok(c, satisfaction);
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Submit bug satisfaction feedback (only bug owner)
+  app.post('/api/bugs/:bugId/satisfaction', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      // Only bug owner can submit satisfaction
+      if (bug.userId !== userId) {
+        return c.json({ error: 'Only the bug reporter can submit feedback' }, 403);
+      }
+
+      // Bug must be resolved or closed
+      if (bug.status !== 'resolved' && bug.status !== 'closed') {
+        return bad(c, 'Bug must be resolved before submitting feedback');
+      }
+
+      // Check if already submitted
+      const existing = await BugSatisfactionEntity.findByBug(c.env, bugId);
+      if (existing) {
+        return bad(c, 'Feedback already submitted for this bug');
+      }
+
+      const body = await c.req.json() as SubmitBugSatisfactionRequest;
+      if (!body.rating || !['positive', 'negative'].includes(body.rating)) {
+        return bad(c, 'Valid rating (positive/negative) is required');
+      }
+
+      const satisfaction = await BugSatisfactionEntity.create(
+        c.env,
+        bugId,
+        userId,
+        body.rating as BugSatisfactionRating,
+        body.feedback
+      );
+
+      // Notify admins about the feedback (in-app + push)
+      const adminIndex = new AdminIndex(c.env);
+      const adminIds = await adminIndex.list();
+      const emoji = body.rating === 'positive' ? '👍' : '👎';
+      await sendNotificationToUsers(
+        c.env,
+        adminIds,
+        'bug_status_changed',
+        `${emoji} Bug feedback received`,
+        `User rated the resolution of "${bug.title}" as ${body.rating}${body.feedback ? `: "${body.feedback}"` : ''}`,
+        {
+          data: { bugId, rating: body.rating },
+          pushUrl: `/app/admin?tab=bugs&bugId=${bugId}`,
+          priority: body.rating === 'negative' ? 'high' : 'normal'
+        }
+      );
+
+      return ok(c, satisfaction);
+    } catch (e: any) {
+      console.error('Bug satisfaction error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get a single bug with messages (user can see their own, admin can see all)
+  app.get('/api/bugs/:bugId', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const bugId = c.req.param('bugId');
+      const bugEntity = new BugReportEntity(c.env, bugId);
+      const bug = await bugEntity.getState();
+
+      if (!bug.id) return notFound(c, 'Bug report not found');
+
+      // Check authorization
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (bug.userId !== userId && !user.isAdmin) {
+        return c.json({ error: 'Access denied' }, 403);
+      }
+
+      // Get messages and satisfaction
+      const messages = await BugMessageEntity.findByBug(c.env, bugId);
+      const satisfaction = await BugSatisfactionEntity.findByBug(c.env, bugId);
+
+      return ok(c, { bug, messages, satisfaction });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -5231,7 +5772,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!userId) return c.json({ error: 'User ID required' }, 401);
 
       const unreadCount = await NotificationEntity.getUnreadCount(c.env, userId);
-      return ok(c, { unreadCount });
+      return ok(c, { count: unreadCount });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -5453,10 +5994,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         }
       }
 
-      // Send notifications if requested
+      // Send notifications if requested (in-app + push)
       if (notify) {
         // Notify the user being reassigned
-        await NotificationEntity.createNotification(
+        await sendNotification(
           c.env,
           targetUserId,
           'captain_reassigned',
@@ -5465,49 +6006,58 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
             ? `You have been assigned to ${newCaptain.name}'s team.`
             : 'You have been removed from your team assignment.',
           {
-            oldCaptainId,
-            oldCaptainName: oldCaptain?.name,
-            newCaptainId,
-            newCaptainName: newCaptain?.name,
-            adminId: admin.id,
-            adminName: admin.name
+            data: {
+              oldCaptainId,
+              oldCaptainName: oldCaptain?.name,
+              newCaptainId,
+              newCaptainName: newCaptain?.name,
+              adminId: admin.id,
+              adminName: admin.name
+            },
+            pushUrl: '/app/roster'
           }
         );
 
         // Notify old captain (if there was one)
         if (oldCaptain && oldCaptainId !== newCaptainId) {
-          await NotificationEntity.createNotification(
+          await sendNotification(
             c.env,
             oldCaptainId,
             'team_member_removed',
             'Team Member Reassigned',
             `${targetUser.name} has been reassigned to ${newCaptain ? newCaptain.name + "'s team" : 'no team'}.`,
             {
-              memberId: targetUserId,
-              memberName: targetUser.name,
-              newCaptainId,
-              newCaptainName: newCaptain?.name,
-              adminId: admin.id,
-              adminName: admin.name
+              data: {
+                memberId: targetUserId,
+                memberName: targetUser.name,
+                newCaptainId,
+                newCaptainName: newCaptain?.name,
+                adminId: admin.id,
+                adminName: admin.name
+              },
+              pushUrl: '/app/roster'
             }
           );
         }
 
         // Notify new captain (if there is one and it's different)
         if (newCaptain && newCaptainId !== oldCaptainId) {
-          await NotificationEntity.createNotification(
+          await sendNotification(
             c.env,
             newCaptainId,
             'new_team_member',
             'New Team Member',
             `${targetUser.name} has been added to your team.`,
             {
-              memberId: targetUserId,
-              memberName: targetUser.name,
-              previousCaptainId: oldCaptainId,
-              previousCaptainName: oldCaptain?.name,
-              adminId: admin.id,
-              adminName: admin.name
+              data: {
+                memberId: targetUserId,
+                memberName: targetUser.name,
+                previousCaptainId: oldCaptainId,
+                previousCaptainName: oldCaptain?.name,
+                adminId: admin.id,
+                adminName: admin.name
+              },
+              pushUrl: '/app/roster'
             }
           );
         }
@@ -5581,9 +6131,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
             }
           }
 
-          // Send notification to user
+          // Send notification to user (in-app + push)
           if (notify) {
-            await NotificationEntity.createNotification(
+            await sendNotification(
               c.env,
               userId,
               'captain_reassigned',
@@ -5591,7 +6141,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
               newCaptain
                 ? `You have been assigned to ${newCaptain.name}'s team.`
                 : 'You have been removed from your team assignment.',
-              { oldCaptainId, newCaptainId, newCaptainName: newCaptain?.name }
+              {
+                data: { oldCaptainId, newCaptainId, newCaptainName: newCaptain?.name },
+                pushUrl: '/app/roster'
+              }
             );
           }
 
@@ -5601,20 +6154,23 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         }
       }
 
-      // Notify new captain about all new members
+      // Notify new captain about all new members (in-app + push)
       if (notify && newCaptain && results.filter(r => r.success).length > 0) {
         const successCount = results.filter(r => r.success).length;
-        await NotificationEntity.createNotification(
+        await sendNotification(
           c.env,
           newCaptainId!,
           'new_team_member',
           'New Team Members Added',
           `${successCount} member${successCount > 1 ? 's have' : ' has'} been added to your team.`,
           {
-            memberIds: userIds,
-            count: successCount,
-            adminId: admin.id,
-            adminName: admin.name
+            data: {
+              memberIds: userIds,
+              count: successCount,
+              adminId: admin.id,
+              adminName: admin.name
+            },
+            pushUrl: '/app/roster'
           }
         );
       }
@@ -5630,6 +6186,168 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       });
     } catch (e: any) {
       console.error('Bulk reassign error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Web Push Notification Routes
+  // =========================================
+
+  // Get VAPID public key (for client-side subscription)
+  app.get('/api/push/vapid-key', (c) => {
+    return ok(c, { publicKey: VAPID_PUBLIC_KEY });
+  });
+
+  // Subscribe to push notifications
+  app.post('/api/push/subscribe', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const body = await c.req.json() as {
+        subscription: {
+          endpoint: string;
+          keys: { p256dh: string; auth: string };
+        };
+        userAgent?: string;
+      };
+
+      if (!body.subscription?.endpoint || !body.subscription?.keys?.p256dh || !body.subscription?.keys?.auth) {
+        return bad(c, 'Invalid subscription data');
+      }
+
+      const subscription = await PushSubscriptionEntity.upsert(
+        c.env,
+        userId,
+        body.subscription.endpoint,
+        body.subscription.keys,
+        body.userAgent
+      );
+
+      console.log(`[Push] User ${userId} subscribed: ${subscription.id}`);
+      return ok(c, { success: true, subscriptionId: subscription.id });
+    } catch (e: any) {
+      console.error('[Push] Subscribe error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Unsubscribe from push notifications
+  app.post('/api/push/unsubscribe', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const body = await c.req.json() as { endpoint: string };
+
+      if (!body.endpoint) {
+        return bad(c, 'Endpoint is required');
+      }
+
+      const deleted = await PushSubscriptionEntity.deleteByEndpoint(c.env, body.endpoint);
+
+      console.log(`[Push] User ${userId} unsubscribed: ${deleted}`);
+      return ok(c, { success: true, deleted });
+    } catch (e: any) {
+      console.error('[Push] Unsubscribe error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Get user's push subscription status
+  app.get('/api/push/status', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const subscriptions = await PushSubscriptionEntity.findByUser(c.env, userId);
+
+      return ok(c, {
+        subscribed: subscriptions.length > 0,
+        subscriptionCount: subscriptions.length,
+        subscriptions: subscriptions.map(s => ({
+          id: s.id,
+          createdAt: s.createdAt,
+          lastUsedAt: s.lastUsedAt,
+          userAgent: s.userAgent
+        }))
+      });
+    } catch (e: any) {
+      console.error('[Push] Status error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Admin: Send test push notification
+  app.post('/api/admin/push/test', async (c) => {
+    try {
+      const userId = c.req.header('X-User-ID');
+      if (!userId) return bad(c, 'Unauthorized');
+
+      const user = await new UserEntity(c.env, userId).getState();
+      if (!user.isAdmin) return c.json({ error: 'Admin access required' }, 403);
+
+      const body = await c.req.json() as {
+        targetUserId: string;
+        title: string;
+        body: string;
+        url?: string;
+      };
+
+      if (!body.targetUserId || !body.title || !body.body) {
+        return bad(c, 'targetUserId, title, and body are required');
+      }
+
+      const result = await sendPushToUser(c.env, body.targetUserId, {
+        title: body.title,
+        body: body.body,
+        url: body.url || '/app'
+      });
+
+      return ok(c, {
+        success: true,
+        sent: result.sent,
+        failed: result.failed
+      });
+    } catch (e: any) {
+      console.error('[Push] Test push error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Handle subscription change (called from service worker)
+  app.post('/api/push/resubscribe', async (c) => {
+    try {
+      const body = await c.req.json() as {
+        oldEndpoint: string;
+        newSubscription: {
+          endpoint: string;
+          keys: { p256dh: string; auth: string };
+        };
+      };
+
+      // Find the old subscription to get the userId
+      const oldSub = await PushSubscriptionEntity.findByEndpoint(c.env, body.oldEndpoint);
+      if (!oldSub) {
+        return bad(c, 'Original subscription not found');
+      }
+
+      // Delete old subscription
+      await PushSubscriptionEntity.deleteByEndpoint(c.env, body.oldEndpoint);
+
+      // Create new subscription with same user
+      const newSub = await PushSubscriptionEntity.upsert(
+        c.env,
+        oldSub.userId,
+        body.newSubscription.endpoint,
+        body.newSubscription.keys
+      );
+
+      console.log(`[Push] Resubscribed user ${oldSub.userId}: ${newSub.id}`);
+      return ok(c, { success: true, subscriptionId: newSub.id });
+    } catch (e: any) {
+      console.error('[Push] Resubscribe error:', e);
       return c.json({ error: e.message }, 500);
     }
   });

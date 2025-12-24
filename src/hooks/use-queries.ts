@@ -882,6 +882,70 @@ export function useAdminDeleteBugReport() {
 }
 
 // =========================================
+// Bug Message & Satisfaction hooks
+// =========================================
+
+// Get a single bug with messages and satisfaction
+export function useBugWithMessages(bugId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['bugs', bugId, 'full'],
+    queryFn: () => bugApi.getBugWithMessages(userId!, bugId!),
+    enabled: !!userId && !!bugId,
+  });
+}
+
+// Get bug messages
+export function useBugMessages(bugId: string | null) {
+  const userId = useAuthStore(s => s.userId);
+  return useQuery({
+    queryKey: ['bugs', bugId, 'messages'],
+    queryFn: () => bugApi.getBugMessages(userId!, bugId!),
+    enabled: !!userId && !!bugId,
+    refetchInterval: 30000, // Refetch every 30 seconds for real-time feel
+  });
+}
+
+// Add a message to a bug thread
+export function useAddBugMessage() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: ({ bugId, message }: { bugId: string; message: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return bugApi.addBugMessage(userId, bugId, message);
+    },
+    onSuccess: (_, { bugId }) => {
+      queryClient.invalidateQueries({ queryKey: ['bugs', bugId] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bugs', bugId] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to send message');
+    }
+  });
+}
+
+// Submit bug satisfaction
+export function useSubmitBugSatisfaction() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore(s => s.userId);
+  return useMutation({
+    mutationFn: (data: { bugId: string; rating: 'positive' | 'negative'; feedback?: string }) => {
+      if (!userId) throw new Error('Not authenticated');
+      return bugApi.submitSatisfaction(userId, data);
+    },
+    onSuccess: (_, { bugId }) => {
+      queryClient.invalidateQueries({ queryKey: ['bugs', bugId] });
+      queryClient.invalidateQueries({ queryKey: ['bugs'] });
+      toast.success('Thanks for your feedback!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit feedback');
+    }
+  });
+}
+
+// =========================================
 // AI Bug Analysis hooks
 // =========================================
 
@@ -1535,26 +1599,26 @@ export function useLikeContent() {
 // Notification hooks
 // =========================================
 
-// Get user's notifications
+// Get user's notifications (uses effective user ID for impersonation support)
 export function useNotifications(limit?: number) {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['notifications', userId, limit],
-    queryFn: () => userId ? notificationsApi.getNotifications(userId, limit) : null,
-    enabled: !!userId,
+    queryKey: ['notifications', effectiveUserId, limit],
+    queryFn: () => effectiveUserId ? notificationsApi.getNotifications(effectiveUserId, limit) : null,
+    enabled: !!effectiveUserId,
     staleTime: 1000 * 30, // 30 seconds
   });
 }
 
-// Get unread notification count (for badge)
+// Get unread notification count (for badge) - uses effective user ID for impersonation support
 export function useUnreadNotificationCount() {
-  const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   return useQuery({
-    queryKey: ['notifications', 'unread-count', userId],
-    queryFn: () => userId ? notificationsApi.getUnreadCount(userId) : { count: 0 },
-    enabled: !!userId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 60, // Poll every minute
+    queryKey: ['notifications', 'unread-count', effectiveUserId],
+    queryFn: () => effectiveUserId ? notificationsApi.getUnreadCount(effectiveUserId) : { count: 0 },
+    enabled: !!effectiveUserId,
+    staleTime: 1000 * 10, // 10 seconds
+    refetchInterval: 1000 * 15, // Poll every 15 seconds for near-real-time feel
   });
 }
 

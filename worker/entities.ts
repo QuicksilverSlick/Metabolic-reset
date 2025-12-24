@@ -1,5 +1,5 @@
 import { IndexedEntity, Entity, Env, Index } from "./core-utils";
-import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode, CourseContent, UserProgress, ContentStatus, Notification, NotificationType, ImpersonationSession, BugAIAnalysis, AIAnalysisStatus } from "@shared/types";
+import type { User, DailyScore, WeeklyBiometric, ReferralLedger, SystemStats, QuizLead, ResetProject, ProjectEnrollment, BugReport, OtpRecord, SystemSettings, PointsLedger, PointTransactionType, GenealogyNode, CourseContent, UserProgress, ContentStatus, Notification, NotificationType, ImpersonationSession, BugAIAnalysis, AIAnalysisStatus, BugMessage, BugSatisfaction, BugSatisfactionRating, PushSubscription } from "@shared/types";
 // Helper entity for secondary index: ReferralCode -> UserId
 export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
@@ -416,6 +416,154 @@ export class BugReportEntity extends IndexedEntity<BugReport> {
 export class BugReportIndex extends Index<string> {
   constructor(env: Env) {
     super(env, "all-bug-reports");
+  }
+}
+
+// ============================================
+// BUG MESSAGE SYSTEM (Threaded Conversations)
+// ============================================
+
+// Bug Message Entity - messages in a bug report thread
+export class BugMessageEntity extends IndexedEntity<BugMessage> {
+  static readonly entityName = "bug-message";
+  static readonly indexName = "bug-messages";
+  static readonly initialState: BugMessage = {
+    id: "",
+    bugId: "",
+    userId: "",
+    userName: "",
+    userAvatarUrl: "",
+    isAdmin: false,
+    isSystem: false,
+    message: "",
+    createdAt: 0
+  };
+
+  // Get all messages for a bug (oldest first for chat order)
+  static async findByBug(env: Env, bugId: string): Promise<BugMessage[]> {
+    const index = new BugMessagesIndex(env, bugId);
+    const ids = await index.list();
+
+    const messages = await Promise.all(
+      ids.map(async (id) => {
+        const entity = new BugMessageEntity(env, id);
+        return entity.getState();
+      })
+    );
+
+    return messages
+      .filter(m => m.id)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  // Create a new message in a bug thread
+  static async createMessage(
+    env: Env,
+    bugId: string,
+    userId: string,
+    userName: string,
+    userAvatarUrl: string | undefined,
+    isAdmin: boolean,
+    message: string
+  ): Promise<BugMessage> {
+    const id = `${bugId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const bugMessage: BugMessage = {
+      id,
+      bugId,
+      userId,
+      userName,
+      userAvatarUrl,
+      isAdmin,
+      isSystem: false,
+      message,
+      createdAt: Date.now()
+    };
+
+    await BugMessageEntity.create(env, bugMessage);
+
+    // Add to bug-specific index
+    const index = new BugMessagesIndex(env, bugId);
+    await index.add(id);
+
+    return bugMessage;
+  }
+
+  // Create a system-generated message (for status changes, confirmations, etc.)
+  static async createSystemMessage(
+    env: Env,
+    bugId: string,
+    systemType: 'submitted' | 'status_change' | 'assigned' | 'resolved',
+    message: string
+  ): Promise<BugMessage> {
+    const id = `${bugId}-sys-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const bugMessage: BugMessage = {
+      id,
+      bugId,
+      userId: 'system',
+      userName: 'System',
+      userAvatarUrl: undefined,
+      isAdmin: false,
+      isSystem: true,
+      systemType,
+      message,
+      createdAt: Date.now()
+    };
+
+    await BugMessageEntity.create(env, bugMessage);
+
+    // Add to bug-specific index
+    const index = new BugMessagesIndex(env, bugId);
+    await index.add(id);
+
+    return bugMessage;
+  }
+}
+
+// Index for messages within a specific bug report
+export class BugMessagesIndex extends Index<string> {
+  constructor(env: Env, bugId: string) {
+    super(env, `bug-messages:${bugId}`);
+  }
+}
+
+// Bug Satisfaction Entity - user feedback after bug resolution
+export class BugSatisfactionEntity extends Entity<BugSatisfaction> {
+  static readonly entityName = "bug-satisfaction";
+  static readonly initialState: BugSatisfaction = {
+    id: "",
+    bugId: "",
+    userId: "",
+    rating: "positive",
+    feedback: "",
+    submittedAt: 0
+  };
+
+  // Create satisfaction feedback
+  static async create(
+    env: Env,
+    bugId: string,
+    userId: string,
+    rating: BugSatisfactionRating,
+    feedback?: string
+  ): Promise<BugSatisfaction> {
+    const entity = new BugSatisfactionEntity(env, bugId);
+    const satisfaction: BugSatisfaction = {
+      id: bugId,
+      bugId,
+      userId,
+      rating,
+      feedback,
+      submittedAt: Date.now()
+    };
+    await entity.setState(satisfaction);
+    return satisfaction;
+  }
+
+  // Get satisfaction by bug ID
+  static async findByBug(env: Env, bugId: string): Promise<BugSatisfaction | null> {
+    const entity = new BugSatisfactionEntity(env, bugId);
+    const state = await entity.getState();
+    return state.id ? state : null;
   }
 }
 
@@ -1378,6 +1526,128 @@ export class BugAIAnalysisEntity extends IndexedEntity<BugAIAnalysis> {
       .filter(a => a.id)
       .sort((a, b) => b.analyzedAt - a.analyzedAt)
       .slice(0, limit);
+  }
+}
+
+// ============================================
+// WEB PUSH SUBSCRIPTION SYSTEM
+// ============================================
+
+// Push Subscription Entity - stores push subscriptions per user/device
+export class PushSubscriptionEntity extends IndexedEntity<PushSubscription> {
+  static readonly entityName = "push-subscription";
+  static readonly indexName = "push-subscriptions";
+  static readonly initialState: PushSubscription = {
+    id: "",
+    userId: "",
+    endpoint: "",
+    keys: { p256dh: "", auth: "" },
+    createdAt: 0,
+    lastUsedAt: 0,
+    failCount: 0
+  };
+
+  // Find all subscriptions for a user
+  static async findByUser(env: Env, userId: string): Promise<PushSubscription[]> {
+    const { items } = await PushSubscriptionEntity.list(env);
+    return items.filter(s => s.userId === userId && s.id);
+  }
+
+  // Find subscription by endpoint (to prevent duplicates)
+  static async findByEndpoint(env: Env, endpoint: string): Promise<PushSubscription | null> {
+    const { items } = await PushSubscriptionEntity.list(env);
+    return items.find(s => s.endpoint === endpoint && s.id) || null;
+  }
+
+  // Create or update a subscription
+  static async upsert(
+    env: Env,
+    userId: string,
+    endpoint: string,
+    keys: { p256dh: string; auth: string },
+    userAgent?: string
+  ): Promise<PushSubscription> {
+    // Check if subscription exists
+    const existing = await PushSubscriptionEntity.findByEndpoint(env, endpoint);
+
+    if (existing) {
+      // Update existing subscription
+      const entity = new PushSubscriptionEntity(env, existing.id);
+      await entity.patch({
+        userId, // Might have changed if user re-logged in
+        keys,
+        userAgent,
+        lastUsedAt: Date.now(),
+        failCount: 0 // Reset fail count on resubscribe
+      });
+      return { ...existing, userId, keys, userAgent, lastUsedAt: Date.now(), failCount: 0 };
+    }
+
+    // Create new subscription
+    const id = `push-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const subscription: PushSubscription = {
+      id,
+      userId,
+      endpoint,
+      keys,
+      userAgent,
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      failCount: 0
+    };
+    await PushSubscriptionEntity.create(env, subscription);
+    return subscription;
+  }
+
+  // Delete a subscription by endpoint
+  static async deleteByEndpoint(env: Env, endpoint: string): Promise<boolean> {
+    const subscription = await PushSubscriptionEntity.findByEndpoint(env, endpoint);
+    if (subscription) {
+      const entity = new PushSubscriptionEntity(env, subscription.id);
+      // Clear the subscription data (effectively delete)
+      await entity.patch({
+        id: "",
+        userId: "",
+        endpoint: "",
+        keys: { p256dh: "", auth: "" }
+      });
+      return true;
+    }
+    return false;
+  }
+
+  // Increment fail count and remove if too many failures
+  static async recordFailure(env: Env, endpoint: string): Promise<boolean> {
+    const subscription = await PushSubscriptionEntity.findByEndpoint(env, endpoint);
+    if (!subscription) return false;
+
+    const newFailCount = subscription.failCount + 1;
+
+    // Remove subscription after 5 consecutive failures
+    if (newFailCount >= 5) {
+      await PushSubscriptionEntity.deleteByEndpoint(env, endpoint);
+      return false; // Subscription removed
+    }
+
+    const entity = new PushSubscriptionEntity(env, subscription.id);
+    await entity.patch({ failCount: newFailCount });
+    return true;
+  }
+
+  // Record successful push
+  static async recordSuccess(env: Env, endpoint: string): Promise<void> {
+    const subscription = await PushSubscriptionEntity.findByEndpoint(env, endpoint);
+    if (subscription) {
+      const entity = new PushSubscriptionEntity(env, subscription.id);
+      await entity.patch({ lastUsedAt: Date.now(), failCount: 0 });
+    }
+  }
+}
+
+// Index for user's push subscriptions
+export class UserPushSubscriptionsIndex extends Index<string> {
+  constructor(env: Env, userId: string) {
+    super(env, `user-push-subs:${userId}`);
   }
 }
 
