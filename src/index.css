@@ -139,6 +139,43 @@
   .gold-glow-hover:hover {
     @apply shadow-[0_0_25px_rgba(245,158,11,0.6)];
   }
+
+  /* Dark theme checkbox styling */
+  .dark input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    border: 1.5px solid rgb(71 85 105); /* slate-600 */
+    background-color: rgb(30 41 59); /* slate-800 */
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease-in-out;
+  }
+  .dark input[type="checkbox"]:hover {
+    border-color: rgb(100 116 139); /* slate-500 */
+    background-color: rgb(51 65 85); /* slate-700 */
+  }
+  .dark input[type="checkbox"]:checked {
+    background-color: rgb(234 179 8); /* gold-500 */
+    border-color: rgb(234 179 8); /* gold-500 */
+  }
+  .dark input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4.5px;
+    top: 1.5px;
+    width: 4px;
+    height: 8px;
+    border: solid rgb(15 23 42); /* navy-900 */
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .dark input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(15 23 42), 0 0 0 4px rgb(234 179 8 / 0.5); /* navy-900 + gold ring */
+  }
 }
 
 /* react-d3-tree connector line styles */
@@ -151,6 +188,38 @@
 
 /* Custom animations */
 @layer utilities {
+  /* iOS Safe Area padding utilities */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .p-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* Minimum height accounting for safe areas */
+  .min-h-screen-safe {
+    min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;  /* IE and Edge */
@@ -158,6 +227,40 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari and Opera */
+  }
+
+  /* Styled thin scrollbar for dark theme - mobile friendly */
+  .scrollbar-styled {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(100 116 139) transparent; /* slate-500 */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .scrollbar-styled::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-styled::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+  .scrollbar-styled::-webkit-scrollbar-thumb {
+    background: rgb(100 116 139); /* slate-500 */
+    border-radius: 3px;
+  }
+  .scrollbar-styled::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184); /* slate-400 */
+  }
+
+  /* Dark mode scrollbar */
+  .dark .scrollbar-styled {
+    scrollbar-color: rgb(71 85 105) transparent; /* slate-600 */
+  }
+  .dark .scrollbar-styled::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105); /* slate-600 */
+  }
+  .dark .scrollbar-styled::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139); /* slate-500 */
   }
 
   /* Fade in animation */
@@ -256,6 +359,43 @@
   50% {
     transform: translateY(-10px);
   }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-15deg);
+  }
+  20% {
+    transform: rotate(12deg);
+  }
+  30% {
+    transform: rotate(-10deg);
+  }
+  40% {
+    transform: rotate(8deg);
+  }
+  50% {
+    transform: rotate(-5deg);
+  }
+  60% {
+    transform: rotate(3deg);
+  }
+  70% {
+    transform: rotate(-2deg);
+  }
+  80% {
+    transform: rotate(1deg);
+  }
+  90% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.8s ease-in-out;
 }
 
 /* =============================================

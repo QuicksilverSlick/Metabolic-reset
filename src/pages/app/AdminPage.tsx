@@ -95,7 +95,11 @@ import {
   ChevronsRight,
   Copy,
   Check,
-  CreditCard
+  CreditCard,
+  Bell,
+  Info,
+  Play,
+  Megaphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,7 +161,9 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ContentManager } from '@/components/admin/ContentManager';
 import { DocsTab } from '@/components/admin/docs';
 import { BugAIAnalysisPanel } from '@/components/admin/BugAIAnalysisPanel';
+import { BugMessagesPanel } from '@/components/admin/BugMessagesPanel';
 import { PaymentsTab } from '@/components/admin/PaymentsTab';
+import { PushNotificationsTab } from '@/components/admin/PushNotificationsTab';
 
 // Common US timezones
 const US_TIMEZONES = [
@@ -191,10 +197,11 @@ export function AdminPage() {
   const reassignCaptainMutation = useReassignCaptain();
   const bulkReassignMutation = useBulkReassignCaptain();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Read URL params for tab and doc navigation (for opening docs in new tab)
   const urlTab = searchParams.get('tab');
+  const urlBugId = searchParams.get('bugId');
   const urlSection = searchParams.get('section');
   const urlArticle = searchParams.get('article');
 
@@ -208,8 +215,18 @@ export function AdminPage() {
   const [bootstrapKey, setBootstrapKey] = useState('');
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'payments' | 'settings' | 'genealogy' | 'deleted' | 'duplicates' | 'docs'>(
-    urlTab === 'docs' ? 'docs' : 'users'
+
+  // Determine initial tab from URL
+  const getInitialTab = (): 'users' | 'projects' | 'content' | 'bugs' | 'payments' | 'push' | 'settings' | 'genealogy' | 'deleted' | 'duplicates' | 'docs' => {
+    const validTabs = ['users', 'projects', 'content', 'bugs', 'payments', 'push', 'settings', 'genealogy', 'deleted', 'duplicates', 'docs'];
+    if (urlTab && validTabs.includes(urlTab)) {
+      return urlTab as any;
+    }
+    return 'users';
+  };
+
+  const [activeTab, setActiveTab] = useState<'users' | 'projects' | 'content' | 'bugs' | 'payments' | 'push' | 'settings' | 'genealogy' | 'deleted' | 'duplicates' | 'docs'>(
+    getInitialTab()
   );
 
   // Delete user state
@@ -281,6 +298,20 @@ export function AdminPage() {
   const updateBugMutation = useAdminUpdateBugReport();
   const deleteBugMutation = useAdminDeleteBugReport();
 
+  // Handle deep linking to specific bug from notifications
+  React.useEffect(() => {
+    if (urlBugId && bugReports && bugReports.length > 0) {
+      const bug = bugReports.find(b => b.id === urlBugId);
+      if (bug) {
+        setActiveTab('bugs');
+        setSelectedBug(bug);
+        setBugDetailSheetOpen(true);
+        // Clear the query params after navigating
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [urlBugId, bugReports, setSearchParams]);
+
   // System settings queries
   const { data: systemSettings, isLoading: settingsLoading } = useSystemSettings();
   const updateSettingsMutation = useUpdateSystemSettings();
@@ -301,6 +332,13 @@ export function AdminPage() {
   const [settingsFallbackPhone, setSettingsFallbackPhone] = useState('');
   const [settingsInitialized, setSettingsInitialized] = useState(false);
 
+  // Announcement settings state
+  const [announcementEnabled, setAnnouncementEnabled] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('Test Mode');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementVideoUrl, setAnnouncementVideoUrl] = useState('');
+  const [announcementType, setAnnouncementType] = useState<'info' | 'warning' | 'success'>('info');
+
   // Point settings form state
   const [referralPointsCoach, setReferralPointsCoach] = useState(1);
   const [referralPointsChallenger, setReferralPointsChallenger] = useState(5);
@@ -316,6 +354,12 @@ export function AdminPage() {
       setSettingsKitOrderUrl(systemSettings.kitOrderUrl || '');
       setSettingsScaleOrderUrl(systemSettings.scaleOrderUrl || '');
       setSettingsFallbackPhone(systemSettings.fallbackPhone || '5039741671');
+      // Announcement settings
+      setAnnouncementEnabled(systemSettings.announcementEnabled || false);
+      setAnnouncementTitle(systemSettings.announcementTitle || 'Test Mode');
+      setAnnouncementMessage(systemSettings.announcementMessage || '');
+      setAnnouncementVideoUrl(systemSettings.announcementVideoUrl || '');
+      setAnnouncementType(systemSettings.announcementType || 'info');
       setSettingsInitialized(true);
     }
   }, [systemSettings, settingsInitialized]);
@@ -617,10 +661,10 @@ export function AdminPage() {
 
   const getStatusBadge = (status: ProjectStatus) => {
     const styles: Record<ProjectStatus, string> = {
-      draft: 'bg-slate-100 text-slate-600 border-slate-200',
-      upcoming: 'bg-blue-50 text-blue-600 border-blue-200',
-      active: 'bg-green-50 text-green-600 border-green-200',
-      completed: 'bg-purple-50 text-purple-600 border-purple-200',
+      draft: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
+      upcoming: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+      active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+      completed: 'bg-purple-500/20 text-purple-400 border-purple-500/50',
     };
     return (
       <Badge variant="outline" className={styles[status]}>
@@ -633,10 +677,10 @@ export function AdminPage() {
   // Bug severity badge helper
   const getBugSeverityBadge = (severity: BugSeverity) => {
     const styles: Record<BugSeverity, string> = {
-      low: 'bg-green-50 text-green-600 border-green-200',
-      medium: 'bg-yellow-50 text-yellow-600 border-yellow-200',
-      high: 'bg-orange-50 text-orange-600 border-orange-200',
-      critical: 'bg-red-50 text-red-600 border-red-200',
+      low: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+      medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+      high: 'bg-orange-500/20 text-orange-400 border-orange-500/50',
+      critical: 'bg-red-500/20 text-red-400 border-red-500/50',
     };
     return (
       <Badge variant="outline" className={styles[severity]}>
@@ -648,10 +692,10 @@ export function AdminPage() {
   // Bug status badge helper
   const getBugStatusBadge = (status: BugStatus) => {
     const styles: Record<BugStatus, string> = {
-      open: 'bg-red-50 text-red-600 border-red-200',
-      in_progress: 'bg-blue-50 text-blue-600 border-blue-200',
-      resolved: 'bg-green-50 text-green-600 border-green-200',
-      closed: 'bg-slate-50 text-slate-600 border-slate-200',
+      open: 'bg-red-500/20 text-red-400 border-red-500/50',
+      in_progress: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+      resolved: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+      closed: 'bg-slate-500/20 text-slate-400 border-slate-500/50',
     };
     const labels: Record<BugStatus, string> = {
       open: 'Open',
@@ -1015,6 +1059,17 @@ export function AdminPage() {
             Payments
           </button>
           <button
+            onClick={() => setActiveTab('push')}
+            className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'push'
+                ? 'border-gold-500 text-gold-600 dark:text-gold-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+            }`}
+          >
+            <Bell className="h-4 w-4 inline mr-1.5" />
+            Push
+          </button>
+          <button
             onClick={() => setActiveTab('genealogy')}
             className={`flex-shrink-0 snap-start px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'genealogy'
@@ -1249,7 +1304,7 @@ export function AdminPage() {
                     <TableHead className="w-[40px]">
                       <input
                         type="checkbox"
-                        className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-gold-500 focus:ring-gold-500 focus:ring-offset-slate-900 checked:bg-gold-500 checked:border-gold-500"
                         checked={bulkSelectedUserIds.length === paginatedUsers.filter(u => !u.isAdmin).length && paginatedUsers.filter(u => !u.isAdmin).length > 0}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -1287,7 +1342,7 @@ export function AdminPage() {
                         {!user.isAdmin && (
                           <input
                             type="checkbox"
-                            className="rounded border-slate-300 text-gold-600 focus:ring-gold-500"
+                            className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-gold-500 focus:ring-gold-500 focus:ring-offset-slate-900 checked:bg-gold-500 checked:border-gold-500"
                             checked={bulkSelectedUserIds.includes(user.id)}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1344,12 +1399,12 @@ export function AdminPage() {
                       </TableCell>
                       <TableCell>
                         {user.isActive !== false ? (
-                          <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                          <Badge variant="outline" className="text-emerald-400 border-emerald-500/50 bg-emerald-500/20">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Active
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                          <Badge variant="outline" className="text-red-400 border-red-500/50 bg-red-500/20">
                             <Ban className="h-3 w-3 mr-1" />
                             Inactive
                           </Badge>
@@ -1519,11 +1574,11 @@ export function AdminPage() {
                         {user.role === 'coach' ? 'Coach' : 'Challenger'}
                       </Badge>
                       {user.isActive !== false ? (
-                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                        <Badge variant="outline" className="text-emerald-400 border-emerald-500/50 bg-emerald-500/20">
                           Active
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                        <Badge variant="outline" className="text-red-400 border-red-500/50 bg-red-500/20">
                           Inactive
                         </Badge>
                       )}
@@ -1667,12 +1722,12 @@ export function AdminPage() {
                           </h3>
                           {getStatusBadge(project.status)}
                           {project.registrationOpen ? (
-                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+                            <Badge variant="outline" className="text-emerald-400 border-emerald-500/50 bg-emerald-500/20 text-xs">
                               <ToggleRight className="h-3 w-3 mr-1" />
                               Registration Open
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-slate-400 border-slate-200 bg-slate-50 text-xs">
+                            <Badge variant="outline" className="text-slate-400 border-slate-500/50 bg-slate-500/20 text-xs">
                               <ToggleLeft className="h-3 w-3 mr-1" />
                               Registration Closed
                             </Badge>
@@ -1749,10 +1804,14 @@ export function AdminPage() {
                 {(['all', 'open', 'in_progress', 'resolved', 'closed'] as const).map((status) => (
                   <Button
                     key={status}
-                    variant={bugStatusFilter === status ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
                     onClick={() => setBugStatusFilter(status)}
-                    className="capitalize"
+                    className={`capitalize ${
+                      bugStatusFilter === status
+                        ? 'bg-gold-500/20 text-gold-400 border-gold-500/50 hover:bg-gold-500/30'
+                        : 'border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
                   >
                     {status === 'all' ? 'All' : status === 'in_progress' ? 'In Progress' : status}
                   </Button>
@@ -1766,25 +1825,25 @@ export function AdminPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
               </div>
             ) : filteredBugs.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-hidden">
                 {filteredBugs.map((bug) => (
-                  <Card key={bug.id} className="p-4">
+                  <Card key={bug.id} className="p-4 overflow-hidden">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                      <div className="flex-1 space-y-2">
+                      <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-navy-900 dark:text-white">
+                          <h3 className="font-semibold text-navy-900 dark:text-white truncate max-w-[300px] sm:max-w-none">
                             {bug.title}
                           </h3>
                           {getBugSeverityBadge(bug.severity)}
                           {getBugStatusBadge(bug.status)}
                         </div>
-                        <p className="text-sm text-slate-600 line-clamp-2">{bug.description}</p>
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
-                          <span>From: {bug.userName} ({bug.userEmail})</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{bug.description}</p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="truncate max-w-[250px]">From: {bug.userName} ({bug.userEmail})</span>
                           <span>Category: {getBugCategoryLabel(bug.category)}</span>
                           <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {bug.screenshotUrl && bug.screenshotUrl.length > 0 && (
                             <Badge variant="outline" className="text-xs">
                               <Image className="h-3 w-3 mr-1" />
@@ -1850,6 +1909,9 @@ export function AdminPage() {
       {activeTab === 'payments' && currentUser && (
         <PaymentsTab userId={currentUser.id} users={users} />
       )}
+
+      {/* Push Notifications Tab */}
+      {activeTab === 'push' && <PushNotificationsTab />}
 
       {/* Genealogy Tab */}
       {activeTab === 'genealogy' && (
@@ -2283,9 +2345,204 @@ export function AdminPage() {
         </Card>
       )}
 
+      {/* System Announcement Settings Card */}
+      {activeTab === 'settings' && (
+        <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-blue-500" />
+              System Announcement Banner
+            </CardTitle>
+            <CardDescription>
+              Configure the system-wide announcement banner shown to all users at the top of the app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {settingsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+              </div>
+            ) : (
+              <>
+                {/* Enable/Disable Toggle */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-navy-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Bell className={`h-5 w-5 ${announcementEnabled ? 'text-green-500' : 'text-slate-400'}`} />
+                    <div>
+                      <p className="font-medium text-navy-900 dark:text-white">
+                        Announcement Banner
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {announcementEnabled ? 'Banner is visible to all users' : 'Banner is hidden'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAnnouncementEnabled(!announcementEnabled)}
+                    className="p-2"
+                  >
+                    {announcementEnabled ? (
+                      <ToggleRight className="h-8 w-8 text-green-500" />
+                    ) : (
+                      <ToggleLeft className="h-8 w-8 text-slate-400" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Announcement Type */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-500" />
+                    Banner Type
+                  </Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={announcementType === 'info' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAnnouncementType('info')}
+                      className={announcementType === 'info' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                    >
+                      <Info className="h-4 w-4 mr-1" />
+                      Info
+                    </Button>
+                    <Button
+                      variant={announcementType === 'warning' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAnnouncementType('warning')}
+                      className={announcementType === 'warning' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      Warning
+                    </Button>
+                    <Button
+                      variant={announcementType === 'success' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setAnnouncementType('success')}
+                      className={announcementType === 'success' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Success
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Choose the visual style for the banner (affects color scheme).
+                  </p>
+                </div>
+
+                {/* Title */}
+                <div className="space-y-2">
+                  <Label htmlFor="announcement-title" className="flex items-center gap-2">
+                    Title (Short)
+                  </Label>
+                  <Input
+                    id="announcement-title"
+                    type="text"
+                    placeholder="Test Mode"
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Short title shown at the start of the banner (e.g., "Test Mode", "Maintenance", "New Feature").
+                  </p>
+                </div>
+
+                {/* Message */}
+                <div className="space-y-2">
+                  <Label htmlFor="announcement-message" className="flex items-center gap-2">
+                    Message
+                  </Label>
+                  <Input
+                    id="announcement-message"
+                    type="text"
+                    placeholder="Explore the app freely! Note: Activity points will reset on launch day, but Referral Points are permanent."
+                    value={announcementMessage}
+                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  />
+                  <p className="text-xs text-slate-500">
+                    The main message content displayed in the banner.
+                  </p>
+                </div>
+
+                {/* Video URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="announcement-video" className="flex items-center gap-2">
+                    <Play className="h-4 w-4 text-red-500" />
+                    Video URL (Optional)
+                  </Label>
+                  <Input
+                    id="announcement-video"
+                    type="url"
+                    placeholder="https://drive.google.com/file/d/..."
+                    value={announcementVideoUrl}
+                    onChange={(e) => setAnnouncementVideoUrl(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Optional Google Drive video URL. Users can click to watch the video in a modal.
+                  </p>
+                </div>
+
+                {/* Preview */}
+                {announcementEnabled && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-slate-500 uppercase">Preview</Label>
+                    <div className={`rounded-lg overflow-hidden ${
+                      announcementType === 'info' ? 'bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500' :
+                      announcementType === 'warning' ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500' :
+                      'bg-gradient-to-r from-emerald-600 via-green-500 to-teal-500'
+                    } text-white p-3`}>
+                      <div className="flex items-center gap-2 text-sm">
+                        {announcementType === 'info' && <Info className="h-4 w-4" />}
+                        {announcementType === 'warning' && <AlertTriangle className="h-4 w-4" />}
+                        {announcementType === 'success' && <CheckCircle2 className="h-4 w-4" />}
+                        <span className="font-bold">System Status: {announcementTitle || 'Title'}</span>
+                        <span className="hidden sm:inline text-white/80">—</span>
+                        <span className="text-white/90 truncate">{announcementMessage || 'Your message here...'}</span>
+                        {announcementVideoUrl && (
+                          <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 ml-auto">
+                            <Play className="h-3 w-3 mr-1" /> Watch
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      updateSettingsMutation.mutate({
+                        announcementEnabled,
+                        announcementTitle,
+                        announcementMessage,
+                        announcementVideoUrl,
+                        announcementType
+                      });
+                    }}
+                    disabled={updateSettingsMutation.isPending}
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900"
+                  >
+                    {updateSettingsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Announcement Settings
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Bug Detail Sheet */}
       <Sheet open={bugDetailSheetOpen} onOpenChange={setBugDetailSheetOpen}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto scrollbar-hide">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Bug className="h-5 w-5" />
@@ -2418,6 +2675,13 @@ export function AdminPage() {
                 hasVideo={!!selectedBug.videoUrl && selectedBug.videoUrl.length > 0}
               />
 
+              {/* User Conversation */}
+              <BugMessagesPanel
+                bugId={selectedBug.id}
+                bugUserId={selectedBug.userId}
+                bugUserName={selectedBug.userName}
+              />
+
               {/* Admin Notes */}
               <Card>
                 <CardHeader className="pb-3">
@@ -2428,7 +2692,7 @@ export function AdminPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <textarea
-                    className="w-full min-h-[100px] p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gold-500"
+                    className="w-full min-h-[100px] p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gold-500 scrollbar-hide bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
                     placeholder="Add internal notes about this bug..."
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}
