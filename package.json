@@ -9,7 +9,11 @@
     "lint": "eslint --cache -f json --quiet .",
     "preview": "npm run build && vite preview --host 0.0.0.0 --port 4173",
     "deploy": "npm run build && wrangler deploy",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "docs:generate": "npx tsx scripts/generate-docs.ts",
+    "docs:sync": "npx tsx scripts/sync-docs.ts",
+    "docs:validate": "npx tsx scripts/generate-docs.ts && npx tsx scripts/sync-docs.ts",
+    "predeploy": "npm run docs:validate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.525.0",

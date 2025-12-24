@@ -1,0 +1,1231 @@
+{
+  "generatedAt": "2025-12-24T13:28:08.372Z",
+  "version": "1.0.0",
+  "summary": {
+    "totalAPIs": 121,
+    "totalEntities": 19,
+    "totalComponents": 34,
+    "adminAPIs": 62,
+    "publicAPIs": 1
+  },
+  "nodes": [
+    {
+      "id": "api:GET:/api/health",
+      "type": "api",
+      "name": "GET /api/health",
+      "path": "worker/user-routes.ts",
+      "line": 53
+    },
+    {
+      "id": "api:POST:/api/create-payment-intent",
+      "type": "api",
+      "name": "POST /api/create-payment-intent",
+      "path": "worker/user-routes.ts",
+      "line": 61
+    },
+    {
+      "id": "api:POST:/api/validate-coupon",
+      "type": "api",
+      "name": "POST /api/validate-coupon",
+      "path": "worker/user-routes.ts",
+      "line": 153
+    },
+    {
+      "id": "api:POST:/api/register",
+      "type": "api",
+      "name": "POST /api/register",
+      "path": "worker/user-routes.ts",
+      "line": 184
+    },
+    {
+      "id": "api:GET:/api/me",
+      "type": "api",
+      "name": "GET /api/me",
+      "path": "worker/user-routes.ts",
+      "line": 509
+    },
+    {
+      "id": "api:PATCH:/api/users/me",
+      "type": "api",
+      "name": "PATCH /api/users/me",
+      "path": "worker/user-routes.ts",
+      "line": 523
+    },
+    {
+      "id": "api:GET:/api/users/:coachId/coach-info",
+      "type": "api",
+      "name": "GET /api/users/:coachId/coach-info",
+      "path": "worker/user-routes.ts",
+      "line": 611
+    },
+    {
+      "id": "api:POST:/api/users/me/pwa-analytics",
+      "type": "api",
+      "name": "POST /api/users/me/pwa-analytics",
+      "path": "worker/user-routes.ts",
+      "line": 633
+    },
+    {
+      "id": "api:GET:/api/scores",
+      "type": "api",
+      "name": "GET /api/scores",
+      "path": "worker/user-routes.ts",
+      "line": 683
+    },
+    {
+      "id": "api:POST:/api/scores",
+      "type": "api",
+      "name": "POST /api/scores",
+      "path": "worker/user-routes.ts",
+      "line": 701
+    },
+    {
+      "id": "api:GET:/api/biometrics/history",
+      "type": "api",
+      "name": "GET /api/biometrics/history",
+      "path": "worker/user-routes.ts",
+      "line": 774
+    },
+    {
+      "id": "api:GET:/api/biometrics/:weekNumber",
+      "type": "api",
+      "name": "GET /api/biometrics/:weekNumber",
+      "path": "worker/user-routes.ts",
+      "line": 804
+    },
+    {
+      "id": "api:POST:/api/biometrics",
+      "type": "api",
+      "name": "POST /api/biometrics",
+      "path": "worker/user-routes.ts",
+      "line": 822
+    },
+    {
+      "id": "api:GET:/api/scores/history",
+      "type": "api",
+      "name": "GET /api/scores/history",
+      "path": "worker/user-routes.ts",
+      "line": 894
+    },
+    {
+      "id": "api:GET:/api/referrals/history",
+      "type": "api",
+      "name": "GET /api/referrals/history",
+      "path": "worker/user-routes.ts",
+      "line": 926
+    },
+    {
+      "id": "api:GET:/api/roster",
+      "type": "api",
+      "name": "GET /api/roster",
+      "path": "worker/user-routes.ts",
+      "line": 1006
+    },
+    {
+      "id": "api:GET:/api/roster/:recruitId/biometrics",
+      "type": "api",
+      "name": "GET /api/roster/:recruitId/biometrics",
+      "path": "worker/user-routes.ts",
+      "line": 1039
+    },
+    {
+      "id": "api:GET:/api/captains",
+      "type": "api",
+      "name": "GET /api/captains",
+      "path": "worker/user-routes.ts",
+      "line": 1093
+    },
+    {
+      "id": "api:POST:/api/orphan/assign",
+      "type": "api",
+      "name": "POST /api/orphan/assign",
+      "path": "worker/user-routes.ts",
+      "line": 1116
+    },
+    {
+      "id": "api:GET:/api/stats",
+      "type": "api",
+      "name": "GET /api/stats",
+      "path": "worker/user-routes.ts",
+      "line": 1139
+    },
+    {
+      "id": "api:GET:/api/avatars/recent",
+      "type": "api",
+      "name": "GET /api/avatars/recent",
+      "path": "worker/user-routes.ts",
+      "line": 1151
+    },
+    {
+      "id": "api:POST:/api/login",
+      "type": "api",
+      "name": "POST /api/login",
+      "path": "worker/user-routes.ts",
+      "line": 1173
+    },
+    {
+      "id": "api:POST:/api/auth/send-otp",
+      "type": "api",
+      "name": "POST /api/auth/send-otp",
+      "path": "worker/user-routes.ts",
+      "line": 1214
+    },
+    {
+      "id": "api:POST:/api/auth/verify-otp",
+      "type": "api",
+      "name": "POST /api/auth/verify-otp",
+      "path": "worker/user-routes.ts",
+      "line": 1296
+    },
+    {
+      "id": "api:GET:/api/auth/check-verified/:phone",
+      "type": "api",
+      "name": "GET /api/auth/check-verified/:phone",
+      "path": "worker/user-routes.ts",
+      "line": 1374
+    },
+    {
+      "id": "api:GET:/api/referrer/:code",
+      "type": "api",
+      "name": "GET /api/referrer/:code",
+      "path": "worker/user-routes.ts",
+      "line": 1401
+    },
+    {
+      "id": "api:POST:/api/leads",
+      "type": "api",
+      "name": "POST /api/leads",
+      "path": "worker/user-routes.ts",
+      "line": 1424
+    },
+    {
+      "id": "api:GET:/api/leads",
+      "type": "api",
+      "name": "GET /api/leads",
+      "path": "worker/user-routes.ts",
+      "line": 1533
+    },
+    {
+      "id": "api:PATCH:/api/leads/:leadId/convert",
+      "type": "api",
+      "name": "PATCH /api/leads/:leadId/convert",
+      "path": "worker/user-routes.ts",
+      "line": 1575
+    },
+    {
+      "id": "api:GET:/api/admin/users",
+      "type": "api",
+      "name": "GET /api/admin/users",
+      "path": "worker/user-routes.ts",
+      "line": 1611
+    },
+    {
+      "id": "api:GET:/api/admin/users/:userId",
+      "type": "api",
+      "name": "GET /api/admin/users/:userId",
+      "path": "worker/user-routes.ts",
+      "line": 1637
+    },
+    {
+      "id": "api:PATCH:/api/admin/users/:userId",
+      "type": "api",
+      "name": "PATCH /api/admin/users/:userId",
+      "path": "worker/user-routes.ts",
+      "line": 1663
+    },
+    {
+      "id": "api:DELETE:/api/admin/users/:userId",
+      "type": "api",
+      "name": "DELETE /api/admin/users/:userId",
+      "path": "worker/user-routes.ts",
+      "line": 1777
+    },
+    {
+      "id": "api:POST:/api/admin/users/:userId/restore",
+      "type": "api",
+      "name": "POST /api/admin/users/:userId/restore",
+      "path": "worker/user-routes.ts",
+      "line": 1831
+    },
+    {
+      "id": "api:GET:/api/admin/users/deleted/list",
+      "type": "api",
+      "name": "GET /api/admin/users/deleted/list",
+      "path": "worker/user-routes.ts",
+      "line": 1884
+    },
+    {
+      "id": "api:DELETE:/api/admin/users/:userId/permanent",
+      "type": "api",
+      "name": "DELETE /api/admin/users/:userId/permanent",
+      "path": "worker/user-routes.ts",
+      "line": 1921
+    },
+    {
+      "id": "api:POST:/api/admin/users/merge",
+      "type": "api",
+      "name": "POST /api/admin/users/merge",
+      "path": "worker/user-routes.ts",
+      "line": 1974
+    },
+    {
+      "id": "api:GET:/api/debug/duplicates-test",
+      "type": "api",
+      "name": "GET /api/debug/duplicates-test",
+      "path": "worker/user-routes.ts",
+      "line": 2192
+    },
+    {
+      "id": "api:GET:/api/admin/duplicates",
+      "type": "api",
+      "name": "GET /api/admin/duplicates",
+      "path": "worker/user-routes.ts",
+      "line": 2249
+    },
+    {
+      "id": "api:GET:/api/admin/coupons/usage",
+      "type": "api",
+      "name": "GET /api/admin/coupons/usage",
+      "path": "worker/user-routes.ts",
+      "line": 2449
+    },
+    {
+      "id": "api:DELETE:/api/admin/otp/:phone",
+      "type": "api",
+      "name": "DELETE /api/admin/otp/:phone",
+      "path": "worker/user-routes.ts",
+      "line": 2482
+    },
+    {
+      "id": "api:GET:/api/admin/admins",
+      "type": "api",
+      "name": "GET /api/admin/admins",
+      "path": "worker/user-routes.ts",
+      "line": 2519
+    },
+    {
+      "id": "api:POST:/api/admin/bootstrap",
+      "type": "api",
+      "name": "POST /api/admin/bootstrap",
+      "path": "worker/user-routes.ts",
+      "line": 2546
+    },
+    {
+      "id": "api:GET:/api/admin/stripe/payments",
+      "type": "api",
+      "name": "GET /api/admin/stripe/payments",
+      "path": "worker/user-routes.ts",
+      "line": 2585
+    },
+    {
+      "id": "api:POST:/api/admin/stripe/link",
+      "type": "api",
+      "name": "POST /api/admin/stripe/link",
+      "path": "worker/user-routes.ts",
+      "line": 2704
+    },
+    {
+      "id": "api:GET:/api/projects",
+      "type": "api",
+      "name": "GET /api/projects",
+      "path": "worker/user-routes.ts",
+      "line": 2780
+    },
+    {
+      "id": "api:GET:/api/projects/open",
+      "type": "api",
+      "name": "GET /api/projects/open",
+      "path": "worker/user-routes.ts",
+      "line": 2794
+    },
+    {
+      "id": "api:GET:/api/projects/active",
+      "type": "api",
+      "name": "GET /api/projects/active",
+      "path": "worker/user-routes.ts",
+      "line": 2804
+    },
+    {
+      "id": "api:GET:/api/projects/:projectId",
+      "type": "api",
+      "name": "GET /api/projects/:projectId",
+      "path": "worker/user-routes.ts",
+      "line": 2814
+    },
+    {
+      "id": "api:POST:/api/admin/projects",
+      "type": "api",
+      "name": "POST /api/admin/projects",
+      "path": "worker/user-routes.ts",
+      "line": 2827
+    },
+    {
+      "id": "api:PATCH:/api/admin/projects/:projectId",
+      "type": "api",
+      "name": "PATCH /api/admin/projects/:projectId",
+      "path": "worker/user-routes.ts",
+      "line": 2881
+    },
+    {
+      "id": "api:DELETE:/api/admin/projects/:projectId",
+      "type": "api",
+      "name": "DELETE /api/admin/projects/:projectId",
+      "path": "worker/user-routes.ts",
+      "line": 2917
+    },
+    {
+      "id": "api:GET:/api/admin/projects/:projectId/enrollments",
+      "type": "api",
+      "name": "GET /api/admin/projects/:projectId/enrollments",
+      "path": "worker/user-routes.ts",
+      "line": 2948
+    },
+    {
+      "id": "api:POST:/api/admin/users/:userId/enroll",
+      "type": "api",
+      "name": "POST /api/admin/users/:userId/enroll",
+      "path": "worker/user-routes.ts",
+      "line": 2974
+    },
+    {
+      "id": "api:GET:/api/admin/users/:userId/enrollments",
+      "type": "api",
+      "name": "GET /api/admin/users/:userId/enrollments",
+      "path": "worker/user-routes.ts",
+      "line": 3032
+    },
+    {
+      "id": "api:DELETE:/api/admin/users/:userId/enrollments/:projectId",
+      "type": "api",
+      "name": "DELETE /api/admin/users/:userId/enrollments/:projectId",
+      "path": "worker/user-routes.ts",
+      "line": 3071
+    },
+    {
+      "id": "api:GET:/api/enrollments",
+      "type": "api",
+      "name": "GET /api/enrollments",
+      "path": "worker/user-routes.ts",
+      "line": 3106
+    },
+    {
+      "id": "api:GET:/api/enrollments/:projectId",
+      "type": "api",
+      "name": "GET /api/enrollments/:projectId",
+      "path": "worker/user-routes.ts",
+      "line": 3133
+    },
+    {
+      "id": "api:POST:/api/enrollments",
+      "type": "api",
+      "name": "POST /api/enrollments",
+      "path": "worker/user-routes.ts",
+      "line": 3160
+    },
+    {
+      "id": "api:GET:/api/projects/:projectId/group",
+      "type": "api",
+      "name": "GET /api/projects/:projectId/group",
+      "path": "worker/user-routes.ts",
+      "line": 3222
+    },
+    {
+      "id": "api:GET:/api/projects/:projectId/week",
+      "type": "api",
+      "name": "GET /api/projects/:projectId/week",
+      "path": "worker/user-routes.ts",
+      "line": 3256
+    },
+    {
+      "id": "api:POST:/api/upload/presigned-url",
+      "type": "api",
+      "name": "POST /api/upload/presigned-url",
+      "path": "worker/user-routes.ts",
+      "line": 3291
+    },
+    {
+      "id": "api:POST:/api/upload/file",
+      "type": "api",
+      "name": "POST /api/upload/file",
+      "path": "worker/user-routes.ts",
+      "line": 3364
+    },
+    {
+      "id": "api:GET:/api/media/*",
+      "type": "api",
+      "name": "GET /api/media/*",
+      "path": "worker/user-routes.ts",
+      "line": 3421
+    },
+    {
+      "id": "api:POST:/api/stream/create-upload",
+      "type": "api",
+      "name": "POST /api/stream/create-upload",
+      "path": "worker/user-routes.ts",
+      "line": 3453
+    },
+    {
+      "id": "api:GET:/api/stream/status/:uid",
+      "type": "api",
+      "name": "GET /api/stream/status/:uid",
+      "path": "worker/user-routes.ts",
+      "line": 3503
+    },
+    {
+      "id": "api:POST:/api/bugs",
+      "type": "api",
+      "name": "POST /api/bugs",
+      "path": "worker/user-routes.ts",
+      "line": 3561
+    },
+    {
+      "id": "api:GET:/api/bugs/mine",
+      "type": "api",
+      "name": "GET /api/bugs/mine",
+      "path": "worker/user-routes.ts",
+      "line": 3611
+    },
+    {
+      "id": "api:GET:/api/admin/bugs",
+      "type": "api",
+      "name": "GET /api/admin/bugs",
+      "path": "worker/user-routes.ts",
+      "line": 3624
+    },
+    {
+      "id": "api:GET:/api/admin/bugs/status/:status",
+      "type": "api",
+      "name": "GET /api/admin/bugs/status/:status",
+      "path": "worker/user-routes.ts",
+      "line": 3637
+    },
+    {
+      "id": "api:GET:/api/admin/bugs/:bugId",
+      "type": "api",
+      "name": "GET /api/admin/bugs/:bugId",
+      "path": "worker/user-routes.ts",
+      "line": 3655
+    },
+    {
+      "id": "api:PATCH:/api/admin/bugs/:bugId",
+      "type": "api",
+      "name": "PATCH /api/admin/bugs/:bugId",
+      "path": "worker/user-routes.ts",
+      "line": 3672
+    },
+    {
+      "id": "api:DELETE:/api/admin/bugs/:bugId",
+      "type": "api",
+      "name": "DELETE /api/admin/bugs/:bugId",
+      "path": "worker/user-routes.ts",
+      "line": 3705
+    },
+    {
+      "id": "api:POST:/api/admin/bugs/:bugId/analyze",
+      "type": "api",
+      "name": "POST /api/admin/bugs/:bugId/analyze",
+      "path": "worker/user-routes.ts",
+      "line": 3734
+    },
+    {
+      "id": "api:GET:/api/admin/bugs/:bugId/analysis",
+      "type": "api",
+      "name": "GET /api/admin/bugs/:bugId/analysis",
+      "path": "worker/user-routes.ts",
+      "line": 3821
+    },
+    {
+      "id": "api:GET:/api/admin/ai-analyses",
+      "type": "api",
+      "name": "GET /api/admin/ai-analyses",
+      "path": "worker/user-routes.ts",
+      "line": 3840
+    },
+    {
+      "id": "api:GET:/api/settings",
+      "type": "api",
+      "name": "GET /api/settings",
+      "path": "worker/user-routes.ts",
+      "line": 3857
+    },
+    {
+      "id": "api:PUT:/api/admin/settings",
+      "type": "api",
+      "name": "PUT /api/admin/settings",
+      "path": "worker/user-routes.ts",
+      "line": 3867
+    },
+    {
+      "id": "api:PATCH:/api/enrollments/:projectId/cohort",
+      "type": "api",
+      "name": "PATCH /api/enrollments/:projectId/cohort",
+      "path": "worker/user-routes.ts",
+      "line": 3885
+    },
+    {
+      "id": "api:PATCH:/api/enrollments/:projectId/onboarding",
+      "type": "api",
+      "name": "PATCH /api/enrollments/:projectId/onboarding",
+      "path": "worker/user-routes.ts",
+      "line": 3912
+    },
+    {
+      "id": "api:PATCH:/api/admin/enrollments/:enrollmentId/cohort",
+      "type": "api",
+      "name": "PATCH /api/admin/enrollments/:enrollmentId/cohort",
+      "path": "worker/user-routes.ts",
+      "line": 3964
+    },
+    {
+      "id": "api:GET:/api/admin/projects/:projectId/cohort-stats",
+      "type": "api",
+      "name": "GET /api/admin/projects/:projectId/cohort-stats",
+      "path": "worker/user-routes.ts",
+      "line": 3995
+    },
+    {
+      "id": "api:GET:/api/genealogy/me",
+      "type": "api",
+      "name": "GET /api/genealogy/me",
+      "path": "worker/user-routes.ts",
+      "line": 4025
+    },
+    {
+      "id": "api:GET:/api/genealogy/:userId",
+      "type": "api",
+      "name": "GET /api/genealogy/:userId",
+      "path": "worker/user-routes.ts",
+      "line": 4040
+    },
+    {
+      "id": "api:GET:/api/admin/genealogy/roots",
+      "type": "api",
+      "name": "GET /api/admin/genealogy/roots",
+      "path": "worker/user-routes.ts",
+      "line": 4079
+    },
+    {
+      "id": "api:GET:/api/admin/genealogy/:userId",
+      "type": "api",
+      "name": "GET /api/admin/genealogy/:userId",
+      "path": "worker/user-routes.ts",
+      "line": 4122
+    },
+    {
+      "id": "api:GET:/api/points/history",
+      "type": "api",
+      "name": "GET /api/points/history",
+      "path": "worker/user-routes.ts",
+      "line": 4142
+    },
+    {
+      "id": "api:GET:/api/admin/points/:userId/history",
+      "type": "api",
+      "name": "GET /api/admin/points/:userId/history",
+      "path": "worker/user-routes.ts",
+      "line": 4155
+    },
+    {
+      "id": "api:GET:/api/admin/points/recent",
+      "type": "api",
+      "name": "GET /api/admin/points/recent",
+      "path": "worker/user-routes.ts",
+      "line": 4169
+    },
+    {
+      "id": "api:POST:/api/admin/points/adjust",
+      "type": "api",
+      "name": "POST /api/admin/points/adjust",
+      "path": "worker/user-routes.ts",
+      "line": 4183
+    },
+    {
+      "id": "api:PUT:/api/admin/settings/points",
+      "type": "api",
+      "name": "PUT /api/admin/settings/points",
+      "path": "worker/user-routes.ts",
+      "line": 4224
+    },
+    {
+      "id": "api:GET:/api/settings/points",
+      "type": "api",
+      "name": "GET /api/settings/points",
+      "path": "worker/user-routes.ts",
+      "line": 4254
+    },
+    {
+      "id": "api:GET:/api/admin/projects/:projectId/content",
+      "type": "api",
+      "name": "GET /api/admin/projects/:projectId/content",
+      "path": "worker/user-routes.ts",
+      "line": 4273
+    },
+    {
+      "id": "api:GET:/api/admin/content/:contentId",
+      "type": "api",
+      "name": "GET /api/admin/content/:contentId",
+      "path": "worker/user-routes.ts",
+      "line": 4287
+    },
+    {
+      "id": "api:POST:/api/admin/content",
+      "type": "api",
+      "name": "POST /api/admin/content",
+      "path": "worker/user-routes.ts",
+      "line": 4304
+    },
+    {
+      "id": "api:PATCH:/api/admin/content/:contentId",
+      "type": "api",
+      "name": "PATCH /api/admin/content/:contentId",
+      "path": "worker/user-routes.ts",
+      "line": 4376
+    },
+    {
+      "id": "api:DELETE:/api/admin/content/:contentId",
+      "type": "api",
+      "name": "DELETE /api/admin/content/:contentId",
+      "path": "worker/user-routes.ts",
+      "line": 4416
+    },
+    {
+      "id": "api:POST:/api/admin/projects/:projectId/content/reorder",
+      "type": "api",
+      "name": "POST /api/admin/projects/:projectId/content/reorder",
+      "path": "worker/user-routes.ts",
+      "line": 4441
+    },
+    {
+      "id": "api:POST:/api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
+      "type": "api",
+      "name": "POST /api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
+      "path": "worker/user-routes.ts",
+      "line": 4469
+    },
+    {
+      "id": "api:GET:/api/admin/projects/:projectId/content/analytics",
+      "type": "api",
+      "name": "GET /api/admin/projects/:projectId/content/analytics",
+      "path": "worker/user-routes.ts",
+      "line": 4516
+    },
+    {
+      "id": "api:GET:/api/course/overview",
+      "type": "api",
+      "name": "GET /api/course/overview",
+      "path": "worker/user-routes.ts",
+      "line": 4574
+    },
+    {
+      "id": "api:GET:/api/course/day/:dayNumber",
+      "type": "api",
+      "name": "GET /api/course/day/:dayNumber",
+      "path": "worker/user-routes.ts",
+      "line": 4657
+    },
+    {
+      "id": "api:POST:/api/course/video/progress",
+      "type": "api",
+      "name": "POST /api/course/video/progress",
+      "path": "worker/user-routes.ts",
+      "line": 4750
+    },
+    {
+      "id": "api:POST:/api/course/video/complete",
+      "type": "api",
+      "name": "POST /api/course/video/complete",
+      "path": "worker/user-routes.ts",
+      "line": 4848
+    },
+    {
+      "id": "api:POST:/api/course/quiz/submit",
+      "type": "api",
+      "name": "POST /api/course/quiz/submit",
+      "path": "worker/user-routes.ts",
+      "line": 4915
+    },
+    {
+      "id": "api:GET:/api/course/progress",
+      "type": "api",
+      "name": "GET /api/course/progress",
+      "path": "worker/user-routes.ts",
+      "line": 5081
+    },
+    {
+      "id": "api:GET:/api/course/comments/:contentId",
+      "type": "api",
+      "name": "GET /api/course/comments/:contentId",
+      "path": "worker/user-routes.ts",
+      "line": 5106
+    },
+    {
+      "id": "api:POST:/api/course/comments",
+      "type": "api",
+      "name": "POST /api/course/comments",
+      "path": "worker/user-routes.ts",
+      "line": 5123
+    },
+    {
+      "id": "api:POST:/api/course/comments/like",
+      "type": "api",
+      "name": "POST /api/course/comments/like",
+      "path": "worker/user-routes.ts",
+      "line": 5155
+    },
+    {
+      "id": "api:POST:/api/course/content/like",
+      "type": "api",
+      "name": "POST /api/course/content/like",
+      "path": "worker/user-routes.ts",
+      "line": 5173
+    },
+    {
+      "id": "api:GET:/api/course/content/:contentId",
+      "type": "api",
+      "name": "GET /api/course/content/:contentId",
+      "path": "worker/user-routes.ts",
+      "line": 5191
+    },
+    {
+      "id": "api:GET:/api/notifications",
+      "type": "api",
+      "name": "GET /api/notifications",
+      "path": "worker/user-routes.ts",
+      "line": 5213
+    },
+    {
+      "id": "api:GET:/api/notifications/unread-count",
+      "type": "api",
+      "name": "GET /api/notifications/unread-count",
+      "path": "worker/user-routes.ts",
+      "line": 5228
+    },
+    {
+      "id": "api:POST:/api/notifications/:notificationId/read",
+      "type": "api",
+      "name": "POST /api/notifications/:notificationId/read",
+      "path": "worker/user-routes.ts",
+      "line": 5241
+    },
+    {
+      "id": "api:POST:/api/notifications/mark-all-read",
+      "type": "api",
+      "name": "POST /api/notifications/mark-all-read",
+      "path": "worker/user-routes.ts",
+      "line": 5263
+    },
+    {
+      "id": "api:POST:/api/admin/impersonate/start",
+      "type": "api",
+      "name": "POST /api/admin/impersonate/start",
+      "path": "worker/user-routes.ts",
+      "line": 5290
+    },
+    {
+      "id": "api:POST:/api/admin/impersonate/end",
+      "type": "api",
+      "name": "POST /api/admin/impersonate/end",
+      "path": "worker/user-routes.ts",
+      "line": 5341
+    },
+    {
+      "id": "api:GET:/api/admin/impersonate/audit",
+      "type": "api",
+      "name": "GET /api/admin/impersonate/audit",
+      "path": "worker/user-routes.ts",
+      "line": 5359
+    },
+    {
+      "id": "api:GET:/api/admin/coaches",
+      "type": "api",
+      "name": "GET /api/admin/coaches",
+      "path": "worker/user-routes.ts",
+      "line": 5376
+    },
+    {
+      "id": "api:POST:/api/admin/users/:userId/reassign-captain",
+      "type": "api",
+      "name": "POST /api/admin/users/:userId/reassign-captain",
+      "path": "worker/user-routes.ts",
+      "line": 5408
+    },
+    {
+      "id": "api:POST:/api/admin/users/bulk-reassign-captain",
+      "type": "api",
+      "name": "POST /api/admin/users/bulk-reassign-captain",
+      "path": "worker/user-routes.ts",
+      "line": 5532
+    },
+    {
+      "id": "entity:UserEntity",
+      "type": "entity",
+      "name": "UserEntity",
+      "path": "worker/entities.ts",
+      "line": 33
+    },
+    {
+      "id": "entity:DailyScoreEntity",
+      "type": "entity",
+      "name": "DailyScoreEntity",
+      "path": "worker/entities.ts",
+      "line": 133
+    },
+    {
+      "id": "entity:WeeklyBiometricEntity",
+      "type": "entity",
+      "name": "WeeklyBiometricEntity",
+      "path": "worker/entities.ts",
+      "line": 146
+    },
+    {
+      "id": "entity:ReferralLedgerEntity",
+      "type": "entity",
+      "name": "ReferralLedgerEntity",
+      "path": "worker/entities.ts",
+      "line": 164
+    },
+    {
+      "id": "entity:SystemStatsEntity",
+      "type": "entity",
+      "name": "SystemStatsEntity",
+      "path": "worker/entities.ts",
+      "line": 176
+    },
+    {
+      "id": "entity:QuizLeadEntity",
+      "type": "entity",
+      "name": "QuizLeadEntity",
+      "path": "worker/entities.ts",
+      "line": 207
+    },
+    {
+      "id": "entity:ResetProjectEntity",
+      "type": "entity",
+      "name": "ResetProjectEntity",
+      "path": "worker/entities.ts",
+      "line": 238
+    },
+    {
+      "id": "entity:ProjectEnrollmentEntity",
+      "type": "entity",
+      "name": "ProjectEnrollmentEntity",
+      "path": "worker/entities.ts",
+      "line": 299
+    },
+    {
+      "id": "entity:BugReportEntity",
+      "type": "entity",
+      "name": "BugReportEntity",
+      "path": "worker/entities.ts",
+      "line": 374
+    },
+    {
+      "id": "entity:OtpEntity",
+      "type": "entity",
+      "name": "OtpEntity",
+      "path": "worker/entities.ts",
+      "line": 424
+    },
+    {
+      "id": "entity:SystemSettingsEntity",
+      "type": "entity",
+      "name": "SystemSettingsEntity",
+      "path": "worker/entities.ts",
+      "line": 460
+    },
+    {
+      "id": "entity:PointsLedgerEntity",
+      "type": "entity",
+      "name": "PointsLedgerEntity",
+      "path": "worker/entities.ts",
+      "line": 491
+    },
+    {
+      "id": "entity:CourseContentEntity",
+      "type": "entity",
+      "name": "CourseContentEntity",
+      "path": "worker/entities.ts",
+      "line": 653
+    },
+    {
+      "id": "entity:UserProgressEntity",
+      "type": "entity",
+      "name": "UserProgressEntity",
+      "path": "worker/entities.ts",
+      "line": 736
+    },
+    {
+      "id": "entity:ContentCommentEntity",
+      "type": "entity",
+      "name": "ContentCommentEntity",
+      "path": "worker/entities.ts",
+      "line": 951
+    },
+    {
+      "id": "entity:CouponUsageEntity",
+      "type": "entity",
+      "name": "CouponUsageEntity",
+      "path": "worker/entities.ts",
+      "line": 1061
+    },
+    {
+      "id": "entity:NotificationEntity",
+      "type": "entity",
+      "name": "NotificationEntity",
+      "path": "worker/entities.ts",
+      "line": 1127
+    },
+    {
+      "id": "entity:ImpersonationSessionEntity",
+      "type": "entity",
+      "name": "ImpersonationSessionEntity",
+      "path": "worker/entities.ts",
+      "line": 1227
+    },
+    {
+      "id": "entity:BugAIAnalysisEntity",
+      "type": "entity",
+      "name": "BugAIAnalysisEntity",
+      "path": "worker/entities.ts",
+      "line": 1298
+    },
+    {
+      "id": "component:AddToHomeScreenModal",
+      "type": "component",
+      "name": "AddToHomeScreenModal",
+      "path": "src\\components\\AddToHomeScreenModal.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:BugAIAnalysisPanel",
+      "type": "component",
+      "name": "BugAIAnalysisPanel",
+      "path": "src\\components\\admin\\BugAIAnalysisPanel.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ContentManager",
+      "type": "component",
+      "name": "ContentManager",
+      "path": "src\\components\\admin\\ContentManager.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:DocsArticle",
+      "type": "component",
+      "name": "DocsArticle",
+      "path": "src\\components\\admin\\docs\\DocsArticle.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:DocsSearch",
+      "type": "component",
+      "name": "DocsSearch",
+      "path": "src\\components\\admin\\docs\\DocsSearch.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:DocsSidebar",
+      "type": "component",
+      "name": "DocsSidebar",
+      "path": "src\\components\\admin\\docs\\DocsSidebar.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:DocsTab",
+      "type": "component",
+      "name": "DocsTab",
+      "path": "src\\components\\admin\\docs\\DocsTab.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:PaymentsTab",
+      "type": "component",
+      "name": "PaymentsTab",
+      "path": "src\\components\\admin\\PaymentsTab.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:AppSidebar",
+      "type": "component",
+      "name": "AppSidebar",
+      "path": "src\\components\\app-sidebar.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:BugReportDialog",
+      "type": "component",
+      "name": "BugReportDialog",
+      "path": "src\\components\\BugReportDialog.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:CohortBadge",
+      "type": "component",
+      "name": "CohortBadge",
+      "path": "src\\components\\cohort-badge.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ErrorFallback",
+      "type": "component",
+      "name": "ErrorFallback",
+      "path": "src\\components\\ErrorFallback.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:FloatingBugCapture",
+      "type": "component",
+      "name": "FloatingBugCapture",
+      "path": "src\\components\\FloatingBugCapture.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ImpersonationBanner",
+      "type": "component",
+      "name": "ImpersonationBanner",
+      "path": "src\\components\\impersonation-banner.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:KitReminderBanner",
+      "type": "component",
+      "name": "KitReminderBanner",
+      "path": "src\\components\\kit-reminder-banner.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:AppLayout",
+      "type": "component",
+      "name": "AppLayout",
+      "path": "src\\components\\layout\\AppLayout.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:MarketingLayout",
+      "type": "component",
+      "name": "MarketingLayout",
+      "path": "src\\components\\layout\\MarketingLayout.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:LeadGenModal",
+      "type": "component",
+      "name": "LeadGenModal",
+      "path": "src\\components\\lead-gen-modal.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:NotificationBell",
+      "type": "component",
+      "name": "NotificationBell",
+      "path": "src\\components\\notification-bell.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:RouteErrorBoundary",
+      "type": "component",
+      "name": "RouteErrorBoundary",
+      "path": "src\\components\\RouteErrorBoundary.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ScaleReminderBanner",
+      "type": "component",
+      "name": "ScaleReminderBanner",
+      "path": "src\\components\\scale-reminder-banner.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ScrollToTop",
+      "type": "component",
+      "name": "ScrollToTop",
+      "path": "src\\components\\ScrollToTop.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ThemeToggle",
+      "type": "component",
+      "name": "ThemeToggle",
+      "path": "src\\components\\ThemeToggle.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:AnimatedOrbs",
+      "type": "component",
+      "name": "AnimatedOrbs",
+      "path": "src\\components\\ui\\animated-orbs.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:AnimatedSteps",
+      "type": "component",
+      "name": "AnimatedSteps",
+      "path": "src\\components\\ui\\animated-steps.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:BeamsBackground",
+      "type": "component",
+      "name": "BeamsBackground",
+      "path": "src\\components\\ui\\beams-background.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:BorderBeam",
+      "type": "component",
+      "name": "BorderBeam",
+      "path": "src\\components\\ui\\border-beam.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:CircularProgress",
+      "type": "component",
+      "name": "CircularProgress",
+      "path": "src\\components\\ui\\circular-progress.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:DotPattern",
+      "type": "component",
+      "name": "DotPattern",
+      "path": "src\\components\\ui\\dot-pattern.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:FeatureCard",
+      "type": "component",
+      "name": "FeatureCard",
+      "path": "src\\components\\ui\\feature-card.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:FloatingParticles",
+      "type": "component",
+      "name": "FloatingParticles",
+      "path": "src\\components\\ui\\floating-particles.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:GenealogyTree",
+      "type": "component",
+      "name": "GenealogyTree",
+      "path": "src\\components\\ui\\genealogy-tree.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:GlowWrapper",
+      "type": "component",
+      "name": "GlowWrapper",
+      "path": "src\\components\\ui\\glow-button.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:NeuralNetworkBackground",
+      "type": "component",
+      "name": "NeuralNetworkBackground",
+      "path": "src\\components\\ui\\neural-network-background.tsx",
+      "line": 1
+    }
+  ]
+}

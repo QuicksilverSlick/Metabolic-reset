@@ -1,0 +1,11 @@
+{
+  "lastSync": "2025-12-24T13:28:09.493Z",
+  "unifiedSourceHash": "185d70df10fa58d2b3ab06388f279347",
+  "workerContextHash": "03b1708a89898baab1bfcff2a7913daf",
+  "legacyDocsHashes": {
+    "bug-tracking.ts": "4b7c58b97c85201f1f00bec9cbec5efd",
+    "impersonation.ts": "68816f758093221322664ec27d67b595",
+    "overview.ts": "8c57e826caa8953d531ca6acb9727307",
+    "user-management.ts": "f4ae7bdcbc367e4cc7a703a0e9491ef6"
+  }
+}

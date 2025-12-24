@@ -1,0 +1,107 @@
+# Metabolic Reset Challenge Platform
+
+> 28-day health transformation platform with daily habit tracking, weekly biometrics, and educational content.
+
+## Platform Overview
+
+This is a Cloudflare Workers + React platform for managing health challenges.
+
+### Tech Stack
+- Frontend: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui
+- Backend: Cloudflare Workers + Durable Objects + Hono
+- Database: Cloudflare D1 (SQLite)
+- Storage: Cloudflare R2 (images/videos)
+- Payments: Stripe ($28 per enrollment)
+- Auth: Phone OTP via Twilio
+- AI: Gemini 3 Flash via Cloudflare AI Gateway
+
+### User Roles
+1. **Participants**: Pay $28, track habits, submit biometrics
+2. **Coaches**: Free registration, referral links, team roster
+3. **Administrators**: Full access, impersonation, AI bug analysis
+
+## Documentation
+
+- [API Reference](/api/docs/api) - 121 endpoints
+- [Entity Reference](/api/docs/entities) - 19 Durable Objects
+- [Component Reference](/api/docs/components) - 34 React components
+
+## Key Files
+
+### Backend (worker/)
+- user-routes.ts - All API endpoints (~3800 lines)
+- entities.ts - Durable Object entities (~1400 lines)
+- ai-utils.ts - AI bug analysis
+- docs-context-enhanced.ts - AI documentation context
+
+### Frontend (src/)
+- pages/app/AdminPage.tsx - Admin panel
+- pages/app/DashboardPage.tsx - User dashboard
+- components/admin/ContentManager.tsx - LMS management
+- components/admin/BugAIAnalysisPanel.tsx - AI analysis display
+
+### Shared
+- shared/types.ts - TypeScript types (~700 lines)
+
+## API Categories
+
+- /api/health - Health check
+- /api/otp/* - Authentication (send/verify OTP)
+- /api/me, /api/users/* - User profile
+- /api/score - Daily habit tracking
+- /api/biometrics - Weekly measurements
+- /api/projects, /api/enrollments - Challenge management
+- /api/content, /api/progress - LMS content
+- /api/bugs - Bug reporting
+- /api/admin/* - Admin operations (45 endpoints)
+- /api/notifications - User notifications
+
+## Entities
+
+| Entity | Purpose |
+|--------|---------|
+| UserEntity | User accounts |
+| DailyScoreEntity | Daily habits |
+| WeeklyBiometricEntity | Weekly measurements |
+| ProjectEnrollmentEntity | Challenge enrollments |
+| CourseContentEntity | LMS content |
+| BugReportEntity | Bug reports |
+| BugAIAnalysisEntity | AI analysis results |
+| NotificationEntity | User notifications |
+
+## Features
+
+### Daily Habit Tracking
+- Water, Steps, Sleep, Lesson toggles
+- Points awarded on completion
+- Streaks tracked
+
+### Weekly Biometrics
+- Weight, body fat, visceral fat, lean mass, metabolic age
+- Photo proof from smart scale
+- Week 0-4 submissions
+
+### Course Content (LMS)
+- Video content via Cloudflare Stream
+- Quizzes with scoring
+- Progress tracking
+
+### Bug Reporting
+- Screenshot capture
+- Screen recording
+- AI-powered analysis with Gemini 3 Flash
+
+### Admin Features
+- User management
+- Content management
+- AI bug analysis
+- User impersonation (view-only, 60-min timeout)
+- Payment management
+
+## Documentation Coverage
+
+- APIs: 121/121 (100%)
+- Entities: 19/19 (100%)
+- Components: 34/34 (100%)
+
+Last updated: 2025-12-23

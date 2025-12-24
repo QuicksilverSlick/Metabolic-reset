@@ -1,0 +1,191 @@
+{
+  "generatedAt": "2025-12-24T13:28:08.371Z",
+  "totalEntities": 19,
+  "entities": [
+    {
+      "name": "UserEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 33,
+      "methods": [
+        "findByReferralCode",
+        "addPoints",
+        "findByEmail",
+        "findByPhone"
+      ]
+    },
+    {
+      "name": "DailyScoreEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 133,
+      "methods": []
+    },
+    {
+      "name": "WeeklyBiometricEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 146,
+      "methods": []
+    },
+    {
+      "name": "ReferralLedgerEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 164,
+      "methods": []
+    },
+    {
+      "name": "SystemStatsEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 176,
+      "methods": [
+        "incrementUsers",
+        "incrementSubmissions",
+        "incrementHabits"
+      ]
+    },
+    {
+      "name": "QuizLeadEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 207,
+      "methods": []
+    },
+    {
+      "name": "ResetProjectEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 238,
+      "methods": [
+        "findActive",
+        "findUpcoming",
+        "findOpenForRegistration"
+      ]
+    },
+    {
+      "name": "ProjectEnrollmentEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 299,
+      "methods": [
+        "findByProjectAndUser",
+        "findByUser",
+        "findByProject",
+        "findGroupParticipants",
+        "addPoints"
+      ]
+    },
+    {
+      "name": "BugReportEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 374,
+      "methods": [
+        "getAllSorted",
+        "findByStatus",
+        "findByUser"
+      ]
+    },
+    {
+      "name": "OtpEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 424,
+      "methods": []
+    },
+    {
+      "name": "SystemSettingsEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 460,
+      "methods": [
+        "getGlobal",
+        "updateGlobal"
+      ]
+    },
+    {
+      "name": "PointsLedgerEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 491,
+      "methods": [
+        "recordTransaction",
+        "findByUser",
+        "getRecent"
+      ]
+    },
+    {
+      "name": "CourseContentEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 653,
+      "methods": [
+        "toggleLike",
+        "findByProject",
+        "findByProjectAndDay",
+        "findQuizzes",
+        "findRequiredContent"
+      ]
+    },
+    {
+      "name": "UserProgressEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 736,
+      "methods": [
+        "findByEnrollmentAndContent",
+        "findByEnrollment",
+        "findByContent",
+        "getOrCreate",
+        "updateVideoProgress",
+        "markCompleted",
+        "recordQuizAttempt"
+      ]
+    },
+    {
+      "name": "ContentCommentEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 951,
+      "methods": [
+        "findByContent",
+        "addComment",
+        "toggleLike"
+      ]
+    },
+    {
+      "name": "CouponUsageEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 1061,
+      "methods": [
+        "findByCode",
+        "hasUserUsedCoupon",
+        "recordUsage"
+      ]
+    },
+    {
+      "name": "NotificationEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 1127,
+      "methods": [
+        "createNotification",
+        "findByUser",
+        "getUnreadCount",
+        "markAsRead",
+        "markAllAsRead"
+      ]
+    },
+    {
+      "name": "ImpersonationSessionEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 1227,
+      "methods": [
+        "startSession",
+        "endSession",
+        "getRecent",
+        "findByTargetUser"
+      ]
+    },
+    {
+      "name": "BugAIAnalysisEntity",
+      "sourceFile": "worker/entities.ts",
+      "sourceLine": 1298,
+      "methods": [
+        "findByBugId",
+        "getLatestForBug",
+        "createPending",
+        "markProcessing",
+        "complete",
+        "markFailed",
+        "getRecent"
+      ]
+    }
+  ]
+}

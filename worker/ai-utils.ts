@@ -15,42 +15,72 @@ import type {
   DocReference,
 } from "@shared/types";
 import type { Env } from "./core-utils";
-import { getRelevantDocsContext, searchDocs } from "./docs-context";
+// Use enhanced documentation context for better AI analysis
+import {
+  getRelevantDocsContext,
+  searchDocs,
+  buildAIBugContext,
+  apiEndpoints,
+  errorCodes,
+} from "./docs-context-enhanced";
 
-// System prompt for bug analysis (documentation-enhanced)
+// Enhanced system prompt for bug analysis with full documentation context
 const BUG_ANALYSIS_SYSTEM_PROMPT = `You are an expert software debugging assistant for the Metabolic Reset Challenge platform.
 
-You have access to the platform's internal documentation which provides details about the architecture, components, and common patterns. Use this documentation to provide accurate, context-aware analysis.
+You have access to comprehensive platform documentation including:
+- Architecture and technology stack details
+- API endpoint reference with source file locations
+- Entity/database schema documentation
+- Component documentation with props and usage
+- Error code catalog with causes and solutions
+- Troubleshooting guides and common issues
 
-When analyzing bug reports:
-1. Reference relevant documentation sections when applicable
-2. Identify the most likely technical cause based on the platform architecture
-3. Provide actionable solutions with step-by-step instructions
-4. Cite which documentation articles are relevant to the issue
-5. Include confidence level based on available information
+IMPORTANT GUIDELINES:
+1. Always reference specific files and line numbers when suggesting fixes
+2. Use the API endpoint reference to identify which backend code handles the issue
+3. Check the error code catalog when the bug involves error messages
+4. Reference the entity documentation for data-related bugs
+5. Provide practical, step-by-step solutions that a developer can follow
+6. Include relevant documentation article IDs that would help (sectionId/articleId pairs)
+7. Be specific about which React components or worker functions are involved
 
-Format your response as valid JSON with the following structure:
+For each solution, estimate effort:
+- "quick": < 30 minutes, simple fix (typo, config change, one-line fix)
+- "moderate": 30 min - 2 hours, requires understanding context
+- "significant": > 2 hours, architectural change or multiple files
+
+Format your response as valid JSON with this structure:
 {
-  "summary": "Brief summary of the bug",
-  "suggestedCause": "Technical explanation of likely cause, referencing specific files/components from docs",
+  "summary": "Brief 1-2 sentence summary of the bug",
+  "suggestedCause": "Technical explanation referencing specific files (e.g., 'The issue is in worker/user-routes.ts:3561 where...')",
   "suggestedSolutions": [
     {
-      "title": "Solution title",
-      "description": "Detailed description referencing relevant code/components",
-      "steps": ["Step 1", "Step 2", ...],
+      "title": "Descriptive solution title",
+      "description": "Detailed explanation with file references",
+      "steps": ["Step 1 with specific action", "Step 2...", "Step 3 to verify fix"],
       "estimatedEffort": "quick|moderate|significant",
       "confidence": "low|medium|high"
     }
   ],
   "relatedDocs": [
     {
-      "sectionId": "section-id from docs",
-      "articleId": "article-id from docs",
-      "relevance": "Why this doc is relevant to the bug"
+      "sectionId": "e.g., bug-tracking",
+      "articleId": "e.g., ai-analysis",
+      "relevance": "Why this documentation helps resolve the bug"
     }
   ],
   "confidence": "low|medium|high"
-}`;
+}
+
+VALID SECTION/ARTICLE IDs (use these exact values):
+- overview/introduction, overview/navigation
+- bug-tracking/bug-overview, bug-tracking/ai-analysis, bug-tracking/bug-triage
+- impersonation/overview, impersonation/troubleshooting
+- user-management/user-roles, user-management/authentication
+- daily-tracking/habits
+- biometrics/submissions
+- content/lms-overview
+- payments/stripe`;
 
 const SCREENSHOT_ANALYSIS_PROMPT = `Analyze this screenshot from a bug report. Describe:
 1. What UI elements are visible
@@ -570,38 +600,70 @@ export async function analyzeBug(
       console.log('[AI Analysis] Skipping video analysis (not requested or no URL)');
     }
 
-    // Get relevant documentation context
-    console.log('[AI Analysis] Getting relevant documentation context...');
-    const docsContext = getRelevantDocsContext(
-      bug.pageUrl || '',
-      bug.category,
-      bug.description
-    );
-    console.log('[AI Analysis] Documentation context length:', docsContext.length);
-    console.log('[AI Analysis] Documentation context preview:', docsContext.slice(0, 300) + '...');
+    // Get enhanced documentation context using the new unified system
+    console.log('[AI Analysis] Building comprehensive AI context...');
+    const baseContext = buildAIBugContext(bug);
+    console.log('[AI Analysis] Base context length:', baseContext.length);
 
-    // Build the main analysis prompt with documentation context
+    // Add API endpoint reference for the bug's page
+    let apiContext = '';
+    const pageUrl = bug.pageUrl || '';
+    const relevantAPIs = apiEndpoints.filter(api => {
+      // Match APIs that might be called from this page
+      if (pageUrl.includes('/admin') && api.authentication === 'admin') return true;
+      if (pageUrl.includes('/bugs') && api.path.includes('bug')) return true;
+      if (pageUrl.includes('/dashboard') && (api.path.includes('score') || api.path.includes('biometric'))) return true;
+      if (pageUrl.includes('/course') && api.path.includes('content')) return true;
+      return false;
+    }).slice(0, 10);
+
+    if (relevantAPIs.length > 0) {
+      apiContext = '\n\n## Page-Relevant API Endpoints\n';
+      for (const api of relevantAPIs) {
+        apiContext += `- ${api.method} ${api.path} (${api.sourceFile}:${api.sourceLine})\n`;
+      }
+    }
+
+    // Add relevant error codes if the bug mentions errors
+    let errorContext = '';
+    const descLower = bug.description.toLowerCase();
+    const titleLower = bug.title.toLowerCase();
+    const relevantErrors = errorCodes.filter(err => {
+      const errLower = err.message.toLowerCase();
+      return descLower.includes(errLower) ||
+             titleLower.includes(errLower) ||
+             descLower.includes(err.code.toLowerCase()) ||
+             descLower.includes('error') ||
+             descLower.includes('failed') ||
+             descLower.includes('403') ||
+             descLower.includes('401') ||
+             descLower.includes('500');
+    });
+
+    if (relevantErrors.length > 0) {
+      errorContext = '\n\n## Potentially Relevant Error Codes\n';
+      for (const err of relevantErrors) {
+        errorContext += `\n### ${err.code} (HTTP ${err.httpStatus})\n`;
+        errorContext += `Message: ${err.message}\n`;
+        errorContext += `Description: ${err.description}\n`;
+        errorContext += `Possible Causes: ${err.possibleCauses.join(', ')}\n`;
+        errorContext += `Solutions: ${err.solutions.join(', ')}\n`;
+      }
+    }
+
+    // Build the complete analysis prompt
     const bugContext = `
-# Platform Documentation Context
-${docsContext}
-
----
-
-# Bug Report Details
-- Title: ${bug.title}
-- Description: ${bug.description}
-- Severity: ${bug.severity}
-- Category: ${bug.category}
-- Page URL: ${bug.pageUrl}
-- User Agent: ${bug.userAgent}
-${screenshotAnalysis ? `\n## Screenshot Analysis:\n${JSON.stringify(screenshotAnalysis, null, 2)}` : ""}
+${baseContext}
+${apiContext}
+${errorContext}
+${screenshotAnalysis ? `\n## Screenshot Analysis (AI Vision):\n${JSON.stringify(screenshotAnalysis, null, 2)}` : ""}
 ${videoAnalysis ? `\n## Video Analysis:\n${JSON.stringify(videoAnalysis, null, 2)}` : ""}
 
 ---
 
-Based on the platform documentation context above and this bug report (with any media analysis), provide a comprehensive analysis. Reference specific documentation sections in your response where applicable.`;
+INSTRUCTIONS: Analyze this bug report using the documentation context above. Be specific about file locations and provide actionable solutions. If the bug relates to a known error code, reference it. Always include at least one related documentation article.`;
 
-    console.log('[AI Analysis] Bug context built, total length:', bugContext.length);
+    console.log('[AI Analysis] Full context length:', bugContext.length);
     console.log('[AI Analysis] Calling Gemini for main analysis...');
 
     const response = await callGemini(

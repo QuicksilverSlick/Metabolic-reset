@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { userRoutes } from './user-routes';
+import { docsRouter } from './docs-api';
 import { Env, GlobalDurableObject } from './core-utils';
 // Export the Durable Object class so Cloudflare can find it
 export { GlobalDurableObject };
@@ -19,6 +20,8 @@ app.use('/api/*', cors({
 }));
 // Register User Routes
 userRoutes(app);
+// Register Documentation API Routes (admin-only)
+app.route('/api/docs', docsRouter);
 // Health Check Root
 app.get('/', (c) => c.text('Worker is running'));
 // Global Error Handling

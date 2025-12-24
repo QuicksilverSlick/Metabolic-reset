@@ -1,0 +1,425 @@
+{
+  "generatedAt": "2025-12-24T13:28:08.372Z",
+  "totalComponents": 34,
+  "components": [
+    {
+      "name": "AddToHomeScreenModal",
+      "filePath": "src\\components\\AddToHomeScreenModal.tsx",
+      "props": [
+        "onPromptShown",
+        "onDismissed",
+        "onInstalled",
+        "source"
+      ],
+      "hooks": [
+        "useState",
+        "useUser",
+        "usePWAInstall",
+        "useEffect",
+        "useCallback"
+      ]
+    },
+    {
+      "name": "BugAIAnalysisPanel",
+      "filePath": "src\\components\\admin\\BugAIAnalysisPanel.tsx",
+      "props": [
+        "bugId",
+        "hasScreenshot",
+        "hasVideo"
+      ],
+      "hooks": [
+        "useState",
+        "useBugAIAnalysis",
+        "useAnalyzeBug"
+      ]
+    },
+    {
+      "name": "ContentManager",
+      "filePath": "src\\components\\admin\\ContentManager.tsx",
+      "props": [],
+      "hooks": [
+        "useProjects",
+        "useAuthStore",
+        "useState",
+        "useAdminProjectContent",
+        "useAdminContentAnalytics",
+        "useAdminCreateContent",
+        "useAdminUpdateContent",
+        "useAdminDeleteContent",
+        "useAdminCopyContent"
+      ]
+    },
+    {
+      "name": "DocsArticle",
+      "filePath": "src\\components\\admin\\docs\\DocsArticle.tsx",
+      "props": [
+        "article",
+        "section",
+        "allSections",
+        "onNavigate",
+        "sectionId",
+        "articleId"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "DocsSearch",
+      "filePath": "src\\components\\admin\\docs\\DocsSearch.tsx",
+      "props": [
+        "sections",
+        "onSelectResult",
+        "sectionId",
+        "articleId"
+      ],
+      "hooks": [
+        "useState",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "DocsSidebar",
+      "filePath": "src\\components\\admin\\docs\\DocsSidebar.tsx",
+      "props": [
+        "sections",
+        "activeSection",
+        "activeArticle",
+        "expandedSections",
+        "onToggleSection",
+        "sectionId",
+        "onSelectArticle",
+        "sectionId",
+        "articleId"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "DocsTab",
+      "filePath": "src\\components\\admin\\docs\\DocsTab.tsx",
+      "props": [
+        "targetSection",
+        "targetArticle",
+        "onClearTarget"
+      ],
+      "hooks": [
+        "useState",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "PaymentsTab",
+      "filePath": "src\\components\\admin\\PaymentsTab.tsx",
+      "props": [
+        "userId",
+        "users"
+      ],
+      "hooks": [
+        "useQueryClient",
+        "useState",
+        "useQuery",
+        "useMutation"
+      ]
+    },
+    {
+      "name": "AppSidebar",
+      "filePath": "src\\components\\app-sidebar.tsx",
+      "props": [],
+      "hooks": [
+        "useLocation",
+        "useAuthStore",
+        "useSidebar"
+      ]
+    },
+    {
+      "name": "BugReportDialog",
+      "filePath": "src\\components\\BugReportDialog.tsx",
+      "props": [
+        "trigger"
+      ],
+      "hooks": [
+        "useAuthStore",
+        "useBugReportStore",
+        "useSubmitBugReport"
+      ]
+    },
+    {
+      "name": "CohortBadge",
+      "filePath": "src\\components\\cohort-badge.tsx",
+      "props": [
+        "cohortId",
+        "size",
+        "showLabel",
+        "className"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "ErrorFallback",
+      "filePath": "src\\components\\ErrorFallback.tsx",
+      "props": [
+        "title",
+        "message",
+        "error",
+        "onRetry",
+        "onGoHome",
+        "showErrorDetails",
+        "statusMessage"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "FloatingBugCapture",
+      "filePath": "src\\components\\FloatingBugCapture.tsx",
+      "props": [],
+      "hooks": [
+        "useBugReportStore",
+        "useEffect",
+        "useCallback"
+      ]
+    },
+    {
+      "name": "ImpersonationBanner",
+      "filePath": "src\\components\\impersonation-banner.tsx",
+      "props": [],
+      "hooks": [
+        "useAuthStore",
+        "useState",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "KitReminderBanner",
+      "filePath": "src\\components\\kit-reminder-banner.tsx",
+      "props": [],
+      "hooks": [
+        "useMyActiveEnrollment",
+        "useSystemSettings",
+        "useUpdateOnboarding",
+        "useCoachInfo"
+      ]
+    },
+    {
+      "name": "AppLayout",
+      "filePath": "src\\components\\layout\\AppLayout.tsx",
+      "props": [],
+      "hooks": [
+        "useAuthStore",
+        "useEffect",
+        "useMyActiveEnrollment"
+      ]
+    },
+    {
+      "name": "MarketingLayout",
+      "filePath": "src\\components\\layout\\MarketingLayout.tsx",
+      "props": [
+        "children"
+      ],
+      "hooks": [
+        "useNavigate",
+        "useState"
+      ]
+    },
+    {
+      "name": "LeadGenModal",
+      "filePath": "src\\components\\lead-gen-modal.tsx",
+      "props": [
+        "open",
+        "onOpenChange",
+        "open"
+      ],
+      "hooks": [
+        "useState"
+      ]
+    },
+    {
+      "name": "NotificationBell",
+      "filePath": "src\\components\\notification-bell.tsx",
+      "props": [],
+      "hooks": [
+        "useState",
+        "useNotifications",
+        "useUnreadNotificationCount",
+        "useMarkNotificationRead",
+        "useMarkAllNotificationsRead"
+      ]
+    },
+    {
+      "name": "RouteErrorBoundary",
+      "filePath": "src\\components\\RouteErrorBoundary.tsx",
+      "props": [],
+      "hooks": [
+        "useRouteError",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "ScaleReminderBanner",
+      "filePath": "src\\components\\scale-reminder-banner.tsx",
+      "props": [],
+      "hooks": [
+        "useAuthStore",
+        "useSystemSettings",
+        "useUpdateProfile"
+      ]
+    },
+    {
+      "name": "ScrollToTop",
+      "filePath": "src\\components\\ScrollToTop.tsx",
+      "props": [],
+      "hooks": [
+        "useLocation",
+        "useEffect",
+        "useScrollToTop"
+      ]
+    },
+    {
+      "name": "ThemeToggle",
+      "filePath": "src\\components\\ThemeToggle.tsx",
+      "props": [
+        "className"
+      ],
+      "hooks": [
+        "useTheme"
+      ]
+    },
+    {
+      "name": "AnimatedOrbs",
+      "filePath": "src\\components\\ui\\animated-orbs.tsx",
+      "props": [
+        "className",
+        "variant"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "AnimatedSteps",
+      "filePath": "src\\components\\ui\\animated-steps.tsx",
+      "props": [
+        "steps",
+        "className"
+      ],
+      "hooks": [
+        "useInView"
+      ]
+    },
+    {
+      "name": "BeamsBackground",
+      "filePath": "src\\components\\ui\\beams-background.tsx",
+      "props": [
+        "className",
+        "children",
+        "intensity"
+      ],
+      "hooks": [
+        "useEffect"
+      ]
+    },
+    {
+      "name": "BorderBeam",
+      "filePath": "src\\components\\ui\\border-beam.tsx",
+      "props": [
+        "className",
+        "size",
+        "duration",
+        "delay",
+        "colorFrom",
+        "colorTo",
+        "borderWidth"
+      ],
+      "hooks": [
+        "useState",
+        "useId",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "CircularProgress",
+      "filePath": "src\\components\\ui\\circular-progress.tsx",
+      "props": [
+        "value",
+        "size",
+        "strokeWidth",
+        "className",
+        "children"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "DotPattern",
+      "filePath": "src\\components\\ui\\dot-pattern.tsx",
+      "props": [
+        "className",
+        "dotColor",
+        "dotSize",
+        "gap",
+        "fade",
+        "fadeDirection"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "FeatureCard",
+      "filePath": "src\\components\\ui\\feature-card.tsx",
+      "props": [
+        "icon",
+        "title",
+        "description",
+        "stat",
+        "value",
+        "label"
+      ],
+      "hooks": [
+        "useState"
+      ]
+    },
+    {
+      "name": "FloatingParticles",
+      "filePath": "src\\components\\ui\\floating-particles.tsx",
+      "props": [
+        "count",
+        "colors",
+        "className",
+        "speed",
+        "minSize",
+        "maxSize"
+      ],
+      "hooks": [
+        "useEffect"
+      ]
+    },
+    {
+      "name": "GenealogyTree",
+      "filePath": "src\\components\\ui\\genealogy-tree.tsx",
+      "props": [
+        "data",
+        "className",
+        "onNodeClick",
+        "node",
+        "showStats"
+      ],
+      "hooks": [
+        "useState",
+        "useMemo",
+        "useCallback"
+      ]
+    },
+    {
+      "name": "GlowWrapper",
+      "filePath": "src\\components\\ui\\glow-button.tsx",
+      "props": [
+        "children",
+        "glowColor",
+        "className"
+      ],
+      "hooks": []
+    },
+    {
+      "name": "NeuralNetworkBackground",
+      "filePath": "src\\components\\ui\\neural-network-background.tsx",
+      "props": [],
+      "hooks": [
+        "useFrame",
+        "useMemo"
+      ]
+    }
+  ]
+}
