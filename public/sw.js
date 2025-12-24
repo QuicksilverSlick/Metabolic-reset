@@ -1,7 +1,7 @@
 // Metabolic Reset Service Worker
-// Minimal service worker for PWA installability
+// PWA installability + Push Notifications
 
-const CACHE_NAME = 'metabolic-reset-v1';
+const CACHE_NAME = 'metabolic-reset-v2';
 
 // Install event - cache essential assets
 self.addEventListener('install', (event) => {
@@ -58,6 +58,116 @@ self.addEventListener('fetch', (event) => {
       .catch(() => {
         // Fallback to cache
         return caches.match(event.request);
+      })
+  );
+});
+
+// ==========================================
+// PUSH NOTIFICATION HANDLING
+// ==========================================
+
+// Handle push notification received
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push received:', event);
+
+  let data = {
+    title: '28 Day Reset',
+    body: 'You have a new notification',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    url: '/app'
+  };
+
+  // Parse push data if available
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = {
+        title: payload.title || data.title,
+        body: payload.body || data.body,
+        icon: payload.icon || data.icon,
+        badge: payload.badge || data.badge,
+        url: payload.url || payload.data?.url || data.url,
+        tag: payload.tag || 'default',
+        data: payload.data || {}
+      };
+    } catch (e) {
+      // If not JSON, use text
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    data: { url: data.url, ...data.data },
+    vibrate: [100, 50, 100],
+    requireInteraction: false,
+    actions: [
+      { action: 'open', title: 'View' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.notification.tag);
+  event.notification.close();
+
+  // Get the URL to open
+  const urlToOpen = event.notification.data?.url || '/app';
+
+  // Handle action buttons
+  if (event.action === 'dismiss') {
+    return;
+  }
+
+  // Open or focus the app
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Check if app is already open
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
+        }
+        // Open new window if not open
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+  );
+});
+
+// Handle notification close (for analytics if needed)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed:', event.notification.tag);
+});
+
+// Handle push subscription change
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW] Push subscription changed');
+  event.waitUntil(
+    self.registration.pushManager.subscribe(event.oldSubscription.options)
+      .then((subscription) => {
+        // Send new subscription to server
+        return fetch('/api/push/resubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            oldEndpoint: event.oldSubscription.endpoint,
+            newSubscription: subscription.toJSON()
+          })
+        });
       })
   );
 });
