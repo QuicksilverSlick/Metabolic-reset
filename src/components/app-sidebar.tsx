@@ -8,7 +8,8 @@ import {
   ShieldCheck,
   FolderKanban,
   Video,
-  Megaphone
+  Megaphone,
+  Bug
 } from "lucide-react";
 import {
   Sidebar,
@@ -174,6 +175,18 @@ export function AppSidebar(): JSX.Element {
                     </AvatarFallback>
                   </Avatar>
                   <span className="font-medium">My Profile</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive('/app/bugs')}
+                className="text-slate-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 data-[active=true]:bg-gold-50 dark:data-[active=true]:bg-slate-800 data-[active=true]:text-gold-600 dark:data-[active=true]:text-gold-500"
+              >
+                <Link to="/app/bugs" onClick={handleMobileNavigation}>
+                  <Bug className="h-5 w-5" />
+                  <span className="font-medium">My Bug Reports</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

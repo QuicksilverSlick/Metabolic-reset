@@ -42,6 +42,7 @@ import { MyProjectsPage } from '@/pages/app/MyProjectsPage';
 import { EnrollProjectPage } from '@/pages/app/EnrollProjectPage';
 import { CoursePage } from '@/pages/app/CoursePage';
 import { CoachResourcesPage } from '@/pages/app/CoachResourcesPage';
+import { MyBugReportsPage } from '@/pages/app/MyBugReportsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 // Onboarding Pages
@@ -222,6 +223,10 @@ const router = createBrowserRouter([
           {
             path: "resources",
             element: <CoachResourcesPage />
+          },
+          {
+            path: "bugs",
+            element: <MyBugReportsPage />
           }
         ]
       },
