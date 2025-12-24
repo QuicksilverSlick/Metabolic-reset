@@ -22,9 +22,9 @@ This is a Cloudflare Workers + React platform for managing health challenges.
 
 ## Documentation
 
-- [API Reference](/api/docs/api) - 121 endpoints
-- [Entity Reference](/api/docs/entities) - 19 Durable Objects
-- [Component Reference](/api/docs/components) - 34 React components
+- [API Reference](/api/docs/api) - 134 endpoints
+- [Entity Reference](/api/docs/entities) - 22 Durable Objects
+- [Component Reference](/api/docs/components) - 43 React components
 
 ## Key Files
 
@@ -100,8 +100,8 @@ This is a Cloudflare Workers + React platform for managing health challenges.
 
 ## Documentation Coverage
 
-- APIs: 121/121 (100%)
-- Entities: 19/19 (100%)
-- Components: 34/34 (100%)
+- APIs: 134/134 (100%)
+- Entities: 22/22 (100%)
+- Components: 43/43 (100%)
 
-Last updated: 2025-12-23
+Last updated: 2025-12-24

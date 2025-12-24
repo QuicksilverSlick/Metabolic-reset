@@ -2103,7 +2103,7 @@ Organized by:
     icon: 'Bell',
     order: 11,
     aiContext: 'Notifications section covers the in-app notification system. Relevant for bugs about missing notifications or read status issues.',
-    relatedSections: ['overview'],
+    relatedSections: ['overview', 'push-notifications'],
     articles: [
       {
         id: 'notifications-overview',
@@ -2157,7 +2157,238 @@ POST /api/notifications/read-all - Mark all as read
 - \`worker/entities.ts:1127\` - NotificationEntity
 - \`worker/user-routes.ts\` - Notification endpoints
         `.trim(),
-        relatedArticles: [],
+        relatedArticles: ['push-overview'],
+      },
+    ],
+  },
+  {
+    id: 'push-notifications',
+    title: 'Push Notifications',
+    description: 'Web push notifications and system announcements',
+    icon: 'Smartphone',
+    order: 12,
+    aiContext: 'Push notifications section covers web push subscriptions, VAPID keys, and platform-specific requirements (iOS PWA). Relevant for bugs about push not working, iOS issues, or subscription problems.',
+    relatedSections: ['notifications', 'bug-tracking'],
+    articles: [
+      {
+        id: 'push-overview',
+        title: 'Push Notifications',
+        description: 'How web push notifications work',
+        tags: ['push', 'notifications', 'web-push', 'vapid', 'service-worker', 'ios', 'pwa'],
+        lastUpdated: '2025-12-24',
+        importance: 9,
+        symptoms: ['push not working', 'notifications not arriving', 'ios push failed', 'subscribe error', 'permission denied'],
+        codeReferences: [
+          { filePath: 'src/hooks/use-push-notifications.ts', description: 'Push notification hook', type: 'hook' },
+          { filePath: 'src/components/push-notification-toggle.tsx', description: 'Push toggle component', type: 'component' },
+          { filePath: 'src/components/push-permission-prompt.tsx', description: 'Permission prompt dialog', type: 'component' },
+          { filePath: 'worker/entities.ts', lineStart: 1537, description: 'PushSubscriptionEntity', type: 'entity' },
+          { filePath: 'worker/push-utils.ts', description: 'Push sending utilities', type: 'util' },
+        ],
+        apiEndpoints: ['/api/push/vapid-key', '/api/push/subscribe', '/api/push/unsubscribe', '/api/push/status', '/api/admin/push/test'],
+        entities: ['PushSubscriptionEntity', 'NotificationEntity'],
+        components: ['PushNotificationToggle', 'PushPermissionPrompt', 'NotificationPreferencesPanel', 'PushNotificationsTab'],
+        content: `
+# Web Push Notifications
+
+Real-time push notifications reach users even when the app is closed.
+
+## How It Works
+
+1. User clicks "Enable Notifications"
+2. Browser requests permission
+3. Browser creates push subscription (endpoint + keys)
+4. Subscription saved to PushSubscriptionEntity
+5. Server sends pushes via Web Push protocol
+
+## Platform Requirements
+
+| Platform | Requirements |
+|----------|--------------|
+| **Chrome/Firefox/Edge** | Works natively |
+| **Safari (macOS)** | Works natively |
+| **iOS Safari** | Must add to Home Screen (PWA) |
+| **Android** | Works natively |
+
+## iOS PWA Requirement
+
+iOS only supports push for installed PWAs:
+1. Open site in Safari
+2. Tap Share button
+3. Select "Add to Home Screen"
+4. Open from Home Screen
+5. Then enable notifications
+
+## VAPID Keys
+
+Web Push requires VAPID (Voluntary Application Server Identification):
+- Public key: Sent to browser for subscription
+- Private key: Signs push messages (server-side)
+- Configure in: \`VAPID_PUBLIC_KEY\`, \`VAPID_PRIVATE_KEY\` env vars
+
+## Push Subscription Entity
+
+| Field | Description |
+|-------|-------------|
+| id | Unique subscription ID |
+| userId | User who owns this |
+| endpoint | Push service URL |
+| keys | Encryption keys (p256dh, auth) |
+| failCount | Delivery failures (auto-removes at 5) |
+
+## API Endpoints
+
+\`\`\`
+GET /api/push/vapid-key - Get public key
+POST /api/push/subscribe - Create subscription
+POST /api/push/unsubscribe - Remove subscription
+GET /api/push/status - Check subscription status
+POST /api/admin/push/test - Send test push (admin)
+\`\`\`
+
+## Key Files
+
+- \`src/hooks/use-push-notifications.ts\` - Main hook
+- \`src/components/push-notification-toggle.tsx\` - Toggle UI
+- \`worker/push-utils.ts\` - Server-side push
+- \`worker/entities.ts:1537\` - PushSubscriptionEntity
+        `.trim(),
+        relatedArticles: ['notifications-overview', 'push-preferences'],
+      },
+      {
+        id: 'push-preferences',
+        title: 'Notification Preferences',
+        description: 'User notification settings and categories',
+        tags: ['preferences', 'settings', 'categories', 'toggle'],
+        lastUpdated: '2025-12-24',
+        importance: 7,
+        symptoms: ['wrong notifications', 'too many notifications', 'category toggle not working'],
+        codeReferences: [
+          { filePath: 'src/components/notification-preferences.tsx', description: 'Preferences panel', type: 'component' },
+          { filePath: 'shared/types.ts', description: 'NotificationPreferences type', type: 'type' },
+        ],
+        components: ['NotificationPreferencesPanel'],
+        content: `
+# Notification Preferences
+
+Users can customize which notification types they receive.
+
+## Category Toggles
+
+| Category | Description |
+|----------|-------------|
+| **Bug Updates** | Responses to submitted bugs |
+| **Team Changes** | Team assignments and member changes |
+| **Achievements** | Milestones and progress celebrations |
+| **Announcements** | System-wide announcements |
+| **Daily Reminders** | Habit and lesson reminders |
+
+## How Preferences Work
+
+1. Master toggle enables/disables all push
+2. Category toggles filter which types
+3. Preferences stored in localStorage
+4. (Future: sync to user profile on server)
+
+## Key Components
+
+- \`NotificationPreferencesPanel\` - Full settings panel
+- \`PushNotificationToggle\` - Simple on/off toggle
+
+## Default Preferences
+
+All categories enabled by default when push is enabled.
+        `.trim(),
+        relatedArticles: ['push-overview'],
+      },
+    ],
+  },
+  {
+    id: 'bug-messaging',
+    title: 'Bug Messaging',
+    description: 'Communication between users and admins on bug reports',
+    icon: 'MessageCircle',
+    order: 13,
+    aiContext: 'Bug messaging covers the threaded conversation system on bug reports. Relevant for bugs about messages not sending, not receiving notifications, or satisfaction feedback.',
+    relatedSections: ['bug-tracking', 'push-notifications'],
+    articles: [
+      {
+        id: 'bug-messaging-overview',
+        title: 'Bug Report Messaging',
+        description: 'How threaded bug conversations work',
+        tags: ['bugs', 'messaging', 'chat', 'threads', 'satisfaction'],
+        lastUpdated: '2025-12-24',
+        importance: 8,
+        symptoms: ['message not sending', 'notification not received', 'cannot reply to bug', 'satisfaction not submitting'],
+        codeReferences: [
+          { filePath: 'src/components/admin/BugMessagesPanel.tsx', description: 'Admin messaging panel', type: 'component' },
+          { filePath: 'worker/entities.ts', lineStart: 427, description: 'BugMessageEntity', type: 'entity' },
+          { filePath: 'worker/entities.ts', lineStart: 530, description: 'BugSatisfactionEntity', type: 'entity' },
+        ],
+        apiEndpoints: ['/api/bugs/:bugId/messages', '/api/bugs/:bugId/satisfaction', '/api/bugs/:bugId/detail'],
+        entities: ['BugMessageEntity', 'BugSatisfactionEntity', 'BugReportEntity'],
+        components: ['BugMessagesPanel'],
+        content: `
+# Bug Report Messaging
+
+Threaded conversations between users and admins on bug reports.
+
+## How It Works
+
+1. User submits bug report
+2. Admin reviews in Admin > Bugs tab
+3. Admin sends message via BugMessagesPanel
+4. User receives push notification
+5. User replies, admin gets notified
+6. When resolved, user can rate satisfaction
+
+## Message Types
+
+| Type | Description |
+|------|-------------|
+| **User Message** | Message from bug reporter |
+| **Admin Message** | Response from admin |
+| **System Message** | Auto-generated (status change, etc) |
+
+## System Message Types
+
+- \`submitted\` - Bug was submitted
+- \`status_change\` - Status updated
+- \`assigned\` - Bug assigned to admin
+- \`resolved\` - Bug marked resolved
+
+## Satisfaction Feedback
+
+After bug resolution:
+1. User sees feedback prompt
+2. Can rate positive or negative
+3. Optional written feedback
+4. Admin notified of rating
+
+## API Endpoints
+
+\`\`\`
+GET /api/bugs/:bugId/messages - Get message thread
+POST /api/bugs/:bugId/messages - Add message
+GET /api/bugs/:bugId/satisfaction - Get satisfaction
+POST /api/bugs/:bugId/satisfaction - Submit feedback
+GET /api/bugs/:bugId/detail - Get bug + messages + satisfaction
+\`\`\`
+
+## Key Entities
+
+- \`BugMessageEntity\` - Individual messages
+- \`BugSatisfactionEntity\` - User feedback
+- \`BugReportEntity\` - Parent bug report
+
+## Key Files
+
+- \`src/components/admin/BugMessagesPanel.tsx\` - Admin UI
+- \`src/pages/app/MyBugReportsPage.tsx\` - User view
+- \`worker/entities.ts:427\` - BugMessageEntity
+- \`worker/entities.ts:530\` - BugSatisfactionEntity
+        `.trim(),
+        relatedArticles: ['bug-overview'],
       },
     ],
   },

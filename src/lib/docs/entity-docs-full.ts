@@ -537,4 +537,80 @@ export const FULL_ENTITIES: EntityDoc[] = [
     relatedEntities: ['UserEntity'],
     usedBy: ['worker/user-routes.ts', 'src/lib/auth-store.ts', 'src/components/impersonation-banner.tsx'],
   },
+
+  // ============================================================================
+  // BUG MESSAGING ENTITIES (NEW)
+  // ============================================================================
+  {
+    name: 'BugMessageEntity',
+    filePath: 'worker/entities.ts',
+    description: 'Stores messages in bug report threads. Supports threaded conversations between users and admins, plus system messages for status changes.',
+    fields: [
+      { name: 'id', type: 'string', description: 'Unique message ID (bugId-timestamp-random)' },
+      { name: 'bugId', type: 'string', description: 'Bug report this message belongs to' },
+      { name: 'userId', type: 'string', description: 'Author user ID (or "system" for auto messages)' },
+      { name: 'userName', type: 'string', description: 'Author display name' },
+      { name: 'userAvatarUrl', type: 'string', description: 'Author avatar URL' },
+      { name: 'isAdmin', type: 'boolean', description: 'Whether author is an admin' },
+      { name: 'isSystem', type: 'boolean', description: 'Whether this is an auto-generated system message' },
+      { name: 'systemType', type: 'string', description: 'Type: submitted|status_change|assigned|resolved' },
+      { name: 'message', type: 'string', description: 'Message content' },
+      { name: 'createdAt', type: 'number', description: 'Message timestamp' },
+    ],
+    methods: [
+      { name: 'findByBug', description: 'Get all messages for a bug (oldest first)', params: 'env: Env, bugId: string', returns: 'Promise<BugMessage[]>' },
+      { name: 'createMessage', description: 'Create a new user message', params: 'env: Env, bugId: string, userId: string, userName: string, avatarUrl: string | undefined, isAdmin: boolean, message: string', returns: 'Promise<BugMessage>' },
+      { name: 'createSystemMessage', description: 'Create a system-generated message', params: 'env: Env, bugId: string, systemType: string, message: string', returns: 'Promise<BugMessage>' },
+    ],
+    relatedEntities: ['BugReportEntity', 'UserEntity'],
+    usedBy: ['worker/user-routes.ts', 'src/components/admin/BugMessagesPanel.tsx', 'src/pages/app/MyBugReportsPage.tsx'],
+  },
+  {
+    name: 'BugSatisfactionEntity',
+    filePath: 'worker/entities.ts',
+    description: 'Stores user satisfaction feedback after bug resolution. Enables tracking of support quality.',
+    fields: [
+      { name: 'id', type: 'string', description: 'Same as bugId (one satisfaction per bug)' },
+      { name: 'bugId', type: 'string', description: 'Bug this feedback is for' },
+      { name: 'userId', type: 'string', description: 'User who submitted feedback' },
+      { name: 'rating', type: 'BugSatisfactionRating', description: 'positive or negative' },
+      { name: 'feedback', type: 'string', description: 'Optional written feedback' },
+      { name: 'submittedAt', type: 'number', description: 'When feedback was submitted' },
+    ],
+    methods: [
+      { name: 'create', description: 'Create satisfaction feedback', params: 'env: Env, bugId: string, userId: string, rating: BugSatisfactionRating, feedback?: string', returns: 'Promise<BugSatisfaction>' },
+      { name: 'findByBug', description: 'Get satisfaction for a bug', params: 'env: Env, bugId: string', returns: 'Promise<BugSatisfaction | null>' },
+    ],
+    relatedEntities: ['BugReportEntity', 'UserEntity'],
+    usedBy: ['worker/user-routes.ts', 'src/pages/app/MyBugReportsPage.tsx'],
+  },
+
+  // ============================================================================
+  // WEB PUSH ENTITIES (NEW)
+  // ============================================================================
+  {
+    name: 'PushSubscriptionEntity',
+    filePath: 'worker/entities.ts',
+    description: 'Stores web push notification subscriptions. Each user can have multiple subscriptions (one per device/browser).',
+    fields: [
+      { name: 'id', type: 'string', description: 'Unique subscription ID (push-timestamp-random)' },
+      { name: 'userId', type: 'string', description: 'User who owns this subscription' },
+      { name: 'endpoint', type: 'string', description: 'Push service endpoint URL' },
+      { name: 'keys', type: '{ p256dh: string, auth: string }', description: 'Encryption keys for push payload' },
+      { name: 'userAgent', type: 'string', description: 'Device/browser user agent' },
+      { name: 'createdAt', type: 'number', description: 'When subscription was created' },
+      { name: 'lastUsedAt', type: 'number', description: 'Last successful push' },
+      { name: 'failCount', type: 'number', description: 'Consecutive delivery failures (auto-removes at 5)' },
+    ],
+    methods: [
+      { name: 'findByUser', description: 'Get all subscriptions for a user', params: 'env: Env, userId: string', returns: 'Promise<PushSubscription[]>' },
+      { name: 'findByEndpoint', description: 'Find subscription by endpoint', params: 'env: Env, endpoint: string', returns: 'Promise<PushSubscription | null>' },
+      { name: 'upsert', description: 'Create or update subscription', params: 'env: Env, userId: string, endpoint: string, keys: object, userAgent?: string', returns: 'Promise<PushSubscription>' },
+      { name: 'deleteByEndpoint', description: 'Delete subscription by endpoint', params: 'env: Env, endpoint: string', returns: 'Promise<boolean>' },
+      { name: 'recordFailure', description: 'Increment fail count (removes after 5)', params: 'env: Env, endpoint: string', returns: 'Promise<boolean>' },
+      { name: 'recordSuccess', description: 'Reset fail count and update lastUsedAt', params: 'env: Env, endpoint: string', returns: 'Promise<void>' },
+    ],
+    relatedEntities: ['UserEntity', 'NotificationEntity'],
+    usedBy: ['worker/user-routes.ts', 'worker/push-utils.ts', 'src/hooks/use-push-notifications.ts'],
+  },
 ];

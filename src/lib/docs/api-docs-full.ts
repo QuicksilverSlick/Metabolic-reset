@@ -1495,4 +1495,245 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
     sourceFile: 'worker/user-routes.ts',
     sourceLine: 5359,
   },
+
+  // ============================================================================
+  // STRIPE PAYMENT ADMIN (NEW)
+  // ============================================================================
+  {
+    method: 'GET',
+    path: '/api/admin/stripe/search',
+    description: 'Search Stripe charges with filters (card last4, status, amount)',
+    authentication: 'admin',
+    requestBody: {
+      type: 'query params',
+      description: 'Search filters',
+      fields: [
+        { name: 'limit', type: 'number', required: false, description: 'Max results (default 25, max 100)' },
+        { name: 'page', type: 'string', required: false, description: 'Cursor for pagination' },
+        { name: 'card_last4', type: 'string', required: false, description: 'Filter by card last 4 digits' },
+        { name: 'card_brand', type: 'string', required: false, description: 'Filter by card brand (visa, mastercard, etc)' },
+        { name: 'status', type: 'string', required: false, description: 'Filter by charge status' },
+        { name: 'min_amount', type: 'number', required: false, description: 'Minimum amount in cents' },
+        { name: 'max_amount', type: 'number', required: false, description: 'Maximum amount in cents' },
+      ],
+    },
+    responseBody: { type: '{ data: StripeCharge[], has_more: boolean, next_page: string | null }', description: 'Paginated search results' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 2591,
+  },
+  {
+    method: 'POST',
+    path: '/api/admin/stripe/unlink',
+    description: 'Unlink a Stripe payment from a user account',
+    authentication: 'admin',
+    requestBody: {
+      type: 'UnlinkPaymentRequest',
+      description: 'User to unlink payment from',
+      fields: [
+        { name: 'userId', type: 'string', required: true, description: 'User ID to unlink payment from' },
+      ],
+    },
+    responseBody: { type: '{ message: string, user: { id: string, name: string }, previousPaymentId: string }', description: 'Unlink result' },
+    errorCodes: [
+      { code: 400, message: 'Missing userId', description: 'userId required' },
+      { code: 400, message: 'User does not have a linked payment', description: 'No payment to unlink' },
+      { code: 404, message: 'User not found', description: 'User does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 2929,
+  },
+
+  // ============================================================================
+  // BUG MESSAGING SYSTEM (NEW)
+  // ============================================================================
+  {
+    method: 'GET',
+    path: '/api/bugs/:bugId/messages',
+    description: 'Get messages for a bug report thread',
+    authentication: 'user',
+    responseBody: { type: 'BugMessage[]', description: 'Messages in chronological order' },
+    errorCodes: [
+      { code: 403, message: 'Access denied', description: 'Must be bug owner or admin' },
+      { code: 404, message: 'Bug report not found', description: 'Bug does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4037,
+  },
+  {
+    method: 'POST',
+    path: '/api/bugs/:bugId/messages',
+    description: 'Add a message to a bug report thread (triggers push notification)',
+    authentication: 'user',
+    requestBody: {
+      type: 'AddBugMessageRequest',
+      description: 'Message to add',
+      fields: [
+        { name: 'message', type: 'string', required: true, description: 'Message content' },
+      ],
+    },
+    responseBody: { type: 'BugMessage', description: 'Created message' },
+    errorCodes: [
+      { code: 400, message: 'Message is required', description: 'Empty message' },
+      { code: 403, message: 'Access denied', description: 'Must be bug owner or admin' },
+      { code: 404, message: 'Bug report not found', description: 'Bug does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4063,
+  },
+  {
+    method: 'GET',
+    path: '/api/bugs/:bugId/satisfaction',
+    description: 'Get satisfaction feedback for a resolved bug',
+    authentication: 'user',
+    responseBody: { type: 'BugSatisfaction | null', description: 'User feedback or null' },
+    errorCodes: [
+      { code: 403, message: 'Access denied', description: 'Must be bug owner or admin' },
+      { code: 404, message: 'Bug report not found', description: 'Bug does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4151,
+  },
+  {
+    method: 'POST',
+    path: '/api/bugs/:bugId/satisfaction',
+    description: 'Submit satisfaction feedback after bug resolution',
+    authentication: 'user',
+    requestBody: {
+      type: 'SubmitBugSatisfactionRequest',
+      description: 'Satisfaction feedback',
+      fields: [
+        { name: 'rating', type: "'positive' | 'negative'", required: true, description: 'Thumbs up or down' },
+        { name: 'feedback', type: 'string', required: false, description: 'Optional written feedback' },
+      ],
+    },
+    responseBody: { type: 'BugSatisfaction', description: 'Created feedback record' },
+    errorCodes: [
+      { code: 400, message: 'Valid rating required', description: 'Must be positive or negative' },
+      { code: 400, message: 'Bug must be resolved', description: 'Can only rate resolved bugs' },
+      { code: 400, message: 'Feedback already submitted', description: 'Cannot submit twice' },
+      { code: 403, message: 'Only bug reporter can submit', description: 'Not the bug owner' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4177,
+  },
+  {
+    method: 'GET',
+    path: '/api/bugs/:bugId',
+    description: 'Get single bug with messages and satisfaction (user sees own, admin sees all)',
+    authentication: 'user',
+    responseBody: { type: '{ bug: BugReport, messages: BugMessage[], satisfaction: BugSatisfaction | null }', description: 'Full bug details' },
+    errorCodes: [
+      { code: 403, message: 'Access denied', description: 'Must be bug owner or admin' },
+      { code: 404, message: 'Bug report not found', description: 'Bug does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4242,
+  },
+  {
+    method: 'GET',
+    path: '/api/bugs/:bugId/detail',
+    description: 'Get bug with messages and satisfaction in one call (alias)',
+    authentication: 'user',
+    responseBody: { type: '{ bug: BugReport, messages: BugMessage[], satisfaction: BugSatisfaction | null }', description: 'Full bug details' },
+    errorCodes: [
+      { code: 403, message: 'Access denied', description: 'Must be bug owner or admin' },
+      { code: 404, message: 'Bug report not found', description: 'Bug does not exist' },
+    ],
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 4244,
+  },
+
+  // ============================================================================
+  // WEB PUSH NOTIFICATIONS (NEW)
+  // ============================================================================
+  {
+    method: 'GET',
+    path: '/api/push/vapid-key',
+    description: 'Get VAPID public key for web push subscription',
+    authentication: 'none',
+    responseBody: { type: '{ publicKey: string }', description: 'VAPID public key' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6198,
+  },
+  {
+    method: 'POST',
+    path: '/api/push/subscribe',
+    description: 'Subscribe to push notifications',
+    authentication: 'user',
+    requestBody: {
+      type: 'PushSubscribeRequest',
+      description: 'Push subscription data',
+      fields: [
+        { name: 'subscription.endpoint', type: 'string', required: true, description: 'Push service endpoint' },
+        { name: 'subscription.keys.p256dh', type: 'string', required: true, description: 'P256DH key' },
+        { name: 'subscription.keys.auth', type: 'string', required: true, description: 'Auth secret' },
+        { name: 'userAgent', type: 'string', required: false, description: 'Device user agent' },
+      ],
+    },
+    responseBody: { type: '{ success: boolean, subscriptionId: string }', description: 'Subscription result' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6203,
+  },
+  {
+    method: 'POST',
+    path: '/api/push/unsubscribe',
+    description: 'Unsubscribe from push notifications',
+    authentication: 'user',
+    requestBody: {
+      type: 'PushUnsubscribeRequest',
+      description: 'Endpoint to unsubscribe',
+      fields: [
+        { name: 'endpoint', type: 'string', required: true, description: 'Push endpoint to remove' },
+      ],
+    },
+    responseBody: { type: '{ success: boolean, deleted: boolean }', description: 'Unsubscribe result' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6237,
+  },
+  {
+    method: 'GET',
+    path: '/api/push/status',
+    description: 'Get user push subscription status',
+    authentication: 'user',
+    responseBody: { type: '{ subscribed: boolean, subscriptionCount: number, subscriptions: PushSubscriptionInfo[] }', description: 'Subscription status' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6259,
+  },
+  {
+    method: 'POST',
+    path: '/api/admin/push/test',
+    description: 'Send test push notification to a user',
+    authentication: 'admin',
+    requestBody: {
+      type: 'TestPushRequest',
+      description: 'Test notification details',
+      fields: [
+        { name: 'targetUserId', type: 'string', required: true, description: 'User to send to' },
+        { name: 'title', type: 'string', required: true, description: 'Notification title' },
+        { name: 'body', type: 'string', required: true, description: 'Notification body' },
+        { name: 'url', type: 'string', required: false, description: 'Click URL (default /app)' },
+      ],
+    },
+    responseBody: { type: '{ success: boolean, sent: number, failed: number }', description: 'Send result' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6283,
+  },
+  {
+    method: 'POST',
+    path: '/api/push/resubscribe',
+    description: 'Handle subscription change from service worker',
+    authentication: 'none',
+    requestBody: {
+      type: 'ResubscribeRequest',
+      description: 'Old and new subscription data',
+      fields: [
+        { name: 'oldEndpoint', type: 'string', required: true, description: 'Previous endpoint' },
+        { name: 'newSubscription.endpoint', type: 'string', required: true, description: 'New endpoint' },
+        { name: 'newSubscription.keys', type: '{ p256dh: string, auth: string }', required: true, description: 'New keys' },
+      ],
+    },
+    responseBody: { type: '{ success: boolean, subscriptionId: string }', description: 'Resubscribe result' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6320,
+  },
 ];

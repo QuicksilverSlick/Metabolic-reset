@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2025-12-24T13:28:08.372Z",
-  "totalComponents": 34,
+  "generatedAt": "2025-12-24T13:48:33.455Z",
+  "totalComponents": 41,
   "components": [
     {
       "name": "AddToHomeScreenModal",
@@ -31,6 +31,21 @@
         "useState",
         "useBugAIAnalysis",
         "useAnalyzeBug"
+      ]
+    },
+    {
+      "name": "BugMessagesPanel",
+      "filePath": "src\\components\\admin\\BugMessagesPanel.tsx",
+      "props": [
+        "bugId",
+        "bugUserId",
+        "bugUserName"
+      ],
+      "hooks": [
+        "useBugMessages",
+        "useAddBugMessage",
+        "useState",
+        "useEffect"
       ]
     },
     {
@@ -115,8 +130,19 @@
       "hooks": [
         "useQueryClient",
         "useState",
+        "useCallback",
         "useQuery",
-        "useMutation"
+        "useMutation",
+        "useMemo"
+      ]
+    },
+    {
+      "name": "PushNotificationsTab",
+      "filePath": "src\\components\\admin\\PushNotificationsTab.tsx",
+      "props": [],
+      "hooks": [
+        "useAdminUsers",
+        "useState"
       ]
     },
     {
@@ -187,6 +213,17 @@
       ]
     },
     {
+      "name": "IOSInstallPrompt",
+      "filePath": "src\\components\\ios-install-prompt.tsx",
+      "props": [
+        "className"
+      ],
+      "hooks": [
+        "useState",
+        "useEffect"
+      ]
+    },
+    {
       "name": "KitReminderBanner",
       "filePath": "src\\components\\kit-reminder-banner.tsx",
       "props": [],
@@ -203,6 +240,8 @@
       "props": [],
       "hooks": [
         "useAuthStore",
+        "useSystemSettings",
+        "useState",
         "useEffect",
         "useMyActiveEnrollment"
       ]
@@ -233,13 +272,71 @@
     {
       "name": "NotificationBell",
       "filePath": "src\\components\\notification-bell.tsx",
-      "props": [],
+      "props": [
+        "notification",
+        "onMarkRead",
+        "id",
+        "onNavigate",
+        "url"
+      ],
       "hooks": [
         "useState",
+        "useRef",
+        "useNavigate",
         "useNotifications",
         "useUnreadNotificationCount",
         "useMarkNotificationRead",
-        "useMarkAllNotificationsRead"
+        "useMarkAllNotificationsRead",
+        "useEffect",
+        "useCallback"
+      ]
+    },
+    {
+      "name": "NotificationPreferencesPanel",
+      "filePath": "src\\components\\notification-preferences.tsx",
+      "props": [
+        "id",
+        "title",
+        "description",
+        "icon",
+        "enabled",
+        "onToggle",
+        "enabled",
+        "disabled"
+      ],
+      "hooks": [
+        "useUser",
+        "usePushNotifications",
+        "useEffect"
+      ]
+    },
+    {
+      "name": "PushNotificationToggle",
+      "filePath": "src\\components\\push-notification-toggle.tsx",
+      "props": [
+        "className",
+        "showDescription"
+      ],
+      "hooks": [
+        "usePushNotifications"
+      ]
+    },
+    {
+      "name": "shouldShowPushPrompt",
+      "filePath": "src\\components\\push-permission-prompt.tsx",
+      "props": [
+        "context",
+        "open",
+        "onOpenChange",
+        "open",
+        "onEnabled",
+        "onDismissed"
+      ],
+      "hooks": [
+        "useState",
+        "usePushNotifications",
+        "useEffect",
+        "usePushPermissionPrompt"
       ]
     },
     {
@@ -269,6 +366,24 @@
         "useLocation",
         "useEffect",
         "useScrollToTop"
+      ]
+    },
+    {
+      "name": "SystemAnnouncementBanner",
+      "filePath": "src\\components\\system-announcement-banner.tsx",
+      "props": [
+        "enabled",
+        "title",
+        "message",
+        "videoUrl",
+        "type",
+        "storageKey",
+        "onDismiss",
+        "isTopBanner"
+      ],
+      "hooks": [
+        "useState",
+        "useEffect"
       ]
     },
     {
