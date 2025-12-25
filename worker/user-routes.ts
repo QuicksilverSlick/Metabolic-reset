@@ -5984,14 +5984,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Update user's global captainId
       await targetEntity.patch({ captainId: newCaptainId });
 
-      // If project specified, also update project enrollment
-      if (projectId) {
-        const enrollmentId = `${projectId}:${targetUserId}`;
-        const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
-        const enrollment = await enrollmentEntity.getState();
-        if (enrollment.id) {
-          await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
-        }
+      // Update the recruits index (critical for roster display)
+      // Remove from old captain's recruits index
+      if (oldCaptainId) {
+        const oldRecruitIndex = new Index(c.env, `recruits:${oldCaptainId}`);
+        await oldRecruitIndex.remove(targetUserId);
+      }
+      // Add to new captain's recruits index
+      if (newCaptainId) {
+        const newRecruitIndex = new Index(c.env, `recruits:${newCaptainId}`);
+        await newRecruitIndex.add(targetUserId);
+      }
+
+      // Update ALL project enrollments for this user, not just the specified one
+      // This ensures the user appears correctly on rosters for all projects
+      const allEnrollments = await ProjectEnrollmentEntity.list(c.env);
+      const userEnrollments = allEnrollments.items.filter(e => e.userId === targetUserId);
+      for (const enrollment of userEnrollments) {
+        const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollment.id);
+        await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
       }
 
       // Send notifications if requested (in-app + push)
@@ -6121,14 +6132,22 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           // Update user's captainId
           await targetEntity.patch({ captainId: newCaptainId });
 
-          // Update project enrollment if specified
-          if (projectId) {
-            const enrollmentId = `${projectId}:${userId}`;
-            const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
-            const enrollment = await enrollmentEntity.getState();
-            if (enrollment.id) {
-              await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
-            }
+          // Update the recruits index (critical for roster display)
+          if (oldCaptainId) {
+            const oldRecruitIndex = new Index(c.env, `recruits:${oldCaptainId}`);
+            await oldRecruitIndex.remove(userId);
+          }
+          if (newCaptainId) {
+            const newRecruitIndex = new Index(c.env, `recruits:${newCaptainId}`);
+            await newRecruitIndex.add(userId);
+          }
+
+          // Update ALL project enrollments for this user
+          const allEnrollments = await ProjectEnrollmentEntity.list(c.env);
+          const userEnrollments = allEnrollments.items.filter(e => e.userId === userId);
+          for (const enrollment of userEnrollments) {
+            const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollment.id);
+            await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
           }
 
           // Send notification to user (in-app + push)
@@ -6186,6 +6205,104 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       });
     } catch (e: any) {
       console.error('Bulk reassign error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // Repair broken team assignments (admin only)
+  // This fixes users who were previously assigned to captains but don't appear in recruits index
+  app.post('/api/admin/repair-team-assignments', async (c) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      console.log('Starting team assignment repair...');
+
+      // Get all users
+      const allUsers = await UserEntity.list(c.env);
+      const usersWithCaptains = allUsers.items.filter(u => u.captainId);
+
+      console.log(`Found ${usersWithCaptains.length} users with captain assignments`);
+
+      const repaired: Array<{ userId: string; userName: string; captainId: string; action: string }> = [];
+      const errors: Array<{ userId: string; error: string }> = [];
+
+      // Group users by captain for efficiency
+      const captainToUsers: Record<string, string[]> = {};
+      for (const user of usersWithCaptains) {
+        if (user.captainId) {
+          if (!captainToUsers[user.captainId]) {
+            captainToUsers[user.captainId] = [];
+          }
+          captainToUsers[user.captainId].push(user.id);
+        }
+      }
+
+      // For each captain, check if their users are in the recruits index
+      for (const [captainId, userIds] of Object.entries(captainToUsers)) {
+        try {
+          const recruitIndex = new Index(c.env, `recruits:${captainId}`);
+          const currentRecruits = await recruitIndex.list();
+          const currentRecruitsSet = new Set(currentRecruits);
+
+          // Find users who should be in the index but aren't
+          const missingUsers = userIds.filter(id => !currentRecruitsSet.has(id));
+
+          if (missingUsers.length > 0) {
+            // Add missing users to the index
+            await recruitIndex.addBatch(missingUsers);
+
+            // Log repairs
+            for (const userId of missingUsers) {
+              const user = usersWithCaptains.find(u => u.id === userId);
+              repaired.push({
+                userId,
+                userName: user?.name || 'Unknown',
+                captainId,
+                action: 'added_to_recruits_index'
+              });
+            }
+            console.log(`Added ${missingUsers.length} users to recruits index for captain ${captainId}`);
+          }
+        } catch (err: any) {
+          errors.push({ userId: captainId, error: `Failed to repair captain index: ${err.message}` });
+        }
+      }
+
+      // Also sync project enrollments with user captainId
+      const allEnrollments = await ProjectEnrollmentEntity.list(c.env);
+      for (const enrollment of allEnrollments.items) {
+        const user = usersWithCaptains.find(u => u.id === enrollment.userId);
+        if (user && enrollment.groupLeaderId !== user.captainId) {
+          try {
+            const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollment.id);
+            await enrollmentEntity.patch({ groupLeaderId: user.captainId });
+            repaired.push({
+              userId: user.id,
+              userName: user.name,
+              captainId: user.captainId || '',
+              action: 'synced_enrollment_groupLeaderId'
+            });
+          } catch (err: any) {
+            errors.push({ userId: enrollment.id, error: `Failed to sync enrollment: ${err.message}` });
+          }
+        }
+      }
+
+      console.log(`Repair complete. Fixed ${repaired.length} issues, ${errors.length} errors`);
+
+      return ok(c, {
+        success: true,
+        repaired,
+        errors,
+        summary: {
+          usersChecked: usersWithCaptains.length,
+          issuesFixed: repaired.length,
+          errorCount: errors.length
+        }
+      });
+    } catch (e: any) {
+      console.error('Repair team assignments error:', e);
       return c.json({ error: e.message }, 500);
     }
   });

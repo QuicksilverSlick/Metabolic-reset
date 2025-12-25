@@ -1266,4 +1266,25 @@ export const captainApi = {
       body: JSON.stringify({ userIds, newCaptainId }),
       headers: { 'X-User-ID': adminUserId }
     }),
+
+  // Repair broken team assignments (admin only)
+  repairTeamAssignments: (adminUserId: string) =>
+    api<{
+      success: boolean;
+      repaired: Array<{
+        userId: string;
+        userName: string;
+        captainId: string;
+        action: string;
+      }>;
+      errors: Array<{ userId: string; error: string }>;
+      summary: {
+        usersChecked: number;
+        issuesFixed: number;
+        errorCount: number;
+      };
+    }>('/api/admin/repair-team-assignments', {
+      method: 'POST',
+      headers: { 'X-User-ID': adminUserId }
+    }),
 };

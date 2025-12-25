@@ -10,7 +10,7 @@ import { BugReportDialog } from "@/components/BugReportDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useMyActiveEnrollment, useSystemSettings } from "@/hooks/use-queries";
 import { CohortIndicator } from "@/components/cohort-badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Rocket, CalendarClock, Flame, Trophy, Target, Calendar } from "lucide-react";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { NotificationBell } from "@/components/notification-bell";
 import { toast } from "sonner";
@@ -112,17 +112,102 @@ export function AppLayout({ children, container = false, className, contentClass
     // Let them through - the individual onboarding pages will handle their own logic
   }
 
-  // Calculate current day of the challenge
-  const getDayNumber = () => {
-    if (!displayUser?.createdAt) return 1;
-    const startDate = new Date(displayUser.createdAt);
-    const today = new Date();
-    const dayDiff = differenceInDays(today, startDate) + 1;
-    // Clamp between 1 and 28 (or allow > 28 for post-challenge)
-    return Math.max(1, dayDiff);
+  // Smart day display based on enrollment status
+  const getDayDisplayInfo = (): {
+    text: string;
+    shortText: string;
+    icon: React.ReactNode;
+    variant: 'prompt' | 'countdown' | 'active' | 'complete' | 'default';
+  } => {
+    // No enrollment - prompt to join
+    if (!activeEnrollment) {
+      return {
+        text: 'Join a Reset Project',
+        shortText: 'Join Project',
+        icon: <Target className="h-4 w-4" />,
+        variant: 'prompt'
+      };
+    }
+
+    const projectName = activeEnrollment.projectName || 'Reset Project';
+    const projectStatus = activeEnrollment.projectStatus;
+    const projectStartDate = activeEnrollment.projectStartDate;
+
+    // Upcoming project - show countdown
+    if (projectStatus === 'upcoming' && projectStartDate) {
+      const startDate = new Date(projectStartDate + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysUntilStart = differenceInDays(startDate, today);
+
+      if (daysUntilStart > 1) {
+        return {
+          text: `${projectName} starts in ${daysUntilStart} days!`,
+          shortText: `${daysUntilStart}d to start`,
+          icon: <Rocket className="h-4 w-4" />,
+          variant: 'countdown'
+        };
+      } else if (daysUntilStart === 1) {
+        return {
+          text: `${projectName} starts tomorrow!`,
+          shortText: 'Tomorrow!',
+          icon: <CalendarClock className="h-4 w-4" />,
+          variant: 'countdown'
+        };
+      } else if (daysUntilStart === 0) {
+        return {
+          text: `${projectName} starts today!`,
+          shortText: 'Today!',
+          icon: <Flame className="h-4 w-4" />,
+          variant: 'countdown'
+        };
+      }
+    }
+
+    // Active project - show current day
+    if (projectStatus === 'active' && projectStartDate) {
+      const startDate = new Date(projectStartDate + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dayNumber = differenceInDays(today, startDate) + 1;
+
+      if (dayNumber >= 1 && dayNumber <= 28) {
+        return {
+          text: `Day ${dayNumber} of 28`,
+          shortText: `Day ${dayNumber}`,
+          icon: <CalendarClock className="h-4 w-4" />,
+          variant: 'active'
+        };
+      } else if (dayNumber > 28) {
+        return {
+          text: `${projectName} Complete!`,
+          shortText: 'Complete',
+          icon: <Trophy className="h-4 w-4" />,
+          variant: 'complete'
+        };
+      }
+    }
+
+    // Completed project
+    if (projectStatus === 'completed') {
+      return {
+        text: `${projectName} Complete!`,
+        shortText: 'Complete',
+        icon: <Trophy className="h-4 w-4" />,
+        variant: 'complete'
+      };
+    }
+
+    // Fallback for draft or unknown status
+    return {
+      text: projectName,
+      shortText: projectName,
+      icon: <Calendar className="h-4 w-4" />,
+      variant: 'default'
+    };
   };
-  const currentDay = getDayNumber();
-  const dayDisplay = currentDay > 28 ? `Day ${currentDay} (Post-Challenge)` : `Day ${currentDay} of 28`;
+
+  const dayInfo = getDayDisplayInfo();
 
   // Generate unique storage key based on announcement title
   const announcementStorageKey = `announcement_${settings?.announcementTitle || 'default'}_dismissed`;
@@ -170,35 +255,63 @@ export function AppLayout({ children, container = false, className, contentClass
           <AppSidebar />
           <SidebarInset className={`bg-slate-100 dark:bg-navy-900 transition-colors duration-300 flex flex-col ${className || ''}`}>
             <header
-              className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 px-4 shadow-sm transition-colors duration-300"
-              style={!anyBannerShowing ? {
-                paddingTop: 'env(safe-area-inset-top, 0px)',
-                height: 'calc(4rem + env(safe-area-inset-top, 0px))'
-              } : undefined}
+              className="sticky top-0 z-50 flex shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300"
+              style={{
+                paddingTop: !anyBannerShowing ? 'env(safe-area-inset-top, 0px)' : undefined,
+                minHeight: !anyBannerShowing ? 'calc(3.5rem + env(safe-area-inset-top, 0px))' : '3.5rem',
+                paddingLeft: 'max(0.75rem, env(safe-area-inset-left, 0px))',
+                paddingRight: 'max(0.75rem, env(safe-area-inset-right, 0px))',
+              }}
             >
               <SidebarTrigger className="-ml-1 text-navy-900 dark:text-white" />
-              <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-2" />
-              <div className="flex-1 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <h1 className="font-display font-semibold text-navy-900 dark:text-white text-lg">
-                    Metabolic Reset
+              <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 sm:mx-2 hidden sm:block" />
+              <div className="flex-1 flex justify-between items-center min-w-0">
+                {/* Left side - Logo and optional status badge */}
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <h1 className="font-display font-semibold text-navy-900 dark:text-white text-base sm:text-lg truncate">
+                    <span className="sm:hidden">Reset</span>
+                    <span className="hidden sm:inline">Metabolic Reset</span>
                   </h1>
-                  {/* Status badge shows when banner is dismissed but announcement is still active */}
+                  {/* Status badge - desktop only when banner is dismissed */}
                   {bannerDismissed && (
-                    <SystemStatusBadge
-                      enabled={settings?.announcementEnabled || false}
-                      title={settings?.announcementTitle || 'Test Mode'}
-                      type={settings?.announcementType || 'info'}
-                      onClick={handleStatusBadgeClick}
-                    />
+                    <div className="hidden md:block">
+                      <SystemStatusBadge
+                        enabled={settings?.announcementEnabled || false}
+                        title={settings?.announcementTitle || 'Test Mode'}
+                        type={settings?.announcementType || 'info'}
+                        onClick={handleStatusBadgeClick}
+                      />
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block font-medium">
-                    {dayDisplay}
+
+                {/* Right side - Actions */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {/* Day counter - Desktop only */}
+                  <div className={`text-sm hidden md:flex items-center gap-1.5 font-medium ${
+                    dayInfo.variant === 'countdown'
+                      ? 'text-gold-600 dark:text-gold-400'
+                      : dayInfo.variant === 'active'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : dayInfo.variant === 'complete'
+                      ? 'text-gold-600 dark:text-gold-400'
+                      : dayInfo.variant === 'prompt'
+                      ? 'text-slate-600 dark:text-slate-400'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {dayInfo.icon}
+                    <span>{dayInfo.text}</span>
                   </div>
+
+                  {/* Notification bell */}
                   <NotificationBell />
-                  <ThemeToggle className="relative top-0 right-0" />
+
+                  {/* Theme toggle - Desktop only */}
+                  <div className="hidden sm:block">
+                    <ThemeToggle className="relative top-0 right-0" />
+                  </div>
+
+                  {/* Avatar with profile link */}
                   <Link to="/app/profile" className="flex items-center">
                     <div className="relative">
                       <Avatar className="h-8 w-8 border-2 border-gold-500/30 hover:border-gold-500/60 transition-colors cursor-pointer">

@@ -164,6 +164,8 @@ import { BugAIAnalysisPanel } from '@/components/admin/BugAIAnalysisPanel';
 import { BugMessagesPanel } from '@/components/admin/BugMessagesPanel';
 import { PaymentsTab } from '@/components/admin/PaymentsTab';
 import { PushNotificationsTab } from '@/components/admin/PushNotificationsTab';
+import { toast } from 'sonner';
+import { captainApi } from '@/lib/api';
 
 // Common US timezones
 const US_TIMEZONES = [
@@ -2533,6 +2535,44 @@ export function AdminPage() {
                     )}
                     Save Announcement Settings
                   </Button>
+                </div>
+
+                {/* Data Maintenance Section */}
+                <div className="border-t border-slate-200 dark:border-navy-700 pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-orange-500" />
+                    Data Maintenance
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-navy-800 rounded-lg">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h4 className="font-medium text-sm">Team Assignment Diagnostic and Repair</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Finds and fixes users who were transferred to teams but don't appear on their captain's roster.
+                            This syncs the recruits index with user captain assignments.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (!currentUser?.id) return;
+                            try {
+                              const result = await captainApi.repairTeamAssignments(currentUser.id);
+                              toast.success(`Repair complete: ${result.summary.issuesFixed} issues fixed`);
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Failed to repair team assignments');
+                            }
+                          }}
+                          className="shrink-0"
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          Run Repair
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </>
             )}

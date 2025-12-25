@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, Link, ShoppingCart, Save, ExternalLink, Pencil, X } from 'lucide-react';
+import { Loader2, LogOut, Shield, Award, Copy, Camera, Upload, Sparkles, Check, Link, ShoppingCart, Save, ExternalLink, Pencil, X, Sun, Moon, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadApi } from '@/lib/api';
 import { formatPhoneDisplay, toE164 } from '@/lib/phone-utils';
 import { NotificationPreferencesPanel } from '@/components/notification-preferences';
+import { useTheme } from '@/hooks/use-theme';
 
 // Common US timezones
 const US_TIMEZONES = [
@@ -544,6 +545,9 @@ export function ProfilePage() {
       {/* Notification Settings - Full width section */}
       <NotificationPreferencesPanel />
 
+      {/* Appearance Settings */}
+      <AppearanceSettings />
+
       {/* Project Selector Dialog */}
       <Dialog open={projectSelectorOpen} onOpenChange={setProjectSelectorOpen}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-700">
@@ -597,5 +601,57 @@ export function ProfilePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Appearance Settings Component
+function AppearanceSettings() {
+  const { theme, setTheme } = useTheme();
+
+  const themes = [
+    { value: 'light', label: 'Light', icon: Sun, description: 'Light background' },
+    { value: 'dark', label: 'Dark', icon: Moon, description: 'Dark background' },
+    { value: 'system', label: 'System', icon: Monitor, description: 'Match device' },
+  ] as const;
+
+  return (
+    <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800">
+      <CardHeader>
+        <CardTitle className="text-navy-900 dark:text-white flex items-center gap-2">
+          <Sun className="h-5 w-5 text-gold-500" />
+          Appearance
+        </CardTitle>
+        <CardDescription className="text-slate-500 dark:text-slate-400">
+          Choose your preferred color theme
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3">
+          {themes.map(({ value, label, icon: Icon, description }) => (
+            <button
+              key={value}
+              onClick={() => setTheme(value)}
+              className={`p-4 rounded-xl border-2 transition-all text-center ${
+                theme === value
+                  ? 'border-gold-500 bg-gold-50 dark:bg-gold-900/20'
+                  : 'border-slate-200 dark:border-navy-700 hover:border-slate-300 dark:hover:border-navy-600 bg-white dark:bg-navy-800'
+              }`}
+            >
+              <Icon className={`h-6 w-6 mx-auto mb-2 ${
+                theme === value ? 'text-gold-500' : 'text-slate-500 dark:text-slate-400'
+              }`} />
+              <div className={`font-medium text-sm ${
+                theme === value ? 'text-gold-700 dark:text-gold-400' : 'text-slate-700 dark:text-slate-300'
+              }`}>
+                {label}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                {description}
+              </div>
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
