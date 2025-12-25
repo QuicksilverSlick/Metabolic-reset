@@ -92,7 +92,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                         setIsOpen(false);
                         navigate('/login');
                       }}
-                      className="border-gold-500 text-gold-400 hover:bg-gold-500/10 hover:text-gold-300 w-full rounded-full py-6 text-lg font-medium"
+                      className="border-slate-600 dark:border-slate-500 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400 hover:text-white w-full rounded-full py-6 text-lg font-medium transition-all duration-200"
                     >
                       Sign In
                     </Button>

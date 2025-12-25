@@ -167,7 +167,7 @@ export default function ProfilePhotoPage() {
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 hover:text-gold-300 transition-all duration-200"
                 >
                   {isUploading ? (
                     <>

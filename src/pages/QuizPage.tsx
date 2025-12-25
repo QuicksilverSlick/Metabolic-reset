@@ -1839,10 +1839,10 @@ export function QuizPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
-                  className="grid grid-cols-3 gap-4 max-w-lg mx-auto"
+                  className="grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto px-4"
                 >
-                  <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
-                    <div className={`text-3xl font-bold ${
+                  <div className="bg-navy-800 rounded-xl p-2 sm:p-4 border border-navy-700 text-center overflow-hidden">
+                    <div className={`text-xl sm:text-3xl font-bold truncate ${
                       result.color === 'red' ? 'text-red-400' :
                       result.color === 'orange' ? 'text-orange-400' :
                       result.color === 'yellow' ? 'text-yellow-400' :
@@ -1850,10 +1850,10 @@ export function QuizPage() {
                     }`}>
                       {score}
                     </div>
-                    <div className="text-slate-500 text-xs">Your Score</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs">Your Score</div>
                   </div>
-                  <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
-                    <div className={`text-2xl font-bold uppercase ${
+                  <div className="bg-navy-800 rounded-xl p-2 sm:p-4 border border-navy-700 text-center overflow-hidden">
+                    <div className={`text-base sm:text-2xl font-bold uppercase truncate ${
                       result.color === 'red' ? 'text-red-400' :
                       result.color === 'orange' ? 'text-orange-400' :
                       result.color === 'yellow' ? 'text-yellow-400' :
@@ -1863,10 +1863,10 @@ export function QuizPage() {
                        result.color === 'yellow' ? 'YELLOW' :
                        result.color === 'orange' ? 'ORANGE' : 'RED'}
                     </div>
-                    <div className="text-slate-500 text-xs">Risk Zone</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs">Risk Zone</div>
                   </div>
-                  <div className="bg-navy-800 rounded-xl p-4 border border-navy-700">
-                    <div className={`text-3xl font-bold ${
+                  <div className="bg-navy-800 rounded-xl p-2 sm:p-4 border border-navy-700 text-center overflow-hidden">
+                    <div className={`text-xl sm:text-3xl font-bold truncate ${
                       result.color === 'red' ? 'text-red-400' :
                       result.color === 'orange' ? 'text-orange-400' :
                       result.color === 'yellow' ? 'text-yellow-400' :
@@ -1874,7 +1874,7 @@ export function QuizPage() {
                     }`}>
                       {metabolicAge}
                     </div>
-                    <div className="text-slate-500 text-xs">Metabolic Age</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs whitespace-nowrap">Metabolic Age</div>
                   </div>
                 </motion.div>
 
@@ -1907,21 +1907,21 @@ export function QuizPage() {
             </section>
 
             {/* Primary CTA Button */}
-            <section className="py-6 md:py-8">
-              <div className="max-w-3xl mx-auto px-4">
+            <section className="py-6 md:py-8 w-full overflow-hidden">
+              <div className="max-w-3xl mx-auto px-4 w-full">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.75 }}
-                  className="text-center"
+                  className="text-center flex flex-col items-center"
                 >
                   <Button
                     size="lg"
                     onClick={handleGoToPayment}
-                    className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] font-bold transition-all duration-300 group"
+                    className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-base sm:text-lg md:text-xl px-6 sm:px-10 py-6 sm:py-8 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] font-bold transition-all duration-300 group max-w-full"
                   >
-                    {result.cta}
-                    <ArrowRight className="ml-2 h-6 w-6 group-hover:translate-x-1 transition-transform" />
+                    <span className="truncate">{result.cta}</span>
+                    <ArrowRight className="ml-2 h-5 w-5 sm:h-6 sm:w-6 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                   </Button>
                   <p className="text-slate-500 text-sm mt-4">
                     Join 2,847+ others who reversed their metabolic age
@@ -1961,14 +1961,14 @@ export function QuizPage() {
                       </div>
 
                       {/* CTA */}
-                      <div className="text-center">
+                      <div className="text-center flex flex-col items-center">
                         <Button
                           size="lg"
                           onClick={handleGoToPayment}
-                          className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] font-bold transition-all duration-300 group"
+                          className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-base sm:text-lg md:text-xl px-6 sm:px-10 py-6 sm:py-8 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] font-bold transition-all duration-300 group max-w-full"
                         >
-                          {result.cta}
-                          <ArrowRight className="ml-2 h-6 w-6 group-hover:translate-x-1 transition-transform" />
+                          <span className="truncate">{result.cta}</span>
+                          <ArrowRight className="ml-2 h-5 w-5 sm:h-6 sm:w-6 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                         </Button>
                         <p className="text-slate-500 text-sm mt-4">
                           Join 2,847+ others who reversed their metabolic age
@@ -2026,35 +2026,35 @@ export function QuizPage() {
             className="min-h-screen bg-navy-900"
           >
             <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-              {/* Progress Header */}
-              <div className="mb-8">
-                <div className="flex items-center justify-center gap-2 mb-4">
+              {/* Progress Header - Responsive step indicator */}
+              <div className="mb-8 px-2">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 mb-4 max-w-md mx-auto">
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                      <Check className="h-4 w-4 text-white" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                      <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
                     </div>
-                    <span className="ml-2 text-sm text-slate-400">Quiz</span>
+                    <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm text-slate-400 hidden sm:inline">Quiz</span>
                   </div>
-                  <div className="w-12 h-0.5 bg-green-500"></div>
+                  <div className="w-6 sm:w-12 h-0.5 bg-green-500 flex-shrink-0"></div>
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                      <Check className="h-4 w-4 text-white" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                      <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
                     </div>
-                    <span className="ml-2 text-sm text-slate-400">Results</span>
+                    <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm text-slate-400 hidden sm:inline">Results</span>
                   </div>
-                  <div className="w-12 h-0.5 bg-gold-500"></div>
+                  <div className="w-6 sm:w-12 h-0.5 bg-gold-500 flex-shrink-0"></div>
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center">
-                      <CreditCard className="h-4 w-4 text-navy-900" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gold-500 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-navy-900" />
                     </div>
-                    <span className="ml-2 text-sm text-white font-medium">Payment</span>
+                    <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm text-white font-medium hidden sm:inline">Payment</span>
                   </div>
-                  <div className="w-12 h-0.5 bg-navy-700"></div>
+                  <div className="w-6 sm:w-12 h-0.5 bg-navy-700 flex-shrink-0"></div>
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-navy-700 flex items-center justify-center">
-                      <span className="text-xs text-slate-500">4</span>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-navy-700 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] sm:text-xs text-slate-500">4</span>
                     </div>
-                    <span className="ml-2 text-sm text-slate-500">Setup</span>
+                    <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm text-slate-500 hidden sm:inline">Setup</span>
                   </div>
                 </div>
               </div>

@@ -73,7 +73,7 @@ export function HomePage() {
                   <Button
                     size="lg"
                     onClick={() => navigate('/register')}
-                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full transition-all duration-300 font-bold tracking-wide"
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full font-bold tracking-wide"
                   >
                     JOIN THE RESET PROJECT - $28
                     <ArrowRight className="ml-2 h-6 w-6" />
@@ -175,7 +175,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold"
                 >
                   Take Back Control
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -251,7 +251,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold transition-all duration-300"
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold"
               >
                 Start Tracking Today
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -318,7 +318,7 @@ export function HomePage() {
                   <Button
                     size="lg"
                     onClick={() => navigate('/register')}
-                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold transition-all duration-300"
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold"
                   >
                     Join Thousands Like Sarah
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -374,7 +374,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-600 text-navy-900 text-xl px-12 py-8 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-12 py-8 rounded-full font-bold"
               >
                 START MY RESET - $28
                 <ArrowRight className="ml-2 h-6 w-6" />
@@ -406,22 +406,22 @@ export function HomePage() {
               We used to offer free programs, but we found that people who don't invest, don't commit. We want you to succeed. By investing $28 in yourself, you're making a powerful statement: "I'm worth it, and I'm ready to change."
             </p>
             <div className="bg-navy-800/50 p-8 rounded-2xl border border-navy-700 backdrop-blur-sm inline-block text-left max-w-2xl w-full">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div>
-                  <h3 className="font-bold text-white text-xl mb-2 flex items-center gap-3">
-                    <span className="bg-gold-500 text-navy-900 text-xs px-2 py-1 rounded uppercase tracking-wider font-bold">Coach Option</span>
-                    Are you an Optavia Coach?
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-white text-lg sm:text-xl mb-2 flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span className="bg-gold-500 text-navy-900 text-[10px] sm:text-xs px-2 py-1 rounded uppercase tracking-wider font-bold whitespace-nowrap">Group Leader</span>
+                    <span>Are you an Optavia Coach?</span>
                   </h3>
-                  <p className="text-slate-400 text-base">
-                    Register as a Captain ($49) to lead a team and access advanced study data.
+                  <p className="text-slate-400 text-sm sm:text-base">
+                    Register as a Group Leader ($49) to lead a group and qualify for additional awards.
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/register')}
-                  className="shrink-0 border-gold-500/30 text-gold-500 hover:bg-gold-500/10 hover:border-gold-500/50 font-bold"
+                  className="shrink-0 w-full sm:w-auto border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 hover:text-gold-300 font-bold transition-all duration-200"
                 >
-                  Register as Captain
+                  Register as Group Leader
                 </Button>
               </div>
             </div>
@@ -430,7 +430,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold transition-all duration-300"
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold"
                 >
                   Invest in Yourself Today
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -454,7 +454,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full shadow-2xl font-bold transition-all duration-300"
+                className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full font-bold"
               >
                 JOIN THE RESET PROJECT
                 <ArrowRight className="ml-2 h-6 w-6" />

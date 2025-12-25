@@ -425,59 +425,87 @@
   }
 }
 
-/* Gold Animated Border Button - Primary CTA Style */
+/* Gold Animated Border Button - Primary CTA Style
+   Fixed for iOS/Android rendering: uses transform3d for GPU compositing,
+   will-change for optimization, and backface-visibility to prevent artifacts */
 .glow-button-gold {
   position: relative;
+  /* Force GPU layer to prevent rendering artifacts on mobile */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  isolation: isolate;
 }
 
 .glow-button-gold::before {
   content: '';
   position: absolute;
-  inset: -1.5px; /* Even 1.5px border on all sides */
+  /* Use explicit values instead of inset for better mobile support */
+  top: -2px;
+  right: -2px;
+  bottom: -2px;
+  left: -2px;
   border-radius: 9999px; /* Match rounded-full */
   background: linear-gradient(
-    45deg,
+    90deg,
     #F59E0B,
     #FBBF24,
     #FCD34D,
     #F59E0B,
     #D97706,
-    #F59E0B,
-    #FBBF24,
-    #FCD34D
+    #F59E0B
   );
-  background-size: 400% 400%;
-  z-index: 0;
-  animation: glow-border 4s ease infinite;
+  background-size: 300% 100%;
+  z-index: -1;
+  /* GPU acceleration fixes for iOS Safari and Android Chrome */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: background-position;
+  animation: glow-border-slide 3s linear infinite;
 }
 
 .glow-button-gold:hover::before {
   background: linear-gradient(
-    45deg,
+    90deg,
     #FBBF24,
     #FCD34D,
     #FDE68A,
     #FBBF24,
     #F59E0B,
-    #FBBF24,
-    #FCD34D,
-    #FDE68A
+    #FBBF24
   );
-  background-size: 400% 400%;
+  background-size: 300% 100%;
+}
+
+/* Simplified animation - horizontal slide instead of diagonal for smoother mobile rendering */
+@keyframes glow-border-slide {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
 }
 
 /* Rainbow Animated Border Button - Alternative Style */
 .glow-button-rainbow {
   position: relative;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  isolation: isolate;
 }
 
 .glow-button-rainbow::before {
   content: '';
   position: absolute;
-  inset: -1.5px; /* Even 1.5px border on all sides */
+  top: -2px;
+  right: -2px;
+  bottom: -2px;
+  left: -2px;
   border-radius: 9999px; /* Match rounded-full */
   background: linear-gradient(
-    45deg,
+    90deg,
     #F59E0B,
     #EF4444,
     #EC4899,
@@ -486,9 +514,14 @@
     #10B981,
     #F59E0B
   );
-  background-size: 400% 400%;
-  z-index: 0;
-  animation: glow-border 6s linear infinite;
+  background-size: 300% 100%;
+  z-index: -1;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: background-position;
+  animation: glow-border-slide 4s linear infinite;
 }
 
 /* =============================================
