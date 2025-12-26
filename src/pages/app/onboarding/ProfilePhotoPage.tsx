@@ -164,10 +164,10 @@ export default function ProfilePhotoPage() {
                 </div>
 
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 hover:text-gold-300 transition-all duration-200"
+                  className="border border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 hover:text-gold-300 bg-transparent dark:bg-transparent transition-all duration-200"
                 >
                   {isUploading ? (
                     <>
