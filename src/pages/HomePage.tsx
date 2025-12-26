@@ -69,14 +69,16 @@ export function HomePage() {
                 Most people over 50 accept fatigue and weight gain as a normal part of aging because traditional diets stop working. We prove them wrong.
               </p>
               <div className="flex flex-col sm:flex-row gap-5">
-                <Button
-                  size="lg"
-                  onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-8 py-8 rounded-full font-bold"
-                >
-                  JOIN THE RESET PROJECT - $28
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                <GlowWrapper glowColor="gold">
+                  <Button
+                    size="lg"
+                    onClick={() => navigate('/register')}
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-8 rounded-full font-bold shadow-none border-0"
+                  >
+                    JOIN THE RESET PROJECT - $28
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </GlowWrapper>
                 <Button
                   size="lg"
                   onClick={() => navigate('/quiz')}
@@ -448,14 +450,16 @@ export function HomePage() {
             Reverse your metabolic age and finally feel at home in your body again.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-6 mt-12">
-            <Button
-              size="lg"
-              onClick={() => navigate('/register')}
-              className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-8 rounded-full font-bold"
-            >
-              JOIN THE RESET PROJECT
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <GlowWrapper glowColor="gold">
+              <Button
+                size="lg"
+                onClick={() => navigate('/register')}
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-8 rounded-full font-bold shadow-none border-0"
+              >
+                JOIN THE RESET PROJECT
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </GlowWrapper>
             <Button
               size="lg"
               onClick={() => navigate('/quiz')}

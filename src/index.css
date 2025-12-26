@@ -448,55 +448,57 @@
 .glow-button-gold::before {
   content: '';
   position: absolute;
-  /* Use explicit values instead of inset for better mobile support */
-  top: -2px;
-  right: -2px;
-  bottom: -2px;
+  /* Use calc() for explicit sizing - this ensures border scales with parent */
   left: -2px;
+  top: -2px;
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
   border-radius: 9999px; /* Match rounded-full */
   background: linear-gradient(
-    90deg,
+    45deg,
     #F59E0B,
     #FBBF24,
     #FCD34D,
     #F59E0B,
     #D97706,
-    #F59E0B
+    #F59E0B,
+    #FBBF24,
+    #FCD34D,
+    #F59E0B,
+    #D97706
   );
-  background-size: 300% 100%;
+  background-size: 400%;
   z-index: -1;
-  /* GPU acceleration fixes for iOS Safari and Android Chrome */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  will-change: background-position;
-  animation: glow-border-slide 3s linear infinite;
-  /* Prevent blur/antialiasing issues on mobile */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  animation: glow-border-slide 20s linear infinite;
 }
 
 .glow-button-gold:hover::before {
   background: linear-gradient(
-    90deg,
+    45deg,
     #FBBF24,
     #FCD34D,
     #FDE68A,
     #FBBF24,
     #F59E0B,
-    #FBBF24
+    #FBBF24,
+    #FCD34D,
+    #FDE68A,
+    #FBBF24,
+    #F59E0B
   );
-  background-size: 300% 100%;
+  background-size: 400%;
 }
 
-/* Simplified animation - horizontal slide instead of diagonal for smoother mobile rendering */
+/* Animation keyframes */
 @keyframes glow-border-slide {
   0% {
-    background-position: 0% 50%;
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 400% 0;
   }
   100% {
-    background-position: 300% 50%;
+    background-position: 0 0;
   }
 }
 

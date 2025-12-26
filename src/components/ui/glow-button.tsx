@@ -23,8 +23,8 @@ export function GlowWrapper({ children, glowColor = 'gold', className }: GlowWra
     : 'glow-button-gold';
 
   return (
-    <div className={cn('glow-button-wrapper relative inline-flex', gradientClass, className)}>
-      <div className="relative z-10">
+    <div className={cn('glow-button-wrapper relative inline-flex rounded-full', gradientClass, className)}>
+      <div className="relative z-10 flex">
         {children}
       </div>
     </div>
