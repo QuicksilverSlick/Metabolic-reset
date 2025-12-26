@@ -213,15 +213,29 @@ export default function CoachCartLinkPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-slate-300">
                   <Play className="h-4 w-4 text-gold-500" />
-                  <span className="text-sm font-medium">Need help creating your cart link?</span>
+                  <span className="text-sm font-medium">Watch: How to create your shareable cart link</span>
                 </div>
-                <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-700">
+                <div className="relative w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-700" style={{ paddingBottom: '62.5%' }}>
                   <iframe
-                    src="https://www.youtube.com/embed/hR5ylbYVmgs?start=60"
-                    title="How to Create Your Cart Link"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    src="https://www.loom.com/embed/01a9bb974522445e8d1e3830233039ba"
+                    frameBorder="0"
                     allowFullScreen
                     className="absolute inset-0 w-full h-full"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Reference Infographic */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Info className="h-4 w-4 text-gold-500" />
+                  <span className="text-sm font-medium">Quick Reference Guide</span>
+                </div>
+                <div className="rounded-xl overflow-hidden border border-slate-700">
+                  <img
+                    src="/optavia-cart-guide.jpeg"
+                    alt="How to Create a Shareable Cart in Your Optavia Account"
+                    className="w-full h-auto"
                   />
                 </div>
               </div>
