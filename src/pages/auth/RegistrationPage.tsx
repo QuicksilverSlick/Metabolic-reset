@@ -37,7 +37,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
-import { useRegister, usePaymentIntent, useProject, useActiveProject } from '@/hooks/use-queries';
+import { useRegister, usePaymentIntent, useProject, useActiveProject, useSystemSettings } from '@/hooks/use-queries';
+import { cn } from '@/lib/utils';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { isValidPhone, toE164 } from '@/lib/phone-utils';
 import { loadStripe } from '@stripe/stripe-js';
@@ -156,6 +157,7 @@ export function RegistrationPage() {
 
   const registerMutation = useRegister();
   const paymentIntentMutation = usePaymentIntent();
+  const { data: systemSettings } = useSystemSettings();
 
   // Phone state for controlled input
   const [phoneValue, setPhoneValue] = useState(verifiedPhoneFromUrl || '');
@@ -658,23 +660,46 @@ export function RegistrationPage() {
 
                         {/* Smart Scale Toggle */}
                         <div className="pt-6 border-t border-navy-700">
-                          <div className="flex items-center justify-between p-4 bg-navy-900 rounded-xl">
-                            <div className="flex items-center gap-3">
+                          <div className="p-4 bg-navy-900 rounded-xl">
+                            <div className="flex items-center gap-3 mb-4">
                               <div className="w-10 h-10 rounded-lg bg-navy-800 flex items-center justify-center">
                                 <Scale className="h-5 w-5 text-slate-300" />
                               </div>
                               <div>
-                                <Label htmlFor="scale-toggle" className="font-medium text-white cursor-pointer">
-                                  I have a Smart Scale
+                                <Label className="font-medium text-white">
+                                  Do you have a Smart Scale?
                                 </Label>
                                 <p className="text-slate-500 text-sm">Required for biometric tracking</p>
                               </div>
                             </div>
-                            <Switch
-                              id="scale-toggle"
-                              checked={hasScale}
-                              onCheckedChange={setHasScale}
-                            />
+
+                            {/* Yes/No Toggle Buttons */}
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setHasScale(false)}
+                                className={cn(
+                                  "flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 border-2",
+                                  !hasScale
+                                    ? "bg-red-500/20 border-red-500 text-red-400"
+                                    : "bg-navy-800 border-navy-700 text-slate-400 hover:border-slate-600"
+                                )}
+                              >
+                                No
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setHasScale(true)}
+                                className={cn(
+                                  "flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 border-2",
+                                  hasScale
+                                    ? "bg-green-500/20 border-green-500 text-green-400"
+                                    : "bg-navy-800 border-navy-700 text-slate-400 hover:border-slate-600"
+                                )}
+                              >
+                                Yes
+                              </button>
+                            </div>
                           </div>
 
                           <AnimatePresence>
@@ -689,8 +714,11 @@ export function RegistrationPage() {
                                   <AlertTitle className="text-gold-400">Smart Scale Required</AlertTitle>
                                   <AlertDescription className="text-gold-300/80 text-sm mt-1">
                                     You need a scale that measures Body Fat & Visceral Fat to participate.
+                                    <span className="block text-gold-300/60 text-xs mt-1">
+                                      This is our recommended scale, however you can purchase any smart scale that measures body composition.
+                                    </span>
                                     <a
-                                      href="https://amazon.com"
+                                      href={systemSettings?.scaleOrderUrl || 'https://amzn.to/42iD9pC'}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="flex items-center gap-1 font-bold underline mt-2 text-gold-400 hover:text-gold-300"

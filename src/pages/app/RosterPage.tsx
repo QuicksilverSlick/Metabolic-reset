@@ -373,7 +373,7 @@ export function RosterPage() {
                             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Score</div>
                             <div className="flex items-center justify-center gap-1">
                               <Activity className="h-3 w-3 text-slate-400" />
-                              <span className="font-medium text-navy-900 dark:text-white">{lead.quizScore}/50</span>
+                              <span className="font-medium text-navy-900 dark:text-white">{lead.quizScore}/100</span>
                             </div>
                           </div>
                         </div>
@@ -437,7 +437,7 @@ export function RosterPage() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Activity className="h-4 w-4 text-slate-400" />
-                                <span className="text-slate-600 dark:text-slate-300">{lead.quizScore}/50</span>
+                                <span className="text-slate-600 dark:text-slate-300">{lead.quizScore}/100</span>
                               </div>
                             </TableCell>
                             <TableCell>

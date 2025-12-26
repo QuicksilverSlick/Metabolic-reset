@@ -50,6 +50,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { leadsApi, referralApi, projectApi, paymentApi, usersApi, couponApi, otpApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
+import { useSystemSettings } from '@/hooks/use-queries';
 import type { SexType, QuizResultType } from '@shared/types';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -103,66 +104,66 @@ interface QuizQuestion {
 }
 
 // Female-specific questions (Section 1B - 5 questions)
-// NEW: 3 options per question (0, 5, 10 points) - Lower score = healthier
+// REVISED: Hormonal Impact questions - 3 options per question (0, 5, 10 points) - Lower score = healthier
 const femaleQuestions: QuizQuestion[] = [
   {
     id: 'f1',
-    category: 'Hormonal Balance',
+    category: 'Hormonal Stability',
     icon: Heart,
-    question: 'How would you describe your menstrual cycle (or post-menopausal experience)?',
+    question: 'How would you describe your hormonal stability (e.g., monthly cycles OR menopausal symptoms)?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Regular cycles with minimal symptoms (or stable post-menopause)', points: 0 },
-      { id: 'b', text: 'Some irregularity or moderate symptoms', points: 5 },
-      { id: 'c', text: 'Highly irregular with severe PMS, bloating, or mood swings', points: 10 }
+      { id: 'a', text: 'Smooth. I rarely experience hormonal symptoms or cycle issues.', points: 0 },
+      { id: 'b', text: 'Noticeable. I have moderate PMS, irregularity, or occasional hot flashes.', points: 5 },
+      { id: 'c', text: 'Disruptive. I deal with severe mood swings, pain, or intense hot flashes regularly.', points: 10 }
     ]
   },
   {
     id: 'f2',
     category: 'Temperature Regulation',
     icon: ThermometerSun,
-    question: 'How often do you experience hot flashes, night sweats, or difficulty regulating body temperature?',
+    question: 'Do you experience difficulty regulating your body temperature (hot flashes, night sweats, or feeling constantly cold)?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Rarely or never', points: 0 },
-      { id: 'b', text: 'Occasionally, minor inconvenience', points: 5 },
-      { id: 'c', text: 'Frequently, they significantly impact my daily life', points: 10 }
+      { id: 'a', text: 'Rarely. My temperature feels stable day and night.', points: 0 },
+      { id: 'b', text: 'Occasionally. I have mild episodes, but they are manageable.', points: 5 },
+      { id: 'c', text: 'Frequently. Night sweats or flashes significantly impact my sleep or daily life.', points: 10 }
     ]
   },
   {
     id: 'f3',
-    category: 'Weight Distribution',
-    icon: Scale,
-    question: 'Where do you tend to store excess weight?',
+    category: 'Energy & Mood',
+    icon: Battery,
+    question: 'How stable is your energy and mood throughout the month?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Weight is well-distributed and manageable', points: 0 },
-      { id: 'b', text: 'Mostly hips and thighs with some midsection', points: 5 },
-      { id: 'c', text: 'Primarily around my midsection (apple shape)', points: 10 }
+      { id: 'a', text: 'Steady. I feel consistent energy and mood most days.', points: 0 },
+      { id: 'b', text: 'Fluctuating. I have distinct days where I feel drained or irritable.', points: 5 },
+      { id: 'c', text: 'Volatile. I experience severe energy crashes, anxiety, or brain fog often.', points: 10 }
     ]
   },
   {
     id: 'f4',
-    category: 'Energy & Mood',
-    icon: Battery,
-    question: 'How stable is your energy and mood throughout your menstrual cycle or day-to-day?',
+    category: 'Weight Distribution',
+    icon: Scale,
+    question: 'Have you noticed a shift in where your body stores weight?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'Very stable - consistent energy and mood', points: 0 },
-      { id: 'b', text: 'Some fluctuations but manageable', points: 5 },
-      { id: 'c', text: 'Significant swings - energy crashes and mood changes', points: 10 }
+      { id: 'a', text: 'No Change. My shape has remained consistent/athletic.', points: 0 },
+      { id: 'b', text: 'Lower Body. I tend to carry weight in my hips and thighs.', points: 5 },
+      { id: 'c', text: 'Midsection. Weight has stubbornly shifted to my belly or waistline.', points: 10 }
     ]
   },
   {
     id: 'f5',
-    category: 'Metabolic Symptoms',
-    icon: Activity,
-    question: 'Do you experience unexplained weight gain, water retention, or difficulty losing weight despite effort?',
+    category: 'Fluid Retention',
+    icon: Droplets,
+    question: 'Do you experience noticeable swelling, puffiness, or water retention?',
     gender: 'female',
     options: [
-      { id: 'a', text: 'No - my weight responds well to diet and exercise', points: 0 },
-      { id: 'b', text: 'Sometimes - occasional plateaus or slow progress', points: 5 },
-      { id: 'c', text: 'Yes - constant struggle despite consistent effort', points: 10 }
+      { id: 'a', text: 'None. My rings and shoes fit the same all day.', points: 0 },
+      { id: 'b', text: 'Periodic. I feel puffy in the mornings or after salty meals.', points: 5 },
+      { id: 'c', text: 'Constant. I feel swollen, inflamed, or heavy most of the time.', points: 10 }
     ]
   }
 ];
@@ -390,7 +391,7 @@ const resultContent: Record<QuizResultType, {
     scoreRange: '0-15',
     diagnosis: "Your responses indicate strong metabolic function. Your body efficiently processes energy, maintains stable blood sugar, and responds well to diet and exercise. You're already practicing many healthy habits.",
     clinicalData: "Join the Protocol Cohort to fine-tune your biometrics and optimize further. Even high-performers in clinical trials saw measurable improvements. Your stability makes you an ideal candidate for the leadership track.",
-    cta: "JOIN THE LEADERSHIP COHORT",
+    cta: "JOIN THE RESET",
     riskLevel: 'Low',
     videoUrl: DEFAULT_VIDEO_URL
   },
@@ -483,7 +484,7 @@ const resultContent: Record<QuizResultType, {
     scoreRange: '76-100 (legacy)',
     diagnosis: "Your baseline health is strong. You have good data awareness and stable energy. We need participants with your stability to serve as the \"Standard\" to compare against the Self-Directed group.",
     clinicalData: "Join the Protocol Cohort to fine-tune your biometrics. Even high-performers in the clinical trials saw an average 14% reduction in inflammatory Visceral Fat. Help us lead the data set.",
-    cta: "JOIN THE LEADERSHIP COHORT",
+    cta: "JOIN THE RESET",
     riskLevel: 'Low',
     videoUrl: DEFAULT_VIDEO_URL
   }
@@ -615,6 +616,7 @@ function StripePaymentForm({ onSuccess, amount }: { onSuccess: () => void; amoun
 export function QuizPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { data: systemSettings } = useSystemSettings();
 
   // Get referral code and project ID from URL (e.g., /quiz?ref=ABC123&project=project-id)
   const referralCode = searchParams.get('ref') || undefined;
@@ -2569,23 +2571,46 @@ export function QuizPage() {
 
                       {/* Smart Scale Toggle */}
                       <div className="pt-4 border-t border-navy-700">
-                        <div className="flex items-center justify-between p-4 bg-navy-900 rounded-xl">
-                          <div className="flex items-center gap-3">
+                        <div className="p-4 bg-navy-900 rounded-xl">
+                          <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-lg bg-navy-800 flex items-center justify-center">
                               <Scale className="h-5 w-5 text-slate-300" />
                             </div>
                             <div>
-                              <Label htmlFor="scale-toggle" className="font-medium text-white cursor-pointer">
-                                I have a Smart Scale
+                              <Label className="font-medium text-white">
+                                Do you have a Smart Scale?
                               </Label>
                               <p className="text-slate-500 text-sm">Required for biometric tracking</p>
                             </div>
                           </div>
-                          <Switch
-                            id="scale-toggle"
-                            checked={hasScale}
-                            onCheckedChange={setHasScale}
-                          />
+
+                          {/* Yes/No Toggle Buttons */}
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setHasScale(false)}
+                              className={cn(
+                                "flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 border-2",
+                                !hasScale
+                                  ? "bg-red-500/20 border-red-500 text-red-400"
+                                  : "bg-navy-800 border-navy-700 text-slate-400 hover:border-slate-600"
+                              )}
+                            >
+                              No
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHasScale(true)}
+                              className={cn(
+                                "flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 border-2",
+                                hasScale
+                                  ? "bg-green-500/20 border-green-500 text-green-400"
+                                  : "bg-navy-800 border-navy-700 text-slate-400 hover:border-slate-600"
+                              )}
+                            >
+                              Yes
+                            </button>
+                          </div>
                         </div>
 
                         <AnimatePresence>
@@ -2600,8 +2625,11 @@ export function QuizPage() {
                                 <AlertTitle className="text-gold-400">Smart Scale Required</AlertTitle>
                                 <AlertDescription className="text-gold-300/80 text-sm mt-1">
                                   You need a scale that measures Body Fat & Visceral Fat to participate.
+                                  <span className="block text-gold-300/60 text-xs mt-1">
+                                    This is our recommended scale, however you can purchase any smart scale that measures body composition.
+                                  </span>
                                   <a
-                                    href="https://amazon.com"
+                                    href={systemSettings?.scaleOrderUrl || 'https://amzn.to/42iD9pC'}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 font-bold underline mt-2 text-gold-400 hover:text-gold-300"
