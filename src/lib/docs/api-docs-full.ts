@@ -644,6 +644,18 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
     sourceFile: 'worker/user-routes.ts',
     sourceLine: 5532,
   },
+  {
+    method: 'POST',
+    path: '/api/admin/repair-team-assignments',
+    description: 'Repair broken team assignments - fixes users who were assigned to captains but missing from recruits index',
+    authentication: 'admin',
+    responseBody: {
+      type: '{ repaired: Array<{ userId: string, userName: string, captainId: string, action: string }>, errors: Array<{ userId: string, error: string }>, summary: { totalUsers: number, repairedCount: number, errorCount: number } }',
+      description: 'Repair results with detailed breakdown of fixes and any errors'
+    },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6214,
+  },
 
   // ============================================================================
   // PROJECTS

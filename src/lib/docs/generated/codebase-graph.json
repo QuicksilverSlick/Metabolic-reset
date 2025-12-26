@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2025-12-24T13:48:33.455Z",
+  "generatedAt": "2025-12-26T11:39:26.579Z",
   "version": "1.0.0",
   "summary": {
-    "totalAPIs": 134,
+    "totalAPIs": 135,
     "totalEntities": 22,
     "totalComponents": 41,
-    "adminAPIs": 67,
+    "adminAPIs": 68,
     "publicAPIs": 1
   },
   "nodes": [
@@ -903,49 +903,56 @@
       "type": "api",
       "name": "POST /api/admin/users/bulk-reassign-captain",
       "path": "worker/user-routes.ts",
-      "line": 6082
+      "line": 6093
+    },
+    {
+      "id": "api:POST:/api/admin/repair-team-assignments",
+      "type": "api",
+      "name": "POST /api/admin/repair-team-assignments",
+      "path": "worker/user-routes.ts",
+      "line": 6214
     },
     {
       "id": "api:GET:/api/push/vapid-key",
       "type": "api",
       "name": "GET /api/push/vapid-key",
       "path": "worker/user-routes.ts",
-      "line": 6198
+      "line": 6315
     },
     {
       "id": "api:POST:/api/push/subscribe",
       "type": "api",
       "name": "POST /api/push/subscribe",
       "path": "worker/user-routes.ts",
-      "line": 6203
+      "line": 6320
     },
     {
       "id": "api:POST:/api/push/unsubscribe",
       "type": "api",
       "name": "POST /api/push/unsubscribe",
       "path": "worker/user-routes.ts",
-      "line": 6237
+      "line": 6354
     },
     {
       "id": "api:GET:/api/push/status",
       "type": "api",
       "name": "GET /api/push/status",
       "path": "worker/user-routes.ts",
-      "line": 6259
+      "line": 6376
     },
     {
       "id": "api:POST:/api/admin/push/test",
       "type": "api",
       "name": "POST /api/admin/push/test",
       "path": "worker/user-routes.ts",
-      "line": 6283
+      "line": 6400
     },
     {
       "id": "api:POST:/api/push/resubscribe",
       "type": "api",
       "name": "POST /api/push/resubscribe",
       "path": "worker/user-routes.ts",
-      "line": 6320
+      "line": 6437
     },
     {
       "id": "entity:UserEntity",

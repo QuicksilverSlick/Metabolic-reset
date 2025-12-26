@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2025-12-24T13:48:33.454Z",
-  "totalEndpoints": 134,
+  "generatedAt": "2025-12-26T11:39:26.578Z",
+  "totalEndpoints": 135,
   "endpoints": [
     {
       "method": "GET",
@@ -896,49 +896,56 @@
       "path": "/api/admin/users/bulk-reassign-captain",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6082
+      "sourceLine": 6093
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/repair-team-assignments",
+      "authentication": "admin",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 6214
     },
     {
       "method": "GET",
       "path": "/api/push/vapid-key",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6198
+      "sourceLine": 6315
     },
     {
       "method": "POST",
       "path": "/api/push/subscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6203
+      "sourceLine": 6320
     },
     {
       "method": "POST",
       "path": "/api/push/unsubscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6237
+      "sourceLine": 6354
     },
     {
       "method": "GET",
       "path": "/api/push/status",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6259
+      "sourceLine": 6376
     },
     {
       "method": "POST",
       "path": "/api/admin/push/test",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6283
+      "sourceLine": 6400
     },
     {
       "method": "POST",
       "path": "/api/push/resubscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6320
+      "sourceLine": 6437
     }
   ]
 }
