@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,13 +48,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
-import { leadsApi, referralApi, projectApi, paymentApi, usersApi, couponApi } from '@/lib/api';
+import { leadsApi, referralApi, projectApi, paymentApi, usersApi, couponApi, otpApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import type { SexType, QuizResultType } from '@shared/types';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { isValidPhone, toE164, formatPhoneInput } from '@/lib/phone-utils';
+import { isValidPhone, toE164, formatPhoneInput, formatPhoneDisplay } from '@/lib/phone-utils';
+import { cn } from '@/lib/utils';
 
 // Initialize Stripe with error handling
 let stripePromise: Promise<any> | null = null;
@@ -657,6 +658,19 @@ export function QuizPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
+  // OTP verification state (for phone verification before showing results)
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isOtpSending, setIsOtpSending] = useState(false);
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [calculationComplete, setCalculationComplete] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [editedPhone, setEditedPhone] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Email validation helper
   const validateEmail = (email: string): boolean => {
@@ -664,6 +678,179 @@ export function QuizPage() {
     return re.test(email);
   };
 
+  // OTP Functions for phone verification
+  const sendOtp = useCallback(async (phoneNumber: string) => {
+    if (!isValidPhone(phoneNumber)) {
+      setOtpError('Please enter a valid 10-digit phone number');
+      return false;
+    }
+
+    setIsOtpSending(true);
+    setOtpError(null);
+
+    try {
+      const result = await otpApi.sendOtp({ phone: toE164(phoneNumber) });
+      if (result.success) {
+        setOtpSent(true);
+        // Start resend cooldown (60 seconds)
+        setResendCooldown(60);
+        // In dev mode, show the code for testing
+        if (result.devCode) {
+          setOtpDevCode(result.devCode);
+        }
+        return true;
+      } else {
+        setOtpError(result.message || 'Failed to send verification code');
+        return false;
+      }
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : 'Failed to send verification code');
+      return false;
+    } finally {
+      setIsOtpSending(false);
+    }
+  }, []);
+
+  const verifyOtp = useCallback(async (phoneNumber: string, codeArray: string[]) => {
+    const fullCode = codeArray.join('');
+    if (fullCode.length !== 6) {
+      setOtpError('Please enter the complete 6-digit code');
+      return false;
+    }
+
+    setIsOtpVerifying(true);
+    setOtpError(null);
+
+    try {
+      const result = await otpApi.verifyOtp({ phone: toE164(phoneNumber), code: fullCode });
+      if (result.success) {
+        setPhoneVerified(true);
+        // Store verification in session for later use
+        sessionStorage.setItem('phoneVerified', 'true');
+        sessionStorage.setItem('verifiedPhone', toE164(phoneNumber));
+        return true;
+      } else {
+        setOtpError(result.message || 'Invalid verification code');
+        return false;
+      }
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : 'Verification failed');
+      return false;
+    } finally {
+      setIsOtpVerifying(false);
+    }
+  }, []);
+
+  const handleOtpCodeChange = useCallback((index: number, value: string) => {
+    const cleanedValue = value.replace(/\D/g, '');
+
+    // Handle paste (multiple digits)
+    if (cleanedValue.length > 1) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < Math.min(cleanedValue.length, 6); i++) {
+        newCode[i] = cleanedValue[i];
+      }
+      setOtpCode(newCode);
+      setOtpError(null);
+
+      // Focus appropriate input and auto-submit if complete
+      if (cleanedValue.length >= 6 && leadData) {
+        otpInputRefs.current[5]?.focus();
+        setTimeout(() => verifyOtp(leadData.phone, newCode), 100);
+      } else {
+        otpInputRefs.current[cleanedValue.length]?.focus();
+      }
+      return;
+    }
+
+    // Single digit entry
+    const digit = cleanedValue.slice(-1);
+    const newCode = [...otpCode];
+    newCode[index] = digit;
+    setOtpCode(newCode);
+    setOtpError(null);
+
+    // Auto-advance to next input
+    if (digit && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-submit when all digits entered
+    if (digit && index === 5 && newCode.every(d => d) && leadData) {
+      setTimeout(() => verifyOtp(leadData.phone, newCode), 100);
+    }
+  }, [otpCode, leadData, verifyOtp]);
+
+  const handleOtpKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      otpInputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < 5) {
+      e.preventDefault();
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  }, [otpCode]);
+
+  const handleOtpPaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pastedData) {
+      const newCode = ['', '', '', '', '', ''];
+      for (let i = 0; i < pastedData.length; i++) {
+        newCode[i] = pastedData[i];
+      }
+      setOtpCode(newCode);
+      setOtpError(null);
+
+      if (pastedData.length >= 6 && leadData) {
+        otpInputRefs.current[5]?.focus();
+        setTimeout(() => verifyOtp(leadData.phone, newCode), 100);
+      } else {
+        const nextEmpty = newCode.findIndex(d => !d);
+        otpInputRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
+      }
+    }
+  }, [leadData, verifyOtp]);
+
+  const handleUpdatePhone = useCallback(async () => {
+    if (!isValidPhone(editedPhone)) {
+      setOtpError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    // Update the lead data with new phone
+    if (leadData) {
+      setLeadData({ ...leadData, phone: editedPhone });
+    }
+
+    // Reset OTP state
+    setOtpCode(['', '', '', '', '', '']);
+    setOtpSent(false);
+    setOtpDevCode(null);
+    setIsEditingPhone(false);
+
+    // Send new OTP
+    await sendOtp(editedPhone);
+  }, [editedPhone, leadData, sendOtp]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
+  // Auto-focus first OTP input when OTP is sent
+  useEffect(() => {
+    if (otpSent && calculationComplete && otpInputRefs.current[0]) {
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 300);
+    }
+  }, [otpSent, calculationComplete]);
 
   // Fetch referrer name and project info when we have a referral code or project ID
   useEffect(() => {
@@ -753,23 +940,36 @@ export function QuizPage() {
         console.error('Failed to submit lead:', err);
       });
 
-      // Simulate calculation animation
+      // Send OTP immediately when calculation starts (runs in parallel with animation)
+      if (!otpSent && !phoneVerified) {
+        sendOtp(leadData.phone);
+      }
+
+      // Simulate calculation animation - mark complete after 3 seconds
+      // (Results will show when BOTH calculation is complete AND phone is verified)
       const timer = setTimeout(() => {
-        setPhase('results');
-        // Trigger confetti for GREEN scores (0-15 in new system = excellent health)
-        if (totalScore <= 15) {
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#22C55E', '#4ADE80', '#86EFAC', '#F59E0B', '#FBBF24']  // Green celebration
-          });
-        }
+        setCalculationComplete(true);
       }, 3000);
 
       return () => clearTimeout(timer);
     }
-  }, [phase, answers, leadData, referralCode, projectIdFromUrl]);
+  }, [phase, answers, leadData, referralCode, projectIdFromUrl, otpSent, phoneVerified, sendOtp]);
+
+  // Move to results phase when both calculation is complete AND phone is verified
+  useEffect(() => {
+    if (phase === 'calculating' && calculationComplete && phoneVerified) {
+      setPhase('results');
+      // Trigger confetti for GREEN scores (0-15 in new system = excellent health)
+      if (score <= 15) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#22C55E', '#4ADE80', '#86EFAC', '#F59E0B', '#FBBF24']  // Green celebration
+        });
+      }
+    }
+  }, [phase, calculationComplete, phoneVerified, score]);
 
   const handleStartQuiz = () => {
     setPhase('lead-capture');
@@ -1640,7 +1840,7 @@ export function QuizPage() {
           </motion.div>
         )}
 
-        {/* CALCULATING PHASE */}
+        {/* CALCULATING PHASE - Two Stage: Animation + OTP Verification */}
         {phase === 'calculating' && (
           <motion.div
             key="calculating"
@@ -1649,7 +1849,7 @@ export function QuizPage() {
             exit={{ opacity: 0 }}
             className="min-h-screen bg-navy-900 flex items-center justify-center"
           >
-            <div className="text-center px-4">
+            <div className="text-center px-4 max-w-md mx-auto">
               {/* Animated Circle */}
               <div className="relative w-48 h-48 mx-auto mb-8">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -1666,7 +1866,7 @@ export function QuizPage() {
                     cy="50"
                     r="45"
                     fill="none"
-                    stroke="#F59E0B"
+                    stroke={calculationComplete ? "#22C55E" : "#F59E0B"}
                     strokeWidth="8"
                     strokeLinecap="round"
                     initial={{ pathLength: 0 }}
@@ -1679,48 +1879,247 @@ export function QuizPage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Activity className="h-16 w-16 text-gold-500 animate-pulse" />
+                  {calculationComplete ? (
+                    <Check className="h-16 w-16 text-green-500" />
+                  ) : (
+                    <Activity className="h-16 w-16 text-gold-500 animate-pulse" />
+                  )}
                 </div>
               </div>
 
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                Calculating Your Metabolic Age...
+                {calculationComplete ? "Your Results Are Ready!" : "Calculating Your Metabolic Age..."}
               </h2>
-              {leadData && (
+              {leadData && !calculationComplete && (
                 <p className="text-slate-400 max-w-md mx-auto mb-2">
                   Analyzing responses for <strong className="text-white">{leadData.name.split(' ')[0]}</strong>
                 </p>
               )}
-              <p className="text-slate-500 max-w-md mx-auto">
-                Comparing your biomarkers against clinical data
-              </p>
+              {!calculationComplete && (
+                <p className="text-slate-500 max-w-md mx-auto">
+                  Comparing your biomarkers against clinical data
+                </p>
+              )}
 
-              {/* Loading Steps */}
-              <div className="mt-8 space-y-3 max-w-xs mx-auto">
-                {[
-                  "Evaluating hormonal balance...",
-                  "Checking glucose stability...",
-                  "Analyzing cortisol patterns...",
-                  "Calculating your metabolic age..."
-                ].map((step, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.6 }}
-                    className="flex items-center gap-3 text-slate-400 text-sm"
-                  >
+              {/* Loading Steps - show during calculation */}
+              {!calculationComplete && (
+                <div className="mt-8 space-y-3 max-w-xs mx-auto">
+                  {[
+                    "Evaluating hormonal balance...",
+                    "Checking glucose stability...",
+                    "Analyzing cortisol patterns...",
+                    "Calculating your metabolic age..."
+                  ].map((step, i) => (
                     <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: i * 0.6 + 0.3 }}
+                      key={i}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.6 }}
+                      className="flex items-center gap-3 text-slate-400 text-sm"
                     >
-                      <Check className="h-4 w-4 text-green-500" />
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: i * 0.6 + 0.3 }}
+                      >
+                        <Check className="h-4 w-4 text-green-500" />
+                      </motion.div>
+                      {step}
                     </motion.div>
-                    {step}
-                  </motion.div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {/* OTP Verification Section - appears after calculation completes */}
+              {calculationComplete && !phoneVerified && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-8"
+                >
+                  <div className="border-t border-navy-700 pt-8">
+                    {/* Phone display or edit */}
+                    {!isEditingPhone ? (
+                      <div className="mb-6">
+                        <p className="text-slate-300 mb-2">
+                          Verify your phone to see your results
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          We sent a code to{' '}
+                          <strong className="text-white">{leadData ? formatPhoneDisplay(leadData.phone) : ''}</strong>
+                        </p>
+                        <button
+                          onClick={() => {
+                            setEditedPhone(leadData?.phone || '');
+                            setIsEditingPhone(true);
+                          }}
+                          className="text-gold-500 hover:text-gold-400 text-sm mt-2 underline"
+                        >
+                          Wrong number?
+                        </button>
+                      </div>
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mb-6 space-y-4"
+                      >
+                        <p className="text-slate-300 text-sm">
+                          Enter your correct phone number:
+                        </p>
+                        <PhoneInput
+                          id="edit-phone"
+                          value={editedPhone}
+                          onChange={setEditedPhone}
+                          className="bg-navy-800 border-navy-600 text-white placeholder:text-slate-500 focus:border-gold-500 focus:ring-gold-500/20 h-12 text-lg rounded-xl max-w-xs mx-auto"
+                        />
+                        <div className="flex gap-3 justify-center">
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setIsEditingPhone(false);
+                              setOtpError(null);
+                            }}
+                            className="text-slate-400 hover:text-white"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleUpdatePhone}
+                            disabled={isOtpSending || !editedPhone}
+                            className="bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold"
+                          >
+                            {isOtpSending ? (
+                              <>
+                                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                Sending...
+                              </>
+                            ) : (
+                              'Update & Send Code'
+                            )}
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Dev mode code display */}
+                    {otpDevCode && !isEditingPhone && (
+                      <Alert className="bg-blue-500/10 border-blue-500/30 rounded-xl mb-4 max-w-sm mx-auto">
+                        <AlertDescription className="text-blue-300 text-sm">
+                          <span className="font-bold">Dev Mode:</span> Your code is{' '}
+                          <span className="font-mono font-bold text-blue-200">{otpDevCode}</span>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Error display */}
+                    {otpError && !isEditingPhone && (
+                      <Alert variant="destructive" className="bg-red-900/20 border-red-800 mb-4 max-w-sm mx-auto">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-red-300">{otpError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* OTP Input */}
+                    {!isEditingPhone && (
+                      <>
+                        <div className="flex justify-center gap-2 sm:gap-3 mb-4" role="group" aria-label="Verification code input">
+                          {otpCode.map((digit, index) => {
+                            const allDigitsEntered = otpCode.every(d => d !== '');
+                            return (
+                              <Input
+                                key={index}
+                                ref={(el) => (otpInputRefs.current[index] = el)}
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete={index === 0 ? "one-time-code" : "off"}
+                                aria-label={`Digit ${index + 1} of 6`}
+                                value={digit}
+                                onChange={(e) => handleOtpCodeChange(index, e.target.value)}
+                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                onPaste={handleOtpPaste}
+                                className={cn(
+                                  "w-11 h-14 sm:w-12 sm:h-16 text-center text-2xl font-bold bg-navy-800 text-white rounded-xl",
+                                  allDigitsEntered
+                                    ? "border-green-500 focus:border-green-500 focus:ring-green-500/20"
+                                    : "border-navy-600 focus:border-gold-500 focus:ring-gold-500/20"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+
+                        {/* Status / Resend */}
+                        <p className={cn(
+                          "text-center text-sm",
+                          otpCode.every(d => d !== '') ? "text-green-400" : "text-slate-500"
+                        )}>
+                          {isOtpVerifying ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Verifying...
+                            </span>
+                          ) : otpCode.every(d => d !== '') ? (
+                            <span className="flex items-center justify-center gap-1">
+                              <Check className="h-4 w-4" />
+                              Verifying code...
+                            </span>
+                          ) : (
+                            <>
+                              Didn't receive the code?{' '}
+                              {resendCooldown > 0 ? (
+                                <span className="text-slate-400">
+                                  Resend in {resendCooldown}s
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => leadData && sendOtp(leadData.phone)}
+                                  disabled={isOtpSending}
+                                  className="text-gold-500 hover:text-gold-400 font-medium"
+                                >
+                                  {isOtpSending ? 'Sending...' : 'Resend'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </p>
+
+                        {/* Verify Button */}
+                        <Button
+                          onClick={() => leadData && verifyOtp(leadData.phone, otpCode)}
+                          disabled={isOtpVerifying || otpCode.some(d => !d)}
+                          className="w-full max-w-xs mx-auto mt-6 bg-gold-500 hover:bg-gold-600 text-navy-900 font-bold py-6 text-lg rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.5)] hover:-translate-y-0.5 transition-all duration-300"
+                        >
+                          {isOtpVerifying ? (
+                            <>
+                              <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                              Verifying...
+                            </>
+                          ) : (
+                            'See My Results'
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Phone verified, waiting for results transition */}
+              {calculationComplete && phoneVerified && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-8 flex flex-col items-center gap-4"
+                >
+                  <div className="w-16 h-16 bg-green-900/30 rounded-full flex items-center justify-center">
+                    <Check className="h-8 w-8 text-green-400" />
+                  </div>
+                  <p className="text-green-400 font-medium">Phone verified! Loading results...</p>
+                  <Loader2 className="h-6 w-6 text-gold-500 animate-spin" />
+                </motion.div>
+              )}
             </div>
           </motion.div>
         )}

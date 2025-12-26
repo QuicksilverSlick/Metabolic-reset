@@ -36,8 +36,21 @@ export default function PhoneVerificationPage() {
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Check if phone is already verified on mount
+  // This includes checking sessionStorage for verification done during quiz flow
   useEffect(() => {
     if (user?.phone) {
+      // First check sessionStorage for quiz flow verification
+      const sessionVerified = sessionStorage.getItem('phoneVerified');
+      const verifiedPhone = sessionStorage.getItem('verifiedPhone');
+
+      // If verified during quiz and phone matches, skip OTP
+      if (sessionVerified === 'true' && verifiedPhone === user.phone) {
+        console.log('[PhoneVerification] Phone already verified during quiz flow');
+        setIsPhoneVerified(true);
+        return;
+      }
+
+      // Otherwise check with the API
       otpApi.checkVerified(user.phone).then((result) => {
         if (result.verified && !result.expired) {
           setIsPhoneVerified(true);
