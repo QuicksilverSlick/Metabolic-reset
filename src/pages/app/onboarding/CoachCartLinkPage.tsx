@@ -217,7 +217,7 @@ export default function CoachCartLinkPage() {
                 </div>
                 <div className="relative w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-700" style={{ paddingBottom: '62.5%' }}>
                   <iframe
-                    src="https://www.loom.com/embed/01a9bb974522445e8d1e3830233039ba"
+                    src="https://www.loom.com/embed/01a9bb974522445e8d1e3830233039ba?t=0"
                     frameBorder="0"
                     allowFullScreen
                     className="absolute inset-0 w-full h-full"
