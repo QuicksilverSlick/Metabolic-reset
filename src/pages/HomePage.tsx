@@ -73,7 +73,7 @@ export function HomePage() {
                   <Button
                     size="lg"
                     onClick={() => navigate('/register')}
-                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full font-bold tracking-wide"
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg md:text-xl px-10 py-8 rounded-full font-bold tracking-wide shadow-none border-0"
                   >
                     JOIN THE RESET PROJECT - $28
                     <ArrowRight className="ml-2 h-6 w-6" />
@@ -175,7 +175,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold"
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold shadow-none border-0"
                 >
                   Take Back Control
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -251,7 +251,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold"
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-10 py-7 rounded-full font-bold shadow-none border-0"
               >
                 Start Tracking Today
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -318,7 +318,7 @@ export function HomePage() {
                   <Button
                     size="lg"
                     onClick={() => navigate('/register')}
-                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold"
+                    className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-lg px-8 py-6 rounded-full font-bold shadow-none border-0"
                   >
                     Join Thousands Like Sarah
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -374,7 +374,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-12 py-8 rounded-full font-bold"
+                className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-12 py-8 rounded-full font-bold shadow-none border-0"
               >
                 START MY RESET - $28
                 <ArrowRight className="ml-2 h-6 w-6" />
@@ -417,9 +417,9 @@ export function HomePage() {
                   </p>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => navigate('/register')}
-                  className="shrink-0 w-full sm:w-auto border-gold-500/50 text-gold-400 hover:bg-gold-500/10 hover:border-gold-500 hover:text-gold-300 font-bold transition-all duration-200"
+                  className="shrink-0 w-full sm:w-auto border-2 border-gold-500 text-gold-400 hover:bg-gold-500/10 hover:border-gold-400 hover:text-gold-300 font-bold transition-all duration-200 bg-transparent"
                 >
                   Register as Group Leader
                 </Button>
@@ -430,7 +430,7 @@ export function HomePage() {
                 <Button
                   size="lg"
                   onClick={() => navigate('/register')}
-                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold"
+                  className="bg-gold-500 hover:bg-gold-400 text-navy-900 text-xl px-10 py-7 rounded-full font-bold shadow-none border-0"
                 >
                   Invest in Yourself Today
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -454,7 +454,7 @@ export function HomePage() {
               <Button
                 size="lg"
                 onClick={() => navigate('/register')}
-                className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full font-bold"
+                className="bg-navy-900 text-white hover:bg-navy-800 text-xl px-12 py-8 rounded-full font-bold shadow-none border-0"
               >
                 JOIN THE RESET PROJECT
                 <ArrowRight className="ml-2 h-6 w-6" />

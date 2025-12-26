@@ -260,13 +260,14 @@ export function AppLayout({ children, container = false, className, contentClass
               When banners showing: the header flows naturally below the sticky banner container
             */}
             <header
-              className={`sticky z-50 flex shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300 ${anyBannerShowing ? 'top-0' : 'top-0'}`}
+              className="sticky z-50 flex shrink-0 items-center gap-2 border-b bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300"
               style={{
-                // When no banner: apply safe area padding for PWA/notch devices
-                // When banner showing: banner handles safe area, header just needs standard padding
-                paddingTop: !anyBannerShowing ? 'max(0.5rem, env(safe-area-inset-top, 0px))' : '0.5rem',
+                // When no banner: position header BELOW the safe area (notch)
+                // When banner showing: banner handles safe area, header stays at top:0
+                top: !anyBannerShowing ? 'env(safe-area-inset-top, 0px)' : '0',
+                paddingTop: '0.5rem',
                 paddingBottom: '0.5rem',
-                minHeight: !anyBannerShowing ? 'calc(3.5rem + env(safe-area-inset-top, 0px))' : '3.5rem',
+                minHeight: '3.5rem',
                 paddingLeft: 'max(0.75rem, env(safe-area-inset-left, 0px))',
                 paddingRight: 'max(0.75rem, env(safe-area-inset-right, 0px))',
               }}

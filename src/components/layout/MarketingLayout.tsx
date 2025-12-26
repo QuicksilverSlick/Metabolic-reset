@@ -87,12 +87,12 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                       </a>
                     ))}
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       onClick={() => {
                         setIsOpen(false);
                         navigate('/login');
                       }}
-                      className="border-slate-600 dark:border-slate-500 text-slate-200 hover:bg-slate-700/50 hover:border-slate-400 hover:text-white w-full rounded-full py-6 text-lg font-medium transition-all duration-200"
+                      className="border-2 border-slate-400 text-slate-200 hover:bg-navy-800 hover:border-gold-500 hover:text-gold-400 w-full rounded-full py-6 text-lg font-medium transition-all duration-200 bg-transparent"
                     >
                       Sign In
                     </Button>
