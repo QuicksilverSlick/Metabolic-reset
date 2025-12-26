@@ -278,8 +278,7 @@ export function AppLayout({ children, container = false, className, contentClass
                 {/* Left side - Logo and optional status badge */}
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <h1 className="font-display font-semibold text-navy-900 dark:text-white text-base sm:text-lg truncate">
-                    <span className="sm:hidden">Reset</span>
-                    <span className="hidden sm:inline">Metabolic Reset</span>
+                    Metabolic Reset
                   </h1>
                   {/* Status badge - desktop only when banner is dismissed */}
                   {bannerDismissed && (

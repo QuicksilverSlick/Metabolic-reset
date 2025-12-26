@@ -434,6 +434,15 @@
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   isolation: isolate;
+  /* Ensure button itself has no conflicting styles */
+  box-shadow: none !important;
+}
+
+/* Remove default button shadows from children */
+.glow-button-gold button,
+.glow-button-gold > div > button {
+  box-shadow: none !important;
+  border: 0 !important;
 }
 
 .glow-button-gold::before {
@@ -463,6 +472,9 @@
   backface-visibility: hidden;
   will-change: background-position;
   animation: glow-border-slide 3s linear infinite;
+  /* Prevent blur/antialiasing issues on mobile */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .glow-button-gold:hover::before {
@@ -494,6 +506,15 @@
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   isolation: isolate;
+  /* Ensure button itself has no conflicting styles */
+  box-shadow: none !important;
+}
+
+/* Remove default button shadows from children */
+.glow-button-rainbow button,
+.glow-button-rainbow > div > button {
+  box-shadow: none !important;
+  border: 0 !important;
 }
 
 .glow-button-rainbow::before {
@@ -522,6 +543,9 @@
   backface-visibility: hidden;
   will-change: background-position;
   animation: glow-border-slide 4s linear infinite;
+  /* Prevent blur/antialiasing issues on mobile */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* =============================================
