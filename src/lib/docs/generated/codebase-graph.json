@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2025-12-27T21:36:15.277Z",
+  "generatedAt": "2025-12-27T21:48:21.077Z",
   "version": "1.0.0",
   "summary": {
-    "totalAPIs": 142,
+    "totalAPIs": 143,
     "totalEntities": 22,
     "totalComponents": 45,
     "adminAPIs": 72,
-    "publicAPIs": 1
+    "publicAPIs": 2
   },
   "nodes": [
     {
@@ -514,494 +514,501 @@
       "line": 3994
     },
     {
+      "id": "api:POST:/api/upload/support",
+      "type": "api",
+      "name": "POST /api/upload/support",
+      "path": "worker/user-routes.ts",
+      "line": 4095
+    },
+    {
       "id": "api:POST:/api/support",
       "type": "api",
       "name": "POST /api/support",
       "path": "worker/user-routes.ts",
-      "line": 4094
+      "line": 4147
     },
     {
       "id": "api:GET:/api/bugs/mine",
       "type": "api",
       "name": "GET /api/bugs/mine",
       "path": "worker/user-routes.ts",
-      "line": 4167
+      "line": 4220
     },
     {
       "id": "api:GET:/api/admin/bugs",
       "type": "api",
       "name": "GET /api/admin/bugs",
       "path": "worker/user-routes.ts",
-      "line": 4180
+      "line": 4233
     },
     {
       "id": "api:GET:/api/admin/bugs/status/:status",
       "type": "api",
       "name": "GET /api/admin/bugs/status/:status",
       "path": "worker/user-routes.ts",
-      "line": 4193
+      "line": 4246
     },
     {
       "id": "api:GET:/api/admin/bugs/:bugId",
       "type": "api",
       "name": "GET /api/admin/bugs/:bugId",
       "path": "worker/user-routes.ts",
-      "line": 4211
+      "line": 4264
     },
     {
       "id": "api:PATCH:/api/admin/bugs/:bugId",
       "type": "api",
       "name": "PATCH /api/admin/bugs/:bugId",
       "path": "worker/user-routes.ts",
-      "line": 4228
+      "line": 4281
     },
     {
       "id": "api:DELETE:/api/admin/bugs/:bugId",
       "type": "api",
       "name": "DELETE /api/admin/bugs/:bugId",
       "path": "worker/user-routes.ts",
-      "line": 4328
+      "line": 4381
     },
     {
       "id": "api:GET:/api/bugs/:bugId/messages",
       "type": "api",
       "name": "GET /api/bugs/:bugId/messages",
       "path": "worker/user-routes.ts",
-      "line": 4357
+      "line": 4410
     },
     {
       "id": "api:POST:/api/bugs/:bugId/messages",
       "type": "api",
       "name": "POST /api/bugs/:bugId/messages",
       "path": "worker/user-routes.ts",
-      "line": 4383
+      "line": 4436
     },
     {
       "id": "api:GET:/api/bugs/:bugId/satisfaction",
       "type": "api",
       "name": "GET /api/bugs/:bugId/satisfaction",
       "path": "worker/user-routes.ts",
-      "line": 4471
+      "line": 4524
     },
     {
       "id": "api:POST:/api/bugs/:bugId/satisfaction",
       "type": "api",
       "name": "POST /api/bugs/:bugId/satisfaction",
       "path": "worker/user-routes.ts",
-      "line": 4497
+      "line": 4550
     },
     {
       "id": "api:GET:/api/bugs/:bugId",
       "type": "api",
       "name": "GET /api/bugs/:bugId",
       "path": "worker/user-routes.ts",
-      "line": 4562
+      "line": 4615
     },
     {
       "id": "api:POST:/api/admin/bugs/:bugId/analyze",
       "type": "api",
       "name": "POST /api/admin/bugs/:bugId/analyze",
       "path": "worker/user-routes.ts",
-      "line": 4595
+      "line": 4648
     },
     {
       "id": "api:GET:/api/admin/bugs/:bugId/analysis",
       "type": "api",
       "name": "GET /api/admin/bugs/:bugId/analysis",
       "path": "worker/user-routes.ts",
-      "line": 4682
+      "line": 4735
     },
     {
       "id": "api:GET:/api/admin/ai-analyses",
       "type": "api",
       "name": "GET /api/admin/ai-analyses",
       "path": "worker/user-routes.ts",
-      "line": 4701
+      "line": 4754
     },
     {
       "id": "api:GET:/api/settings",
       "type": "api",
       "name": "GET /api/settings",
       "path": "worker/user-routes.ts",
-      "line": 4718
+      "line": 4771
     },
     {
       "id": "api:PUT:/api/admin/settings",
       "type": "api",
       "name": "PUT /api/admin/settings",
       "path": "worker/user-routes.ts",
-      "line": 4728
+      "line": 4781
     },
     {
       "id": "api:PATCH:/api/enrollments/:projectId/cohort",
       "type": "api",
       "name": "PATCH /api/enrollments/:projectId/cohort",
       "path": "worker/user-routes.ts",
-      "line": 4747
+      "line": 4800
     },
     {
       "id": "api:PATCH:/api/enrollments/:projectId/onboarding",
       "type": "api",
       "name": "PATCH /api/enrollments/:projectId/onboarding",
       "path": "worker/user-routes.ts",
-      "line": 4785
+      "line": 4838
     },
     {
       "id": "api:PATCH:/api/admin/enrollments/:enrollmentId/cohort",
       "type": "api",
       "name": "PATCH /api/admin/enrollments/:enrollmentId/cohort",
       "path": "worker/user-routes.ts",
-      "line": 4838
+      "line": 4891
     },
     {
       "id": "api:GET:/api/admin/projects/:projectId/cohort-stats",
       "type": "api",
       "name": "GET /api/admin/projects/:projectId/cohort-stats",
       "path": "worker/user-routes.ts",
-      "line": 4869
+      "line": 4922
     },
     {
       "id": "api:GET:/api/genealogy/me",
       "type": "api",
       "name": "GET /api/genealogy/me",
       "path": "worker/user-routes.ts",
-      "line": 4904
+      "line": 4957
     },
     {
       "id": "api:GET:/api/genealogy/:userId",
       "type": "api",
       "name": "GET /api/genealogy/:userId",
       "path": "worker/user-routes.ts",
-      "line": 4919
+      "line": 4972
     },
     {
       "id": "api:GET:/api/admin/genealogy/roots",
       "type": "api",
       "name": "GET /api/admin/genealogy/roots",
       "path": "worker/user-routes.ts",
-      "line": 4958
+      "line": 5011
     },
     {
       "id": "api:GET:/api/admin/genealogy/:userId",
       "type": "api",
       "name": "GET /api/admin/genealogy/:userId",
       "path": "worker/user-routes.ts",
-      "line": 5001
+      "line": 5054
     },
     {
       "id": "api:GET:/api/points/history",
       "type": "api",
       "name": "GET /api/points/history",
       "path": "worker/user-routes.ts",
-      "line": 5021
+      "line": 5074
     },
     {
       "id": "api:GET:/api/admin/points/:userId/history",
       "type": "api",
       "name": "GET /api/admin/points/:userId/history",
       "path": "worker/user-routes.ts",
-      "line": 5054
+      "line": 5107
     },
     {
       "id": "api:GET:/api/admin/points/recent",
       "type": "api",
       "name": "GET /api/admin/points/recent",
       "path": "worker/user-routes.ts",
-      "line": 5068
+      "line": 5121
     },
     {
       "id": "api:POST:/api/admin/points/adjust",
       "type": "api",
       "name": "POST /api/admin/points/adjust",
       "path": "worker/user-routes.ts",
-      "line": 5082
+      "line": 5135
     },
     {
       "id": "api:PUT:/api/admin/settings/points",
       "type": "api",
       "name": "PUT /api/admin/settings/points",
       "path": "worker/user-routes.ts",
-      "line": 5123
+      "line": 5176
     },
     {
       "id": "api:GET:/api/settings/points",
       "type": "api",
       "name": "GET /api/settings/points",
       "path": "worker/user-routes.ts",
-      "line": 5153
+      "line": 5206
     },
     {
       "id": "api:GET:/api/admin/projects/:projectId/content",
       "type": "api",
       "name": "GET /api/admin/projects/:projectId/content",
       "path": "worker/user-routes.ts",
-      "line": 5172
+      "line": 5225
     },
     {
       "id": "api:GET:/api/admin/content/:contentId",
       "type": "api",
       "name": "GET /api/admin/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5186
+      "line": 5239
     },
     {
       "id": "api:POST:/api/admin/content",
       "type": "api",
       "name": "POST /api/admin/content",
       "path": "worker/user-routes.ts",
-      "line": 5203
+      "line": 5256
     },
     {
       "id": "api:PATCH:/api/admin/content/:contentId",
       "type": "api",
       "name": "PATCH /api/admin/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5291
+      "line": 5344
     },
     {
       "id": "api:DELETE:/api/admin/content/:contentId",
       "type": "api",
       "name": "DELETE /api/admin/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5351
+      "line": 5404
     },
     {
       "id": "api:POST:/api/admin/projects/:projectId/content/reorder",
       "type": "api",
       "name": "POST /api/admin/projects/:projectId/content/reorder",
       "path": "worker/user-routes.ts",
-      "line": 5376
+      "line": 5429
     },
     {
       "id": "api:POST:/api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
       "type": "api",
       "name": "POST /api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
       "path": "worker/user-routes.ts",
-      "line": 5404
+      "line": 5457
     },
     {
       "id": "api:GET:/api/admin/projects/:projectId/content/analytics",
       "type": "api",
       "name": "GET /api/admin/projects/:projectId/content/analytics",
       "path": "worker/user-routes.ts",
-      "line": 5451
+      "line": 5504
     },
     {
       "id": "api:GET:/api/course/overview",
       "type": "api",
       "name": "GET /api/course/overview",
       "path": "worker/user-routes.ts",
-      "line": 5509
+      "line": 5562
     },
     {
       "id": "api:GET:/api/course/day/:dayNumber",
       "type": "api",
       "name": "GET /api/course/day/:dayNumber",
       "path": "worker/user-routes.ts",
-      "line": 5600
+      "line": 5653
     },
     {
       "id": "api:POST:/api/course/video/progress",
       "type": "api",
       "name": "POST /api/course/video/progress",
       "path": "worker/user-routes.ts",
-      "line": 5700
+      "line": 5753
     },
     {
       "id": "api:POST:/api/course/video/complete",
       "type": "api",
       "name": "POST /api/course/video/complete",
       "path": "worker/user-routes.ts",
-      "line": 5859
+      "line": 5912
     },
     {
       "id": "api:POST:/api/course/quiz/submit",
       "type": "api",
       "name": "POST /api/course/quiz/submit",
       "path": "worker/user-routes.ts",
-      "line": 5987
+      "line": 6040
     },
     {
       "id": "api:GET:/api/course/progress",
       "type": "api",
       "name": "GET /api/course/progress",
       "path": "worker/user-routes.ts",
-      "line": 6153
+      "line": 6206
     },
     {
       "id": "api:GET:/api/course/comments/:contentId",
       "type": "api",
       "name": "GET /api/course/comments/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 6178
+      "line": 6231
     },
     {
       "id": "api:POST:/api/course/comments",
       "type": "api",
       "name": "POST /api/course/comments",
       "path": "worker/user-routes.ts",
-      "line": 6195
+      "line": 6248
     },
     {
       "id": "api:POST:/api/course/comments/like",
       "type": "api",
       "name": "POST /api/course/comments/like",
       "path": "worker/user-routes.ts",
-      "line": 6227
+      "line": 6280
     },
     {
       "id": "api:POST:/api/course/content/like",
       "type": "api",
       "name": "POST /api/course/content/like",
       "path": "worker/user-routes.ts",
-      "line": 6245
+      "line": 6298
     },
     {
       "id": "api:GET:/api/course/content/:contentId",
       "type": "api",
       "name": "GET /api/course/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 6263
+      "line": 6316
     },
     {
       "id": "api:GET:/api/notifications",
       "type": "api",
       "name": "GET /api/notifications",
       "path": "worker/user-routes.ts",
-      "line": 6285
+      "line": 6338
     },
     {
       "id": "api:GET:/api/notifications/unread-count",
       "type": "api",
       "name": "GET /api/notifications/unread-count",
       "path": "worker/user-routes.ts",
-      "line": 6300
+      "line": 6353
     },
     {
       "id": "api:POST:/api/notifications/:notificationId/read",
       "type": "api",
       "name": "POST /api/notifications/:notificationId/read",
       "path": "worker/user-routes.ts",
-      "line": 6313
+      "line": 6366
     },
     {
       "id": "api:POST:/api/notifications/mark-all-read",
       "type": "api",
       "name": "POST /api/notifications/mark-all-read",
       "path": "worker/user-routes.ts",
-      "line": 6335
+      "line": 6388
     },
     {
       "id": "api:POST:/api/admin/impersonate/start",
       "type": "api",
       "name": "POST /api/admin/impersonate/start",
       "path": "worker/user-routes.ts",
-      "line": 6362
+      "line": 6415
     },
     {
       "id": "api:POST:/api/admin/impersonate/end",
       "type": "api",
       "name": "POST /api/admin/impersonate/end",
       "path": "worker/user-routes.ts",
-      "line": 6413
+      "line": 6466
     },
     {
       "id": "api:GET:/api/admin/impersonate/audit",
       "type": "api",
       "name": "GET /api/admin/impersonate/audit",
       "path": "worker/user-routes.ts",
-      "line": 6431
+      "line": 6484
     },
     {
       "id": "api:GET:/api/admin/facilitators",
       "type": "api",
       "name": "GET /api/admin/facilitators",
       "path": "worker/user-routes.ts",
-      "line": 6483
+      "line": 6536
     },
     {
       "id": "api:GET:/api/admin/coaches",
       "type": "api",
       "name": "GET /api/admin/coaches",
       "path": "worker/user-routes.ts",
-      "line": 6486
+      "line": 6539
     },
     {
       "id": "api:POST:/api/admin/users/:userId/reassign-captain",
       "type": "api",
       "name": "POST /api/admin/users/:userId/reassign-captain",
       "path": "worker/user-routes.ts",
-      "line": 6639
+      "line": 6692
     },
     {
       "id": "api:POST:/api/admin/users/bulk-reassign-group-leader",
       "type": "api",
       "name": "POST /api/admin/users/bulk-reassign-group-leader",
       "path": "worker/user-routes.ts",
-      "line": 6769
+      "line": 6822
     },
     {
       "id": "api:POST:/api/admin/users/bulk-reassign-captain",
       "type": "api",
       "name": "POST /api/admin/users/bulk-reassign-captain",
       "path": "worker/user-routes.ts",
-      "line": 6772
+      "line": 6825
     },
     {
       "id": "api:POST:/api/admin/users/:userId/reassign-group-leader",
       "type": "api",
       "name": "POST /api/admin/users/:userId/reassign-group-leader",
       "path": "worker/user-routes.ts",
-      "line": 6929
+      "line": 6982
     },
     {
       "id": "api:POST:/api/admin/repair-team-assignments",
       "type": "api",
       "name": "POST /api/admin/repair-team-assignments",
       "path": "worker/user-routes.ts",
-      "line": 6933
+      "line": 6986
     },
     {
       "id": "api:GET:/api/push/vapid-key",
       "type": "api",
       "name": "GET /api/push/vapid-key",
       "path": "worker/user-routes.ts",
-      "line": 7034
+      "line": 7087
     },
     {
       "id": "api:POST:/api/push/subscribe",
       "type": "api",
       "name": "POST /api/push/subscribe",
       "path": "worker/user-routes.ts",
-      "line": 7039
+      "line": 7092
     },
     {
       "id": "api:POST:/api/push/unsubscribe",
       "type": "api",
       "name": "POST /api/push/unsubscribe",
       "path": "worker/user-routes.ts",
-      "line": 7073
+      "line": 7126
     },
     {
       "id": "api:GET:/api/push/status",
       "type": "api",
       "name": "GET /api/push/status",
       "path": "worker/user-routes.ts",
-      "line": 7095
+      "line": 7148
     },
     {
       "id": "api:POST:/api/admin/push/test",
       "type": "api",
       "name": "POST /api/admin/push/test",
       "path": "worker/user-routes.ts",
-      "line": 7119
+      "line": 7172
     },
     {
       "id": "api:POST:/api/push/resubscribe",
       "type": "api",
       "name": "POST /api/push/resubscribe",
       "path": "worker/user-routes.ts",
-      "line": 7156
+      "line": 7209
     },
     {
       "id": "entity:UserEntity",

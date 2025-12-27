@@ -113,13 +113,19 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     store.setUploadedUrl('video', undefined);
   };
 
-  // Upload media to R2 (only for authenticated users)
+  // Upload media to R2
   const uploadMedia = async (blob: Blob, type: 'screenshot' | 'video'): Promise<string | null> => {
-    if (!userId) return null;
-
     try {
       setUploadProgress(prev => ({ ...prev, [type]: true }));
 
+      // Use public upload endpoint for unauthenticated users
+      if (!userId) {
+        const result = await uploadApi.uploadPublicSupport(blob, type);
+        store.setUploadedUrl(type, result.publicUrl);
+        return result.publicUrl;
+      }
+
+      // Authenticated users use the normal upload flow
       const filename = type === 'screenshot' ? 'screenshot.png' : 'recording.webm';
       const contentType = type === 'screenshot' ? 'image/png' : 'video/webm';
 
@@ -133,6 +139,9 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       return result.publicUrl;
     } catch (error) {
       console.error(`Failed to upload ${type}:`, error);
+      toast.error(`Failed to upload ${type}`, {
+        description: 'Please try again or submit without media.'
+      });
       return null;
     } finally {
       setUploadProgress(prev => ({ ...prev, [type]: false }));
@@ -141,6 +150,18 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Upload any pending media first (for both authenticated and unauthenticated)
+    let screenshotUrl = store.uploadedUrls.screenshot;
+    let videoUrl = store.uploadedUrls.video;
+
+    if (store.media.screenshot && !screenshotUrl) {
+      screenshotUrl = await uploadMedia(store.media.screenshot, 'screenshot') || undefined;
+    }
+
+    if (store.media.video && !videoUrl) {
+      videoUrl = await uploadMedia(store.media.video, 'video') || undefined;
+    }
 
     // For support mode without auth, use public endpoint
     if (isSupport && !isAuthenticated) {
@@ -151,6 +172,8 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
           description: store.description,
           severity: 'medium',
           category: store.category,
+          screenshotUrl: screenshotUrl,
+          videoUrl: videoUrl,
           pageUrl: window.location.href,
           userAgent: navigator.userAgent,
           contactName: store.contactName,
@@ -168,18 +191,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       return;
     }
 
-    // For authenticated users, upload media and submit through normal flow
-    let screenshotUrl = store.uploadedUrls.screenshot;
-    let videoUrl = store.uploadedUrls.video;
-
-    if (store.media.screenshot && !screenshotUrl) {
-      screenshotUrl = await uploadMedia(store.media.screenshot, 'screenshot') || undefined;
-    }
-
-    if (store.media.video && !videoUrl) {
-      videoUrl = await uploadMedia(store.media.video, 'video') || undefined;
-    }
-
+    // For authenticated users, submit through normal flow
     await submitBug.mutateAsync({
       type: store.reportType,
       title: store.title,
@@ -384,46 +396,47 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             </div>
           )}
 
-          {/* Media Capture Section - only show for authenticated users or bug reports */}
-          {(isAuthenticated || !isSupport) && (
-            <div className="space-y-3">
-              <Label className="text-white flex items-center gap-2">
-                <Camera className="h-4 w-4 text-navy-400" />
-                Capture Media (optional)
-              </Label>
+          {/* Media Capture Section - show for all users to help demonstrate their issue */}
+          <div className="space-y-3">
+            <Label className="text-white flex items-center gap-2">
+              <Camera className="h-4 w-4 text-navy-400" />
+              {isSupport ? 'Show Us What You See (optional)' : 'Capture Media (optional)'}
+            </Label>
 
-              {/* Capture Buttons */}
-              <div className="flex gap-2">
+            {/* Capture Buttons */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCaptureScreenshot}
+                disabled={store.isRecording}
+                className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
+              >
+                <Image className="h-4 w-4 mr-2" />
+                Take Screenshot
+              </Button>
+
+              {isScreenRecordingSupported && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleCaptureScreenshot}
+                  onClick={handleStartRecording}
                   disabled={store.isRecording}
                   className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
                 >
-                  <Image className="h-4 w-4 mr-2" />
-                  Take Screenshot
+                  <Video className="h-4 w-4 mr-2" />
+                  {isSupport ? 'Record Screen + Voice' : 'Record Screen'}
                 </Button>
+              )}
+            </div>
 
-                {isScreenRecordingSupported && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleStartRecording}
-                    disabled={store.isRecording}
-                    className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    Record Screen
-                  </Button>
-                )}
-              </div>
-
-              <p className="text-xs text-navy-400">
-                Navigate anywhere in the app while recording. Click "Stop Recording" when done.
-              </p>
+            <p className="text-xs text-navy-400">
+              {isSupport
+                ? 'Record your screen while explaining the issue verbally - this helps us understand exactly what you\'re experiencing.'
+                : 'Navigate anywhere in the app while recording. Click "Stop Recording" when done.'}
+            </p>
 
               {/* Screenshot Preview */}
               {store.media.screenshotPreview && (
@@ -489,7 +502,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 </div>
               )}
             </div>
-          )}
+
 
           {/* Info note */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-navy-800/50 border border-navy-700">

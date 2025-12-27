@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-12-27T21:36:15.277Z",
+  "generatedAt": "2025-12-27T21:48:21.077Z",
   "totalComponents": 45,
   "components": [
     {
@@ -274,6 +274,7 @@
       "props": [],
       "hooks": [
         "useBugReportStore",
+        "useState",
         "useEffect",
         "useCallback"
       ]

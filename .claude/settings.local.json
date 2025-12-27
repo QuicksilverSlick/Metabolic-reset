@@ -28,7 +28,8 @@
       "Bash(curl:*)",
       "Bash(gh pr create:*)",
       "Bash(git checkout:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

@@ -4090,6 +4090,59 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
+  // Public media upload for support requests (no auth required)
+  // Uses a "support" category and generates anonymous user ID
+  app.post('/api/upload/support', async (c) => {
+    try {
+      const formData = await c.req.formData();
+      const file = formData.get('file') as File | null;
+      const type = formData.get('type') as 'screenshot' | 'video' | null;
+
+      if (!file) {
+        return bad(c, 'File is required');
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/webm', 'video/mp4'];
+      if (!allowedTypes.includes(file.type)) {
+        return bad(c, 'Invalid file type. Only images and videos are allowed.');
+      }
+
+      // Limit file size: 50MB for images, 95MB for videos (under CF 100MB limit)
+      const maxSize = file.type.startsWith('video/') ? 95 * 1024 * 1024 : 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        return bad(c, `File too large. Maximum size is ${maxSize / 1024 / 1024}MB`);
+      }
+
+      // Generate anonymous upload key
+      const ext = file.name.split('.').pop() || (file.type.startsWith('video/') ? 'webm' : 'png');
+      const key = `support/anonymous/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+      // Upload to R2
+      const bucket = (c.env as any).BUG_REPORTS_BUCKET;
+      if (!bucket) {
+        return c.json({ error: 'Storage not configured' }, 500);
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      await bucket.put(key, arrayBuffer, {
+        httpMetadata: {
+          contentType: file.type
+        }
+      });
+
+      return ok(c, {
+        success: true,
+        key,
+        publicUrl: `/api/media/${key}`,
+        size: file.size
+      });
+    } catch (e: any) {
+      console.error('Public support upload error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // Submit a public support request (no auth required - for pre-login users)
   app.post('/api/support', async (c) => {
     try {

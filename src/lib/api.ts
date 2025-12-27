@@ -747,6 +747,28 @@ export const uploadApi = {
     // Backend returns { success: true, data: { ... } }, extract the data field
     const json = await response.json();
     return json.data;
+  },
+
+  // Public upload for support requests (no auth required)
+  uploadPublicSupport: async (file: Blob, type: 'screenshot' | 'video'): Promise<{ success: boolean; key: string; publicUrl: string; size: number }> => {
+    const filename = type === 'screenshot' ? 'screenshot.png' : 'recording.webm';
+    const formData = new FormData();
+    formData.append('file', file, filename);
+    formData.append('type', type);
+
+    const response = await fetch('/api/upload/support', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    // Backend returns { success: true, data: { ... } }, extract the data field
+    const json = await response.json();
+    return json.data;
   }
 };
 

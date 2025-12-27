@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
-import { Loader2, StopCircle, X } from 'lucide-react';
+import { useRef, useCallback, useEffect, useState } from 'react';
+import { Loader2, StopCircle, X, Mic } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Button } from '@/components/ui/button';
 import { useBugReportStore } from '@/lib/bug-report-store';
@@ -14,6 +14,9 @@ import { toast } from 'sonner';
  */
 export function FloatingBugCapture() {
   const store = useBugReportStore();
+
+  // Track if microphone is active for visual indicator
+  const [hasMicrophone, setHasMicrophone] = useState(false);
 
   // Refs for recording - these persist across the component lifecycle
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -95,20 +98,59 @@ export function FloatingBugCapture() {
     }
   }, [store]);
 
-  // Start screen recording
+  // Start screen recording with microphone audio
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      // First, get screen share (with system audio if available)
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: 'browser',
         } as MediaTrackConstraints,
-        audio: true,
+        audio: true, // System audio (if user permits)
       });
 
-      streamRef.current = stream;
+      // Try to get microphone audio for voice narration
+      let micStream: MediaStream | null = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+        toast.success('Microphone enabled', {
+          description: 'Speak to explain what you\'re showing us.',
+          duration: 3000,
+        });
+        setHasMicrophone(true);
+      } catch (micError) {
+        console.log('Microphone not available, recording screen only:', micError);
+        setHasMicrophone(false);
+        // Continue without microphone - it's optional
+      }
+
+      // Combine video track from display + audio tracks (screen audio + mic)
+      const tracks = [...displayStream.getVideoTracks()];
+
+      // Add screen audio if available
+      const screenAudioTracks = displayStream.getAudioTracks();
+      if (screenAudioTracks.length > 0) {
+        tracks.push(...screenAudioTracks);
+      }
+
+      // Add microphone audio if available
+      if (micStream) {
+        const micTracks = micStream.getAudioTracks();
+        tracks.push(...micTracks);
+      }
+
+      const combinedStream = new MediaStream(tracks);
+      streamRef.current = combinedStream;
       recordedChunksRef.current = [];
 
-      const mediaRecorder = new MediaRecorder(stream, {
+      const mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: 'video/webm;codecs=vp9',
       });
 
@@ -130,6 +172,7 @@ export function FloatingBugCapture() {
         store.setVideo(blob, preview);
         store.setIsRecording(false);
         store.setCaptureMode('idle');
+        setHasMicrophone(false); // Reset microphone state
 
         // Clean up
         if (streamRef.current) {
@@ -149,7 +192,7 @@ export function FloatingBugCapture() {
       };
 
       // Handle when user stops sharing via browser UI
-      stream.getVideoTracks()[0].onended = () => {
+      displayStream.getVideoTracks()[0].onended = () => {
         stopRecording();
       };
 
@@ -234,6 +277,12 @@ export function FloatingBugCapture() {
             <div className="flex items-center gap-2 px-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
               <span className="text-white font-mono text-sm">{formatTime(store.recordingTime)}</span>
+              {/* Microphone indicator */}
+              {hasMicrophone && (
+                <div className="flex items-center gap-1 text-green-400" title="Microphone active">
+                  <Mic className="h-3.5 w-3.5" />
+                </div>
+              )}
             </div>
 
             {/* Stop button */}
