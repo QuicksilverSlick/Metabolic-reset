@@ -916,11 +916,26 @@ export const genealogyApi = {
     api<GenealogyNode>(`/api/genealogy/${targetUserId}`, { headers: { 'X-User-ID': userId } }),
 };
 
+// Paginated points history response
+export type PointsHistoryResponse = {
+  items: PointsLedger[];
+  nextCursor: string | null;
+  total: number;
+};
+
 // Points Ledger API - for viewing point transaction history
 export const pointsApi = {
-  // Get current user's point transaction history
-  getMyHistory: (userId: string) =>
-    api<PointsLedger[]>('/api/points/history', { headers: { 'X-User-ID': userId } }),
+  // Get current user's point transaction history (paginated for fast initial loads)
+  getMyHistory: (userId: string, limit?: number, cursor?: string) => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (cursor) params.set('cursor', cursor);
+    const queryString = params.toString();
+    return api<PointsHistoryResponse>(
+      `/api/points/history${queryString ? `?${queryString}` : ''}`,
+      { headers: { 'X-User-ID': userId } }
+    );
+  },
 
   // Get current point settings (public)
   getPointSettings: () =>
@@ -1228,7 +1243,71 @@ export const impersonationApi = {
     ),
 };
 
-// Admin Captain Reassignment API - for assigning participants to captains
+// Admin Group Leader API - for managing group assignments (preferred terminology)
+export const groupLeaderApi = {
+  // Get all facilitators (for dropdown)
+  getAllFacilitators: (adminUserId: string) =>
+    api<{ facilitators: Array<{ id: string; name: string; referralCode: string; groupSize: number }> }>(
+      '/api/admin/facilitators',
+      { headers: { 'X-User-ID': adminUserId } }
+    ),
+
+  // Reassign a single user to a new group leader
+  reassignGroupLeader: (adminUserId: string, userId: string, newGroupLeaderId: string | null) =>
+    api<{
+      user: User;
+      oldGroupLeaderId: string | null;
+      newGroupLeaderId: string | null;
+      notificationsSent: string[];
+    }>(`/api/admin/users/${userId}/reassign-group-leader`, {
+      method: 'POST',
+      body: JSON.stringify({ newGroupLeaderId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Bulk reassign multiple users to a new group leader
+  bulkReassign: (adminUserId: string, userIds: string[], newGroupLeaderId: string | null) =>
+    api<{
+      success: boolean;
+      results: Array<{
+        userId: string;
+        success: boolean;
+        error?: string;
+      }>;
+      summary: {
+        total: number;
+        succeeded: number;
+        failed: number;
+      };
+    }>('/api/admin/users/bulk-reassign-group-leader', {
+      method: 'POST',
+      body: JSON.stringify({ userIds, newGroupLeaderId }),
+      headers: { 'X-User-ID': adminUserId }
+    }),
+
+  // Repair broken group assignments (admin only)
+  repairGroupAssignments: (adminUserId: string) =>
+    api<{
+      success: boolean;
+      repaired: Array<{
+        userId: string;
+        userName: string;
+        groupLeaderId: string;
+        action: string;
+      }>;
+      errors: Array<{ userId: string; error: string }>;
+      summary: {
+        usersChecked: number;
+        issuesFixed: number;
+        errorCount: number;
+      };
+    }>('/api/admin/repair-team-assignments', {
+      method: 'POST',
+      headers: { 'X-User-ID': adminUserId }
+    }),
+};
+
+// @deprecated - use groupLeaderApi; Legacy API kept for backward compatibility
 export const captainApi = {
   // Get all coaches (for dropdown)
   getAllCoaches: (adminUserId: string) =>

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { authApi, scoreApi, biometricApi, rosterApi, statsApi, adminApi, leadsApi, projectApi, enrollmentApi, adminProjectApi, bugApi, adminBugApi, userApi, settingsApi, genealogyApi, pointsApi, adminGenealogyApi, adminPointsApi, referralApi, adminContentApi, courseApi, commentsApi, contentLikesApi, notificationsApi, impersonationApi, captainApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { toast } from 'sonner';
@@ -902,7 +902,8 @@ export function useBugMessages(bugId: string | null) {
     queryKey: ['bugs', bugId, 'messages'],
     queryFn: () => bugApi.getBugMessages(userId!, bugId!),
     enabled: !!userId && !!bugId,
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time feel
+    refetchInterval: 60000, // Refetch every 60 seconds (reduced from 30s for performance)
+    refetchIntervalInBackground: false, // Don't poll when tab is inactive
   });
 }
 
@@ -1205,14 +1206,29 @@ export function useAdminGenealogyRoots() {
 // =========================================
 
 // Get current user's point transaction history (or impersonated user's)
-export function useMyPointsHistory() {
+// Uses infinite query for fast initial load and seamless "load more" pagination
+export function useMyPointsHistory(limit: number = 25) {
   const effectiveUserId = useEffectiveUserId();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['points', 'history', effectiveUserId],
-    queryFn: () => effectiveUserId ? pointsApi.getMyHistory(effectiveUserId) : [],
+    queryFn: async ({ pageParam }) => {
+      if (!effectiveUserId) return { items: [], nextCursor: null, total: 0 };
+      return pointsApi.getMyHistory(effectiveUserId, limit, pageParam ?? undefined);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!effectiveUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
   });
+}
+
+// Convenience hook: Get all loaded points as a flat array
+export function useMyPointsHistoryFlat(limit?: number) {
+  const query = useMyPointsHistory(limit);
+  const items = query.data?.pages.flatMap(page => page.items) ?? [];
+  const total = query.data?.pages[0]?.total ?? 0;
+  return { ...query, items, total };
 }
 
 // Get point settings (public)
@@ -1415,8 +1431,8 @@ export function useDayContent(dayNumber: number | null) {
     queryKey: ['course', 'day', dayNumber, effectiveUserId],
     queryFn: () => effectiveUserId && dayNumber ? courseApi.getDayContent(effectiveUserId, dayNumber) : null,
     enabled: !!effectiveUserId && !!dayNumber,
-    staleTime: 1000 * 10, // 10 seconds
-    refetchInterval: 5000, // Poll every 5 seconds for real-time like updates
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 15000, // Poll every 15 seconds (reduced from 5s for performance)
     refetchIntervalInBackground: false,
   });
 }
@@ -1512,8 +1528,8 @@ export function useContentComments(contentId: string | null) {
     queryKey: ['comments', contentId],
     queryFn: () => contentId && userId ? commentsApi.getComments(userId, contentId) : null,
     enabled: !!contentId && !!userId,
-    staleTime: 1000 * 5, // 5 seconds
-    refetchInterval: 3000, // Poll every 3 seconds for real-time comments
+    staleTime: 1000 * 15, // 15 seconds
+    refetchInterval: 15000, // Poll every 15 seconds (reduced from 3s for performance)
     refetchIntervalInBackground: false, // Don't poll when tab is in background
   });
 }
@@ -1568,8 +1584,8 @@ export function useContentDetails(contentId: string | null) {
     queryKey: ['content', contentId],
     queryFn: () => contentId && userId ? contentLikesApi.getContent(userId, contentId) : null,
     enabled: !!contentId && !!userId,
-    staleTime: 1000 * 5, // 5 seconds
-    refetchInterval: 5000, // Poll every 5 seconds for real-time like updates
+    staleTime: 1000 * 15, // 15 seconds
+    refetchInterval: 20000, // Poll every 20 seconds (reduced from 5s for performance)
     refetchIntervalInBackground: false,
   });
 }

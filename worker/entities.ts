@@ -5,9 +5,19 @@ export class ReferralCodeMapping extends Entity<{ userId: string }> {
   static readonly entityName = "ref-mapping";
   static readonly initialState = { userId: "" };
 }
-// Index for tracking all captains (coaches)
+// Index for tracking all group leaders (facilitators)
+// @deprecated - use GroupLeaderIndex; CaptainIndex kept for backward compatibility
 export class CaptainIndex extends Index<string> {
   constructor(env: Env) {
+    super(env, "all-captains");
+  }
+}
+
+// Index for tracking all group leaders (facilitators) - preferred
+// Note: Points to same underlying data as CaptainIndex for backward compatibility
+export class GroupLeaderIndex extends Index<string> {
+  constructor(env: Env) {
+    // Using same key as CaptainIndex to share data during transition
     super(env, "all-captains");
   }
 }
@@ -142,6 +152,53 @@ export class DailyScoreEntity extends IndexedEntity<DailyScore> {
     totalPoints: 0,
     updatedAt: 0
   };
+
+  // Override create to update secondary indexes
+  static async create(env: Env, state: DailyScore): Promise<DailyScore> {
+    const id = state.id;
+    const inst = new DailyScoreEntity(env, id);
+    await inst.save(state);
+
+    // Add to primary index
+    const idx = new Index<string>(env, DailyScoreEntity.indexName);
+    await idx.add(id);
+
+    // Add to user-specific index for fast lookups
+    const userScoreIndex = new UserDailyScoresIndex(env, state.userId);
+    await userScoreIndex.add(id);
+
+    return state;
+  }
+
+  // Get all scores for a user - uses secondary index (O(n) where n = user's scores, not all scores)
+  static async findByUser(env: Env, userId: string): Promise<DailyScore[]> {
+    const userIndex = new UserDailyScoresIndex(env, userId);
+    const scoreIds = await userIndex.list();
+
+    if (scoreIds.length === 0) return [];
+
+    const scores = await Promise.all(
+      scoreIds.map(async (id) => {
+        const entity = new DailyScoreEntity(env, id);
+        return entity.getState();
+      })
+    );
+
+    return scores.filter(s => s.id).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  // Get scores for a user in a specific project
+  static async findByUserAndProject(env: Env, userId: string, projectId: string): Promise<DailyScore[]> {
+    const userScores = await DailyScoreEntity.findByUser(env, userId);
+    return userScores.filter(s => s.projectId === projectId);
+  }
+}
+
+// Secondary index for user's daily scores
+export class UserDailyScoresIndex extends Index<string> {
+  constructor(env: Env, userId: string) {
+    super(env, `user-scores:${userId}`);
+  }
 }
 export class WeeklyBiometricEntity extends IndexedEntity<WeeklyBiometric> {
   static readonly entityName = "biometric";
@@ -227,14 +284,24 @@ export class QuizLeadEntity extends IndexedEntity<QuizLead> {
   };
 }
 
-// Index for tracking leads by captain
+// Index for tracking leads by group leader
+// @deprecated - use GroupLeaderLeadsIndex; CaptainLeadsIndex kept for backward compatibility
 export class CaptainLeadsIndex extends Index<string> {
   constructor(env: Env, captainId: string) {
     super(env, `captain-leads:${captainId}`);
   }
 }
 
-// Reset Project Entity - represents a 28-day challenge
+// Index for tracking leads by group leader - preferred
+// Note: Points to same underlying data as CaptainLeadsIndex for backward compatibility
+export class GroupLeaderLeadsIndex extends Index<string> {
+  constructor(env: Env, groupLeaderId: string) {
+    // Using same key pattern as CaptainLeadsIndex to share data during transition
+    super(env, `captain-leads:${groupLeaderId}`);
+  }
+}
+
+// Reset Project Entity - represents a 28-day metabolic reset project
 export class ResetProjectEntity extends IndexedEntity<ResetProject> {
   static readonly entityName = "project";
   static readonly indexName = "projects";
@@ -317,6 +384,28 @@ export class ProjectEnrollmentEntity extends IndexedEntity<ProjectEnrollment> {
     onboardingCompletedAt: null
   };
 
+  // Override create to also update secondary indexes for efficient lookups
+  static async create(env: Env, state: ProjectEnrollment): Promise<ProjectEnrollment> {
+    // Call parent create
+    const id = state.id || `${state.projectId}:${state.userId}`;
+    const enrollmentWithId = { ...state, id };
+    const inst = new ProjectEnrollmentEntity(env, id);
+    await inst.save(enrollmentWithId);
+
+    // Add to primary index
+    const idx = new Index<string>(env, ProjectEnrollmentEntity.indexName);
+    await idx.add(id);
+
+    // Add to secondary indexes for fast lookups
+    const projectIndex = new ProjectEnrollmentIndex(env, state.projectId);
+    await projectIndex.add(id);
+
+    const userIndex = new UserEnrollmentIndex(env, state.userId);
+    await userIndex.add(id);
+
+    return enrollmentWithId;
+  }
+
   // Get enrollment by project and user
   static async findByProjectAndUser(env: Env, projectId: string, userId: string): Promise<ProjectEnrollment | null> {
     const id = `${projectId}:${userId}`;
@@ -327,22 +416,45 @@ export class ProjectEnrollmentEntity extends IndexedEntity<ProjectEnrollment> {
     return entity.getState();
   }
 
-  // Get all enrollments for a user (across all projects)
+  // Get all enrollments for a user (across all projects) - uses secondary index
   static async findByUser(env: Env, userId: string): Promise<ProjectEnrollment[]> {
-    const { items: allEnrollments } = await ProjectEnrollmentEntity.list(env);
-    return allEnrollments.filter(e => e.userId === userId);
+    const userIndex = new UserEnrollmentIndex(env, userId);
+    const enrollmentIds = await userIndex.list();
+
+    if (enrollmentIds.length === 0) return [];
+
+    const enrollments = await Promise.all(
+      enrollmentIds.map(async (id) => {
+        const entity = new ProjectEnrollmentEntity(env, id);
+        return entity.getState();
+      })
+    );
+
+    return enrollments.filter(e => e.id);
   }
 
-  // Get all enrollments for a project
+  // Get all enrollments for a project - uses secondary index
   static async findByProject(env: Env, projectId: string): Promise<ProjectEnrollment[]> {
-    const { items: allEnrollments } = await ProjectEnrollmentEntity.list(env);
-    return allEnrollments.filter(e => e.projectId === projectId);
+    const projectIndex = new ProjectEnrollmentIndex(env, projectId);
+    const enrollmentIds = await projectIndex.list();
+
+    if (enrollmentIds.length === 0) return [];
+
+    const enrollments = await Promise.all(
+      enrollmentIds.map(async (id) => {
+        const entity = new ProjectEnrollmentEntity(env, id);
+        return entity.getState();
+      })
+    );
+
+    return enrollments.filter(e => e.id);
   }
 
-  // Get group participants for a group leader in a specific project
+  // Get group participants for a group leader in a specific project - optimized
   static async findGroupParticipants(env: Env, projectId: string, groupLeaderId: string): Promise<ProjectEnrollment[]> {
-    const { items: allEnrollments } = await ProjectEnrollmentEntity.list(env);
-    return allEnrollments.filter(e => e.projectId === projectId && e.groupLeaderId === groupLeaderId);
+    // Use project index first (smaller subset than full table scan)
+    const projectEnrollments = await ProjectEnrollmentEntity.findByProject(env, projectId);
+    return projectEnrollments.filter(e => e.groupLeaderId === groupLeaderId);
   }
 
   // Add points to enrollment
@@ -753,7 +865,34 @@ export async function buildGenealogyTree(
   const user = await userEntity.getState();
   if (!user.id) return null;
 
+  // Track visited nodes to prevent infinite loops from circular references
+  const visitedNodes = new Set<string>();
+
   async function buildNode(userId: string, depth: number): Promise<GenealogyNode> {
+    // CRITICAL: Prevent infinite loops from circular references (self-assignment or cycles)
+    if (visitedNodes.has(userId)) {
+      console.warn(`[Genealogy] Cycle detected: user ${userId} already visited. Skipping to prevent infinite loop.`);
+      // Return a minimal node without children to break the cycle
+      const cycleUserEntity = new UserEntity(env, userId);
+      const cycleUser = await cycleUserEntity.getState();
+      return {
+        userId: cycleUser.id || userId,
+        name: cycleUser.name || 'Unknown',
+        role: cycleUser.role,
+        avatarUrl: cycleUser.avatarUrl,
+        points: cycleUser.points || 0,
+        referralCode: cycleUser.referralCode,
+        joinedAt: cycleUser.createdAt,
+        children: [], // No children to break cycle
+        directReferrals: 0,
+        totalDownline: 0,
+        teamPoints: 0
+      };
+    }
+
+    // Mark this node as visited before processing
+    visitedNodes.add(userId);
+
     const nodeUserEntity = new UserEntity(env, userId);
     const nodeUser = await nodeUserEntity.getState();
 
@@ -768,6 +907,11 @@ export async function buildGenealogyTree(
 
     if (depth < maxDepth) {
       for (const recruitId of recruitIds) {
+        // Skip self-references (shouldn't happen, but extra safety)
+        if (recruitId === userId) {
+          console.warn(`[Genealogy] Self-reference detected: user ${userId} references themselves. Skipping.`);
+          continue;
+        }
         const childNode = await buildNode(recruitId, depth + 1);
         children.push(childNode);
         totalDownline += 1 + childNode.totalDownline;

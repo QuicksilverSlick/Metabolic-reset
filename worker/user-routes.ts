@@ -6,6 +6,7 @@ import {
   ReferralLedgerEntity,
   ReferralCodeMapping,
   CaptainIndex,
+  GroupLeaderIndex,
   AdminIndex,
   EmailMapping,
   PhoneMapping,
@@ -14,8 +15,12 @@ import {
   SystemStatsEntity,
   QuizLeadEntity,
   CaptainLeadsIndex,
+  GroupLeaderLeadsIndex,
   ResetProjectEntity,
   ProjectEnrollmentEntity,
+  ProjectEnrollmentIndex,
+  UserEnrollmentIndex,
+  UserDailyScoresIndex,
   ProjectIndex,
   BugReportEntity,
   BugReportIndex,
@@ -297,8 +302,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
       await phoneMapping.save({ userId: userId });
 
-      // If user is a coach, they are their own captain
-      if (role === 'coach') {
+      // If user is a group leader (coach/facilitator), they are their own captain
+      if (role === 'coach' || role === 'facilitator') {
         captainId = userId;
       }
 
@@ -367,8 +372,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         // Stripe payment tracking
         ...stripePaymentData
       });
-      // If user is a coach, add to CaptainIndex
-      if (role === 'coach') {
+      // If user is a group leader (coach/facilitator), add to CaptainIndex
+      if (role === 'coach' || role === 'facilitator') {
         const captainIndex = new CaptainIndex(c.env);
         await captainIndex.add(userId);
       }
@@ -394,9 +399,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       if (enrollProjectId) {
         const enrollmentId = `${enrollProjectId}:${userId}`;
-        // Coaches are automatically assigned to GROUP_A and have their kit
+        // Group leaders (coaches/facilitators) are automatically assigned to GROUP_A and have their kit
         // They still need to complete profile photo + phone verification
-        const isCoachRole = role === 'coach';
+        const isGroupLeaderRole = role === 'coach' || role === 'facilitator';
         await ProjectEnrollmentEntity.create(c.env, {
           id: enrollmentId,
           projectId: enrollProjectId,
@@ -406,9 +411,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           points: 0,
           enrolledAt: now,
           isGroupLeaderEnrolled: true, // Payment was already processed
-          // Auto-set cohort and kit for coaches (skip cohort selection page)
-          cohortId: isCoachRole ? 'GROUP_A' : null,
-          hasKit: isCoachRole ? true : false
+          // Auto-set cohort and kit for group leaders (skip cohort selection page)
+          cohortId: isGroupLeaderRole ? 'GROUP_A' : null,
+          hasKit: isGroupLeaderRole ? true : false
         });
 
         // Index user's enrollment for looking up their projects
@@ -936,11 +941,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       // Get current user to determine their role for point calculation
       const currentUserEntity = new UserEntity(c.env, userId);
       const currentUser = await currentUserEntity.getState();
-      const isCoach = currentUser.role === 'coach';
+      const isGroupLeader = currentUser.role === 'coach' || currentUser.role === 'facilitator';
 
       // Get system settings for point values
       const settings = await SystemSettingsEntity.getGlobal(c.env);
-      const defaultPoints = isCoach
+      const defaultPoints = isGroupLeader
         ? (settings.referralPointsCoach || 1)
         : (settings.referralPointsChallenger || 5);
 
@@ -977,7 +982,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
             id: `referral-${recruitId}`,
             projectId: null,
             userId: userId,
-            transactionType: isCoach ? 'referral_coach' : 'referral_challenger',
+            transactionType: isGroupLeader ? 'referral_coach' : 'referral_challenger',
             points: pointsAwarded,
             previousBalance: 0,
             newBalance: 0,
@@ -1094,14 +1099,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
-  // --- Captains List (Public) ---
-  app.get('/api/captains', async (c) => {
+  // --- Group Leaders List (Public) ---
+  // Helper function to get all group leaders
+  const getGroupLeaders = async (c: any) => {
     try {
-      const captainIndex = new CaptainIndex(c.env);
-      const captainIds = await captainIndex.list();
+      const groupLeaderIndex = new GroupLeaderIndex(c.env);
+      const groupLeaderIds = await groupLeaderIndex.list();
       // Limit to 50 for performance
-      const limitedIds = captainIds.slice(0, 50);
-      const captains = await Promise.all(limitedIds.map(async (id) => {
+      const limitedIds = groupLeaderIds.slice(0, 50);
+      const groupLeaders = await Promise.all(limitedIds.map(async (id) => {
         const user = await new UserEntity(c.env, id).getState();
         return {
           id: user.id,
@@ -1110,25 +1116,37 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           referralCode: user.referralCode
         };
       }));
-      // Filter out any invalid entries
-      const validCaptains = captains.filter(c => c.id && c.role === 'coach');
-      return ok(c, validCaptains);
+      // Filter out any invalid entries - accept both 'coach' and 'facilitator' roles
+      const validGroupLeaders = groupLeaders.filter(gl => gl.id && (gl.role === 'coach' || gl.role === 'facilitator'));
+      return ok(c, validGroupLeaders);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
-  });
+  };
+
+  // New endpoint (preferred)
+  app.get('/api/group-leaders', getGroupLeaders);
+
+  // Legacy endpoint (@deprecated - use /api/group-leaders)
+  app.get('/api/captains', getGroupLeaders);
   // --- Orphan Assignment ---
   app.post('/api/orphan/assign', async (c) => {
     try {
       const userId = c.req.header('X-User-ID');
       if (!userId) return bad(c, 'Unauthorized');
       const { captainId } = await c.req.json() as { captainId: string };
-      if (!captainId) return bad(c, 'Captain ID required');
-      // Verify captain exists and is a coach
+      if (!captainId) return bad(c, 'Group Facilitator ID required');
+
+      // CRITICAL: Prevent self-assignment (would create circular reference)
+      if (userId === captainId) {
+        return bad(c, 'Cannot assign yourself as your own group facilitator');
+      }
+
+      // Verify captain exists and is a coach/facilitator
       const captainEntity = new UserEntity(c.env, captainId);
       const captain = await captainEntity.getState();
-      if (!captain.id || captain.role !== 'coach') {
-        return bad(c, 'Invalid captain selected');
+      if (!captain.id || (captain.role !== 'coach' && captain.role !== 'facilitator')) {
+        return bad(c, 'Invalid group facilitator selected');
       }
       // Update user
       const userEntity = new UserEntity(c.env, userId);
@@ -1453,9 +1471,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (referralCode) {
         const referrer = await UserEntity.findByReferralCode(c.env, referralCode);
         if (referrer) {
-          // If referrer is a coach, they are the captain
-          // If referrer is a challenger, use their captain
-          captainId = referrer.role === 'coach' ? referrer.id : referrer.captainId;
+          // If referrer is a group leader (coach/facilitator), they are the captain
+          // If referrer is a participant (challenger), use their captain
+          captainId = (referrer.role === 'coach' || referrer.role === 'facilitator') ? referrer.id : referrer.captainId;
         }
       }
 
@@ -1760,14 +1778,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         }
       }
 
-      // Update captain index if role changed to/from coach
+      // Update captain index if role changed to/from group leader (coach/facilitator)
       if (updates.role) {
         const captainIndex = new CaptainIndex(c.env);
-        if (updates.role === 'coach') {
+        const isBecomingGroupLeader = updates.role === 'coach' || updates.role === 'facilitator';
+        const wasGroupLeader = user.role === 'coach' || user.role === 'facilitator';
+
+        if (isBecomingGroupLeader) {
           await captainIndex.add(targetUserId);
-          // Set captainId to self if becoming coach
+          // Set captainId to self if becoming group leader
           await userEntity.patch({ captainId: targetUserId });
-        } else if (user.role === 'coach' && updates.role !== 'coach') {
+        } else if (wasGroupLeader && !isBecomingGroupLeader) {
           await captainIndex.remove(targetUserId);
         }
       }
@@ -1814,7 +1835,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (user.isAdmin) {
         await adminIndex.remove(targetUserId);
       }
-      if (user.role === 'coach') {
+      if (user.role === 'coach' || user.role === 'facilitator') {
         await captainIndex.remove(targetUserId);
       }
 
@@ -1867,7 +1888,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const adminIndex = new AdminIndex(c.env);
         await adminIndex.add(targetUserId);
       }
-      if (user.role === 'coach') {
+      if (user.role === 'coach' || user.role === 'facilitator') {
         const captainIndex = new CaptainIndex(c.env);
         await captainIndex.add(targetUserId);
       }
@@ -2552,8 +2573,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     try {
       const { phone, secretKey } = await c.req.json() as { phone: string; secretKey: string };
 
-      // Check for bootstrap secret key (should be set in environment)
-      const bootstrapKey = (c.env as any).ADMIN_BOOTSTRAP_KEY || 'x.@-_Re$et>/-';
+      // Check for bootstrap secret key (MUST be set in environment - no fallback for security)
+      const bootstrapKey = (c.env as any).ADMIN_BOOTSTRAP_KEY;
+      if (!bootstrapKey) {
+        console.error('[Security] ADMIN_BOOTSTRAP_KEY not configured in environment');
+        return c.json({ error: 'Bootstrap not configured. Set ADMIN_BOOTSTRAP_KEY in environment.' }, 503);
+      }
       if (secretKey !== bootstrapKey) {
         return c.json({ error: 'Invalid bootstrap key' }, 403);
       }
@@ -2578,6 +2603,134 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       return ok(c, { message: 'Admin created successfully', userId: user.id, userName: user.name });
     } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
+  // =========================================
+  // Index Backfill Migration (Admin Only)
+  // =========================================
+  // Populates secondary indexes for existing data that was created before indexes were added
+  // Use ?type=phones|enrollments|scores|ledger to backfill one type at a time (avoids Worker limits)
+  // Use ?limit=N to control batch size (default 100, max 200)
+  // Use ?offset=N to skip records for pagination
+  app.post('/api/admin/backfill-indexes', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const type = c.req.query('type') || 'all';
+      const limit = Math.min(parseInt(c.req.query('limit') || '100'), 200);
+      const offset = parseInt(c.req.query('offset') || '0');
+
+      const results = {
+        type,
+        limit,
+        offset,
+        enrollments: { processed: 0, indexed: 0, total: 0 },
+        dailyScores: { processed: 0, indexed: 0, total: 0 },
+        phoneMappings: { processed: 0, indexed: 0, total: 0 },
+        pointsLedger: { processed: 0, indexed: 0, total: 0 },
+        errors: [] as string[]
+      };
+
+      // Backfill PhoneMappings for existing users
+      if (type === 'all' || type === 'phones') {
+        console.log('[Backfill] Starting phone mapping backfill...');
+        const { items: allUsers } = await UserEntity.list(c.env);
+        results.phoneMappings.total = allUsers.length;
+        const batch = allUsers.slice(offset, offset + limit);
+        for (const user of batch) {
+          if (!user.id || !user.phone || user.deletedAt) continue;
+          results.phoneMappings.processed++;
+          try {
+            const digits = user.phone.replace(/\D/g, '').slice(-10);
+            if (digits.length === 10) {
+              const normalizedPhone = `+1${digits}`;
+              const phoneMapping = new PhoneMapping(c.env, normalizedPhone);
+              const existing = await phoneMapping.getState();
+              if (!existing.userId || existing.userId !== user.id) {
+                await phoneMapping.save({ userId: user.id });
+                results.phoneMappings.indexed++;
+              }
+            }
+          } catch (e: any) {
+            results.errors.push(`Phone ${user.phone}: ${e.message}`);
+          }
+        }
+        console.log(`[Backfill] Phone mappings: ${results.phoneMappings.indexed}/${results.phoneMappings.processed} indexed`);
+      }
+
+      // Backfill ProjectEnrollment indexes
+      if (type === 'all' || type === 'enrollments') {
+        console.log('[Backfill] Starting enrollment index backfill...');
+        const { items: allEnrollments } = await ProjectEnrollmentEntity.list(c.env);
+        results.enrollments.total = allEnrollments.length;
+        const batch = allEnrollments.slice(offset, offset + limit);
+        for (const enrollment of batch) {
+          if (!enrollment.id || !enrollment.projectId || !enrollment.userId) continue;
+          results.enrollments.processed++;
+          try {
+            const projectIndex = new ProjectEnrollmentIndex(c.env, enrollment.projectId);
+            await projectIndex.add(enrollment.id);
+            const userIndex = new UserEnrollmentIndex(c.env, enrollment.userId);
+            await userIndex.add(enrollment.id);
+            results.enrollments.indexed++;
+          } catch (e: any) {
+            results.errors.push(`Enrollment ${enrollment.id}: ${e.message}`);
+          }
+        }
+        console.log(`[Backfill] Enrollments: ${results.enrollments.indexed}/${results.enrollments.processed} indexed`);
+      }
+
+      // Backfill DailyScore indexes
+      if (type === 'all' || type === 'scores') {
+        console.log('[Backfill] Starting daily score index backfill...');
+        const { items: allScores } = await DailyScoreEntity.list(c.env);
+        results.dailyScores.total = allScores.length;
+        const batch = allScores.slice(offset, offset + limit);
+        for (const score of batch) {
+          if (!score.id || !score.userId) continue;
+          results.dailyScores.processed++;
+          try {
+            const userScoreIndex = new UserDailyScoresIndex(c.env, score.userId);
+            await userScoreIndex.add(score.id);
+            results.dailyScores.indexed++;
+          } catch (e: any) {
+            results.errors.push(`Score ${score.id}: ${e.message}`);
+          }
+        }
+        console.log(`[Backfill] Daily scores: ${results.dailyScores.indexed}/${results.dailyScores.processed} indexed`);
+      }
+
+      // Backfill PointsLedger user indexes
+      if (type === 'all' || type === 'ledger') {
+        console.log('[Backfill] Starting points ledger index backfill...');
+        const { items: allPointsLedger } = await PointsLedgerEntity.list(c.env);
+        results.pointsLedger.total = allPointsLedger.length;
+        const batch = allPointsLedger.slice(offset, offset + limit);
+        for (const ledger of batch) {
+          if (!ledger.id || !ledger.userId) continue;
+          results.pointsLedger.processed++;
+          try {
+            const userLedgerIndex = new Index(c.env, `points-ledger:${ledger.userId}`);
+            await userLedgerIndex.add(ledger.id);
+            results.pointsLedger.indexed++;
+          } catch (e: any) {
+            results.errors.push(`PointsLedger ${ledger.id}: ${e.message}`);
+          }
+        }
+        console.log(`[Backfill] Points ledger: ${results.pointsLedger.indexed}/${results.pointsLedger.processed} indexed`);
+      }
+
+      return ok(c, {
+        message: 'Index backfill batch complete',
+        nextOffset: offset + limit,
+        results,
+        errorCount: results.errors.length
+      });
+    } catch (e: any) {
+      console.error('[Backfill] Error:', e);
       return c.json({ error: e.message }, 500);
     }
   });
@@ -3393,8 +3546,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       // Resolve group leader
       let resolvedGroupLeaderId = groupLeaderId || null;
-      if (user.role === 'coach') {
-        // Coaches are their own group leader
+      const isGroupLeader = user.role === 'coach' || user.role === 'facilitator';
+      if (isGroupLeader) {
+        // Group leaders (coaches/facilitators) are their own group leader
         resolvedGroupLeaderId = userId;
       }
 
@@ -3406,7 +3560,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         groupLeaderId: resolvedGroupLeaderId,
         points: 0,
         enrolledAt: now,
-        isGroupLeaderEnrolled: user.role === 'coach' ? false : true // Coaches need to pay
+        isGroupLeaderEnrolled: isGroupLeader ? false : true // Group leaders need to pay
       });
 
       // Update user's current project
@@ -3426,11 +3580,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       const projectId = c.req.param('projectId');
 
-      // Verify user is a coach
+      // Verify user is a group leader (coach/facilitator)
       const userEntity = new UserEntity(c.env, userId);
       const user = await userEntity.getState();
       if (!user.id) return notFound(c, 'User not found');
-      if (user.role !== 'coach') return bad(c, 'Only group leaders can view their group');
+      if (user.role !== 'coach' && user.role !== 'facilitator') return bad(c, 'Only group leaders can view their group');
 
       // Get participants where this user is the group leader
       const participants = await ProjectEnrollmentEntity.findGroupParticipants(c.env, projectId, userId);
@@ -4423,15 +4577,16 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // =========================================
 
   // Update enrollment cohort selection
+  // Supports GROUP_A, GROUP_B, and automatically assigns GROUP_C for switchers (B→A)
   app.patch('/api/enrollments/:projectId/cohort', async (c) => {
     try {
       const userId = c.req.header('X-User-ID');
       if (!userId) return bad(c, 'Unauthorized');
 
       const projectId = c.req.param('projectId');
-      const { cohortId } = await c.req.json() as { cohortId: CohortType };
+      const { cohortId: requestedCohort } = await c.req.json() as { cohortId: CohortType };
 
-      if (!cohortId || !['GROUP_A', 'GROUP_B'].includes(cohortId)) {
+      if (!requestedCohort || !['GROUP_A', 'GROUP_B'].includes(requestedCohort)) {
         return bad(c, 'Invalid cohort selection. Must be GROUP_A or GROUP_B');
       }
 
@@ -4442,7 +4597,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return notFound(c, 'Enrollment not found');
       }
 
-      await enrollmentEntity.patch({ cohortId });
+      const currentEnrollment = await enrollmentEntity.getState();
+
+      // Determine final cohort:
+      // - If switching from GROUP_B to GROUP_A, assign GROUP_C (Protocol Switcher)
+      // - Otherwise, use the requested cohort
+      let finalCohort: CohortType = requestedCohort;
+      if (currentEnrollment.cohortId === 'GROUP_B' && requestedCohort === 'GROUP_A') {
+        finalCohort = 'GROUP_C';
+        console.log(`[Protocol Switch] User ${userId} switching from GROUP_B to GROUP_A, assigning GROUP_C`);
+      }
+
+      await enrollmentEntity.patch({ cohortId: finalCohort });
       return ok(c, await enrollmentEntity.getState());
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
@@ -4502,6 +4668,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // Admin: Update user's cohort (with audit logging)
+  // Admins can directly assign GROUP_A, GROUP_B, GROUP_C (Switchers), or null
   app.patch('/api/admin/enrollments/:enrollmentId/cohort', async (c) => {
     try {
       const admin = await requireAdmin(c);
@@ -4510,8 +4677,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const enrollmentId = c.req.param('enrollmentId');
       const { cohortId } = await c.req.json() as { cohortId: CohortType | null };
 
-      if (cohortId !== null && !['GROUP_A', 'GROUP_B'].includes(cohortId)) {
-        return bad(c, 'Invalid cohort. Must be GROUP_A, GROUP_B, or null');
+      if (cohortId !== null && !['GROUP_A', 'GROUP_B', 'GROUP_C'].includes(cohortId)) {
+        return bad(c, 'Invalid cohort. Must be GROUP_A, GROUP_B, GROUP_C, or null');
       }
 
       const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollmentId);
@@ -4545,9 +4712,14 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         total: enrollments.length,
         groupA: enrollments.filter(e => e.cohortId === 'GROUP_A').length,
         groupB: enrollments.filter(e => e.cohortId === 'GROUP_B').length,
+        groupC: enrollments.filter(e => e.cohortId === 'GROUP_C').length, // Protocol Switchers (B→A)
         unassigned: enrollments.filter(e => !e.cohortId).length,
         onboardingComplete: enrollments.filter(e => e.onboardingComplete).length,
         onboardingPending: enrollments.filter(e => !e.onboardingComplete).length,
+        // GROUP_A and GROUP_C both use the clinical protocol (need kit)
+        protocolWithKit: enrollments.filter(e => (e.cohortId === 'GROUP_A' || e.cohortId === 'GROUP_C') && e.hasKit).length,
+        protocolNeedKit: enrollments.filter(e => (e.cohortId === 'GROUP_A' || e.cohortId === 'GROUP_C') && !e.hasKit).length,
+        // Legacy field names for backward compatibility
         groupAWithKit: enrollments.filter(e => e.cohortId === 'GROUP_A' && e.hasKit).length,
         groupANeedKit: enrollments.filter(e => e.cohortId === 'GROUP_A' && !e.hasKit).length,
       };
@@ -4679,14 +4851,34 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // Points Ledger / Audit Routes
   // =========================================
 
-  // Get user's own point transactions
+  // Get user's own point transactions (with pagination for fast loading)
   app.get('/api/points/history', async (c) => {
     try {
       const userId = c.req.header('X-User-ID');
       if (!userId) return bad(c, 'Unauthorized');
 
+      const limit = Math.min(parseInt(c.req.query('limit') || '50'), 200);
+      const cursor = c.req.query('cursor'); // ISO timestamp for cursor-based pagination
+
       const transactions = await PointsLedgerEntity.findByUser(c.env, userId);
-      return ok(c, transactions);
+
+      // Apply cursor-based pagination for instant initial loads
+      let filtered = transactions;
+      if (cursor) {
+        const cursorTime = new Date(cursor).getTime();
+        filtered = transactions.filter(t => t.createdAt < cursorTime);
+      }
+
+      const paginated = filtered.slice(0, limit);
+      const nextCursor = paginated.length === limit && paginated.length > 0
+        ? new Date(paginated[paginated.length - 1].createdAt).toISOString()
+        : null;
+
+      return ok(c, {
+        items: paginated,
+        nextCursor,
+        total: transactions.length
+      });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
@@ -5910,20 +6102,21 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // ============================================
-  // ADMIN: CAPTAIN/TEAM REASSIGNMENT
+  // ADMIN: GROUP LEADER/GROUP REASSIGNMENT
   // ============================================
 
-  // Get all coaches (for reassignment dropdown)
-  app.get('/api/admin/coaches', async (c) => {
+  // Get all facilitators (for reassignment dropdown)
+  // Helper function shared by both endpoints
+  const getAdminFacilitators = async (c: any) => {
     try {
       const admin = await requireAdminForImpersonation(c);
       if (!admin) return c.json({ error: 'Admin access required' }, 403);
 
-      const captainIndex = new CaptainIndex(c.env);
-      const captainIds = await captainIndex.list();
+      const groupLeaderIndex = new GroupLeaderIndex(c.env);
+      const groupLeaderIds = await groupLeaderIndex.list();
 
-      const coaches = await Promise.all(
-        captainIds.map(async (id) => {
+      const facilitators = await Promise.all(
+        groupLeaderIds.map(async (id) => {
           const entity = new UserEntity(c.env, id);
           const user = await entity.getState();
           if (!user.id || user.deletedAt) return null;
@@ -5938,15 +6131,24 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       );
 
       return ok(c, {
-        coaches: coaches.filter(Boolean).sort((a, b) => a!.name.localeCompare(b!.name))
+        facilitators: facilitators.filter(Boolean).sort((a, b) => a!.name.localeCompare(b!.name)),
+        // Include 'coaches' key for backward compatibility
+        coaches: facilitators.filter(Boolean).sort((a, b) => a!.name.localeCompare(b!.name))
       });
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
     }
-  });
+  };
 
-  // Reassign a user to a different captain (admin only)
-  app.post('/api/admin/users/:userId/reassign-captain', async (c) => {
+  // New endpoint (preferred)
+  app.get('/api/admin/facilitators', getAdminFacilitators);
+
+  // Legacy endpoint (@deprecated - use /api/admin/facilitators)
+  app.get('/api/admin/coaches', getAdminFacilitators);
+
+  // Reassign a user to a different group leader (admin only)
+  // Handler function shared between new and legacy endpoints
+  const reassignGroupLeaderHandler = async (c: any) => {
     try {
       const admin = await requireAdminForImpersonation(c);
       if (!admin) return c.json({ error: 'Admin access required' }, 403);
@@ -5963,6 +6165,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const targetEntity = new UserEntity(c.env, targetUserId);
       const targetUser = await targetEntity.getState();
       if (!targetUser.id) return notFound(c, 'User not found');
+
+      // CRITICAL: Prevent self-assignment (would create circular reference in genealogy tree)
+      if (newCaptainId && targetUserId === newCaptainId) {
+        return bad(c, 'Cannot assign a user as their own group leader');
+      }
 
       // Get old captain info (if any)
       let oldCaptain: User | null = null;
@@ -6087,10 +6294,14 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       console.error('Reassign captain error:', e);
       return c.json({ error: e.message }, 500);
     }
-  });
+  };
 
-  // Bulk reassign multiple users to a captain (admin only)
-  app.post('/api/admin/users/bulk-reassign-captain', async (c) => {
+  // Legacy endpoint (@deprecated - use /api/admin/users/:userId/reassign-group-leader)
+  app.post('/api/admin/users/:userId/reassign-captain', reassignGroupLeaderHandler);
+
+  // Bulk reassign multiple users to a group leader (admin only)
+  // Handler function shared between new and legacy endpoints
+  const bulkReassignGroupLeaderHandler = async (c: any) => {
     try {
       const admin = await requireAdminForImpersonation(c);
       if (!admin) return c.json({ error: 'Admin access required' }, 403);
@@ -6119,6 +6330,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       for (const userId of userIds) {
         try {
+          // CRITICAL: Prevent self-assignment (would create circular reference in genealogy tree)
+          if (newCaptainId && userId === newCaptainId) {
+            results.push({ userId, success: false, error: 'Cannot assign a user as their own group leader' });
+            continue;
+          }
+
           const targetEntity = new UserEntity(c.env, userId);
           const targetUser = await targetEntity.getState();
 
@@ -6207,7 +6424,170 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       console.error('Bulk reassign error:', e);
       return c.json({ error: e.message }, 500);
     }
-  });
+  };
+
+  // New endpoint (preferred)
+  app.post('/api/admin/users/bulk-reassign-group-leader', bulkReassignGroupLeaderHandler);
+
+  // Legacy endpoint (@deprecated - use /api/admin/users/bulk-reassign-group-leader)
+  app.post('/api/admin/users/bulk-reassign-captain', bulkReassignGroupLeaderHandler);
+
+  // ========================================
+  // NEW API ALIASES (preferred terminology)
+  // ========================================
+
+  // Alias for reassign-captain using new terminology
+  // The handler logic uses the new terminology
+  const handleReassignGroupLeader = async (c: Context) => {
+    try {
+      const admin = await requireAdminForImpersonation(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      const targetUserId = c.req.param('userId');
+      const body = await c.req.json<{
+        newGroupLeaderId?: string | null;
+        newCaptainId?: string | null; // Legacy support
+        projectId?: string;
+        notify?: boolean;
+      }>();
+      // Support both new and legacy field names
+      const newCaptainId = body.newGroupLeaderId ?? body.newCaptainId ?? null;
+      const { projectId, notify = true } = body;
+
+      // Get target user
+      const targetEntity = new UserEntity(c.env, targetUserId);
+      const targetUser = await targetEntity.getState();
+      if (!targetUser.id) return notFound(c, 'User not found');
+
+      // CRITICAL: Prevent self-assignment (would create circular reference in genealogy tree)
+      if (newCaptainId && targetUserId === newCaptainId) {
+        return bad(c, 'Cannot assign a user as their own group leader');
+      }
+
+      // Get old captain info (if any)
+      let oldCaptain: User | null = null;
+      const oldCaptainId = targetUser.captainId;
+      if (oldCaptainId) {
+        const oldCaptainEntity = new UserEntity(c.env, oldCaptainId);
+        oldCaptain = await oldCaptainEntity.getState();
+        if (!oldCaptain.id) oldCaptain = null;
+      }
+
+      // Get new captain info (if provided)
+      let newCaptain: User | null = null;
+      if (newCaptainId) {
+        const newCaptainEntity = new UserEntity(c.env, newCaptainId);
+        newCaptain = await newCaptainEntity.getState();
+        if (!newCaptain.id) return notFound(c, 'New group leader not found');
+      }
+
+      // Update user's global captainId
+      await targetEntity.patch({ captainId: newCaptainId });
+
+      // Update the recruits index (critical for roster display)
+      if (oldCaptainId) {
+        const oldRecruitIndex = new Index(c.env, `recruits:${oldCaptainId}`);
+        await oldRecruitIndex.remove(targetUserId);
+      }
+      if (newCaptainId) {
+        const newRecruitIndex = new Index(c.env, `recruits:${newCaptainId}`);
+        await newRecruitIndex.add(targetUserId);
+      }
+
+      // Update ALL project enrollments for this user
+      const allEnrollments = await ProjectEnrollmentEntity.list(c.env);
+      const userEnrollments = allEnrollments.items.filter(e => e.userId === targetUserId);
+      for (const enrollment of userEnrollments) {
+        const enrollmentEntity = new ProjectEnrollmentEntity(c.env, enrollment.id);
+        await enrollmentEntity.patch({ groupLeaderId: newCaptainId });
+      }
+
+      // Send notifications using new terminology types
+      if (notify) {
+        await sendNotification(
+          c.env,
+          targetUserId,
+          'group_leader_reassigned',
+          'Group Assignment Changed',
+          newCaptain
+            ? `You have been assigned to ${newCaptain.name}'s group.`
+            : 'You have been removed from your group assignment.',
+          {
+            data: {
+              oldGroupLeaderId: oldCaptainId,
+              oldGroupLeaderName: oldCaptain?.name,
+              newGroupLeaderId: newCaptainId,
+              newGroupLeaderName: newCaptain?.name,
+              adminId: admin.id,
+              adminName: admin.name
+            },
+            pushUrl: '/app/roster'
+          }
+        );
+
+        if (oldCaptain && oldCaptainId !== newCaptainId) {
+          await sendNotification(
+            c.env,
+            oldCaptainId,
+            'group_member_removed',
+            'Group Member Reassigned',
+            `${targetUser.name} has been reassigned to ${newCaptain ? newCaptain.name + "'s group" : 'no group'}.`,
+            {
+              data: {
+                memberId: targetUserId,
+                memberName: targetUser.name,
+                newGroupLeaderId: newCaptainId,
+                newGroupLeaderName: newCaptain?.name,
+                adminId: admin.id,
+                adminName: admin.name
+              },
+              pushUrl: '/app/roster'
+            }
+          );
+        }
+
+        if (newCaptain && newCaptainId !== oldCaptainId) {
+          await sendNotification(
+            c.env,
+            newCaptainId,
+            'new_group_member',
+            'New Group Member',
+            `${targetUser.name} has been added to your group.`,
+            {
+              data: {
+                memberId: targetUserId,
+                memberName: targetUser.name,
+                previousGroupLeaderId: oldCaptainId,
+                previousGroupLeaderName: oldCaptain?.name,
+                adminId: admin.id,
+                adminName: admin.name
+              },
+              pushUrl: '/app/roster'
+            }
+          );
+        }
+      }
+
+      return ok(c, {
+        success: true,
+        user: {
+          id: targetUser.id,
+          name: targetUser.name,
+          oldGroupLeaderId: oldCaptainId,
+          newGroupLeaderId: newCaptainId,
+          // Legacy field names for backward compatibility
+          oldCaptainId,
+          newCaptainId
+        }
+      });
+    } catch (e: any) {
+      console.error('Reassign group leader error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  };
+
+  // New endpoint (preferred)
+  app.post('/api/admin/users/:userId/reassign-group-leader', handleReassignGroupLeader);
 
   // Repair broken team assignments (admin only)
   // This fixes users who were previously assigned to captains but don't appear in recruits index
