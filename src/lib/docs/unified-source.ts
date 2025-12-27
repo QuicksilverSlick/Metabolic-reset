@@ -1569,10 +1569,10 @@ In Admin > Settings:
   {
     id: 'content-lms',
     title: 'Course Content (LMS)',
-    description: 'Managing videos, quizzes, and educational content',
+    description: 'Managing videos, quizzes, and educational content with TikTok-style feeds',
     icon: 'Video',
     order: 7,
-    aiContext: 'LMS section covers course content management including videos, quizzes, and progress tracking. Relevant for video playback issues, quiz problems, or content not unlocking.',
+    aiContext: 'LMS section covers course content management including TikTok-style video feeds (VideoFeed, UnifiedContentFeed), content calendar scheduling, quizzes, and progress tracking. New in Dec 2025: swipe-based video navigation, double-tap to like, content scheduling calendar.',
     relatedSections: ['overview', 'daily-tracking'],
     articles: [
       {
@@ -1628,16 +1628,48 @@ ContentManager component allows:
 - Set unlock days
 - View engagement analytics
 
+## TikTok-Style Video Experience (Dec 2025)
+
+New immersive video components:
+
+| Component | Description |
+|-----------|-------------|
+| **VideoFeed** | Full-screen swipe-based video player |
+| **UnifiedContentFeed** | Videos + quizzes in single feed |
+| **ContentCalendar** | Visual scheduling for content releases |
+
+### VideoFeed Features
+- Swipe up/down to navigate videos
+- Double-tap to like (with heart animation)
+- Progress tracking per video
+- Mute/unmute toggle
+- Like count and comments
+
+### UnifiedContentFeed Features
+- Combines videos and quizzes in one feed
+- Horizontal swipe for content navigation
+- Inline quiz submission with immediate feedback
+- Progress persistence across sessions
+
+### ContentCalendar Features
+- Month view of scheduled content
+- Content type icons (video/quiz/resource)
+- Click to edit content
+- Add content to specific days
+
 ## Key Files
 
-- \`src/pages/app/CoursePage.tsx\` - Student content view
-- \`src/components/admin/ContentManager.tsx\` - Admin UI
-- \`worker/entities.ts:653\` - CourseContentEntity
-- \`worker/entities.ts:736\` - UserProgressEntity
+- src/pages/app/CoursePage.tsx - Student content view
+- src/components/course/VideoFeed.tsx - TikTok-style video feed
+- src/components/course/UnifiedContentFeed.tsx - Combined content feed
+- src/components/admin/ContentCalendar.tsx - Content scheduling calendar
+- src/components/admin/ContentManager.tsx - Admin UI
+- worker/entities.ts:653 - CourseContentEntity
+- worker/entities.ts:736 - UserProgressEntity
 
 ## Content ID Format
 
-\`content-{projectId}-{type}-{dayNumber}-{random}\`
+content-{projectId}-{type}-{dayNumber}-{random}
         `.trim(),
         relatedArticles: ['quiz-management', 'video-streaming'],
       },
@@ -1817,10 +1849,10 @@ By default, coupons are one-per-customer:
   {
     id: 'referrals',
     title: 'Referrals & Teams',
-    description: 'Coach referral system and team management',
+    description: 'Coach referral system, team management, and Find Your Group',
     icon: 'Users',
     order: 9,
-    aiContext: 'Referrals section covers coach referral links, team rosters, and genealogy trees. Relevant for referral tracking issues or team structure bugs.',
+    aiContext: 'Referrals section covers coach referral links, team rosters, Find Your Group search, and genealogy trees. New in Dec 2025: Live-indexed group search with sorting by name/size and server-side pagination.',
     relatedSections: ['user-management', 'payments'],
     articles: [
       {
@@ -1915,10 +1947,39 @@ GET /api/roster - Coach's own team
 GET /api/admin/roster/:userId - Admin view of any team
 \`\`\`
 
+## Find Your Group (Dec 2025)
+
+New live-indexed group search for participants to find and join groups:
+
+### Features
+- Real-time search with server-side filtering
+- Sort by group leader name (A-Z) or group size
+- Live group size counts (updated on assignment)
+- Pagination for large result sets
+- Self-service group selection in AssignCaptainPage
+
+### Search API
+
+\`\`\`
+GET /api/group-leaders/search
+  ?q=search term
+  &sort=name|size
+  &limit=20
+  &offset=0
+\`\`\`
+
+### Group Size Index
+
+Group sizes maintained via secondary indexes:
+- Updated when users are assigned/reassigned
+- Enables instant sorting by group size
+- No expensive count queries needed
+
 ## Key Files
 
-- \`src/pages/app/RosterPage.tsx\` - Coach roster view
-- \`worker/user-routes.ts\` - Roster endpoints
+- src/pages/app/RosterPage.tsx - Coach roster view
+- src/pages/app/AssignCaptainPage.tsx - Find Your Group UI
+- worker/user-routes.ts - Roster and search endpoints
         `.trim(),
         relatedArticles: ['referral-system'],
       },
@@ -1936,7 +1997,7 @@ GET /api/admin/roster/:userId - Admin view of any team
       {
         id: 'api-overview',
         title: 'API Reference',
-        description: 'All 121 API endpoints',
+        description: 'All 141 API endpoints',
         tags: ['api', 'endpoints', 'rest', 'http', 'reference'],
         lastUpdated: '2025-12-23',
         importance: 10,
