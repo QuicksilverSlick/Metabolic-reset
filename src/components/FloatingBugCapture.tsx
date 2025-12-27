@@ -43,7 +43,7 @@ export function FloatingBugCapture() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Capture screenshot using html2canvas
+  // Capture screenshot using html2canvas - responsive for all screen sizes
   const captureScreenshot = useCallback(async () => {
     store.setCaptureMode('screenshot-pending');
 
@@ -51,17 +51,39 @@ export function FloatingBugCapture() {
     await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
+      // Get the visible viewport dimensions
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // Determine optimal scale based on screen size
+      // Higher resolution for smaller screens (mobile), lower for large screens
+      const baseScale = window.devicePixelRatio || 1;
+      const maxScale = viewportWidth <= 768 ? 2 : 1.5; // Higher quality for mobile
+      const scale = Math.min(baseScale, maxScale);
+
       const canvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#0a1628', // Navy background as fallback
-        scale: Math.min(window.devicePixelRatio || 1, 2), // Cap at 2x for performance
+        scale: scale,
         logging: false,
-        // Ignore the floating capture widget and any dialogs
+        // Capture the visible viewport area
+        width: viewportWidth,
+        height: viewportHeight,
+        windowWidth: viewportWidth,
+        windowHeight: viewportHeight,
+        x: window.scrollX,
+        y: window.scrollY,
+        // Ignore the floating capture widget, dialogs, and other fixed elements
         ignoreElements: (element) => {
-          return element.id === 'floating-bug-capture' ||
-            element.getAttribute('role') === 'dialog' ||
-            element.classList.contains('fixed');
+          if (element.id === 'floating-bug-capture') return true;
+          if (element.getAttribute('role') === 'dialog') return true;
+          // Be more selective about fixed elements - only ignore overlays
+          if (element.classList.contains('fixed') &&
+              (element.classList.contains('z-50') || element.classList.contains('z-[9999]'))) {
+            return true;
+          }
+          return false;
         }
       });
 
@@ -85,7 +107,7 @@ export function FloatingBugCapture() {
         // Open dialog to show the result
         store.setDialogOpen(true);
         store.setMinimized(false);
-      }, 'image/png', 0.9);
+      }, 'image/png', 0.92); // Slightly higher quality
     } catch (error) {
       console.error('Screenshot capture failed:', error);
       toast.error('Screenshot failed', {
