@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useCourseOverview, useDayContent, usePrefetchAdjacentDays, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz, useContentComments, useAddComment, useLikeComment, useContentDetails, useLikeContent } from '@/hooks/use-queries';
 import { VideoFeed } from '@/components/course/VideoFeed';
+import { UnifiedContentFeed } from '@/components/course/UnifiedContentFeed';
 import { useAuthStore } from '@/lib/auth-store';
 import {
   Play,
@@ -80,6 +81,10 @@ export function CoursePage() {
   const [feedModeOpen, setFeedModeOpen] = useState(false);
   const [feedStartIndex, setFeedStartIndex] = useState(0);
   const [commentVideoForFeed, setCommentVideoForFeed] = useState<CourseContent | null>(null);
+
+  // Unified content feed state (video + quiz combined)
+  const [unifiedFeedOpen, setUnifiedFeedOpen] = useState(false);
+  const [unifiedFeedStartIndex, setUnifiedFeedStartIndex] = useState(0);
 
   // Quiz state
   const [quizModalOpen, setQuizModalOpen] = useState(false);
@@ -212,6 +217,17 @@ export function CoursePage() {
       }));
   }, [dayContent?.content]);
 
+  // Unified content feed - includes videos and their associated quizzes
+  const dayContentItems = useMemo(() => {
+    if (!dayContent?.content) return [];
+    return dayContent.content
+      .filter(item => item.content.contentType === 'video' || item.content.contentType === 'quiz')
+      .map(item => ({
+        content: item.content,
+        progress: item.progress
+      }));
+  }, [dayContent?.content]);
+
   // Open video in TikTok-style feed mode
   const openVideoFeed = useCallback((content: CourseContent, progress: UserProgress | null) => {
     const videoIndex = dayVideos.findIndex(v => v.content.id === content.id);
@@ -239,6 +255,24 @@ export function CoursePage() {
     setActiveVideo(null);
     setCommentVideoForFeed(null);
   }, []);
+
+  // Open unified content feed (video + quiz)
+  const openUnifiedFeed = useCallback((content: CourseContent, progress: UserProgress | null) => {
+    const contentIndex = dayContentItems.findIndex(v => v.content.id === content.id);
+    setUnifiedFeedStartIndex(Math.max(0, contentIndex));
+    setUnifiedFeedOpen(true);
+  }, [dayContentItems]);
+
+  // Close unified feed
+  const closeUnifiedFeed = useCallback(() => {
+    setUnifiedFeedOpen(false);
+  }, []);
+
+  // Handle quiz submission from unified feed
+  const handleUnifiedQuizSubmit = useCallback(async (contentId: string, answers: Record<string, number>) => {
+    const result = await submitQuizMutation.mutateAsync({ contentId, answers });
+    return result;
+  }, [submitQuizMutation]);
 
   // Format relative time for comments
   const formatRelativeTime = (timestamp: number) => {
@@ -508,11 +542,11 @@ export function CoursePage() {
                       : "bg-slate-100 dark:bg-navy-800 border-slate-200 dark:border-navy-700 opacity-60"
                   )}
                 >
-                  {/* Thumbnail for videos - opens TikTok-style feed */}
+                  {/* Thumbnail for videos - opens unified TikTok-style feed with quiz */}
                   {content.contentType === 'video' && content.thumbnailUrl && (
                     <div
                       className="relative w-full aspect-video bg-slate-900 cursor-pointer group"
-                      onClick={() => dayContent.isUnlocked && openVideoFeed(content, progress || null)}
+                      onClick={() => dayContent.isUnlocked && openUnifiedFeed(content, progress || null)}
                     >
                       <img
                         src={content.thumbnailUrl}
@@ -614,7 +648,7 @@ export function CoursePage() {
                             {content.contentType === 'video' && !content.thumbnailUrl && (
                               <Button
                                 size="sm"
-                                onClick={() => openVideoFeed(content, progress || null)}
+                                onClick={() => openUnifiedFeed(content, progress || null)}
                                 className="bg-gold-500 hover:bg-gold-600 text-navy-900"
                               >
                                 <Play className="h-4 w-4 mr-1" />
@@ -656,7 +690,7 @@ export function CoursePage() {
         </CardContent>
       </Card>
 
-      {/* TikTok-style Video Feed */}
+      {/* TikTok-style Video Feed (legacy - kept for backwards compatibility) */}
       {feedModeOpen && dayVideos.length > 0 && (
         <VideoFeed
           videos={dayVideos}
@@ -668,6 +702,24 @@ export function CoursePage() {
             updateProgressMutation.mutate({ contentId, watchedPercentage, lastPosition });
           }}
           onVideoComplete={(contentId) => completeVideoMutation.mutate(contentId)}
+          onOpenComments={handleFeedOpenComments}
+          isLikeLoading={likeContentMutation.isPending}
+        />
+      )}
+
+      {/* Unified Content Feed - TikTok-style with integrated Quiz */}
+      {unifiedFeedOpen && dayContentItems.length > 0 && (
+        <UnifiedContentFeed
+          items={dayContentItems}
+          initialIndex={unifiedFeedStartIndex}
+          currentUserId={userId}
+          onClose={closeUnifiedFeed}
+          onLikeContent={(contentId) => likeContentMutation.mutate(contentId)}
+          onVideoProgress={(contentId, watchedPercentage, lastPosition) => {
+            updateProgressMutation.mutate({ contentId, watchedPercentage, lastPosition });
+          }}
+          onVideoComplete={(contentId) => completeVideoMutation.mutate(contentId)}
+          onQuizSubmit={handleUnifiedQuizSubmit}
           onOpenComments={handleFeedOpenComments}
           isLikeLoading={likeContentMutation.isPending}
         />

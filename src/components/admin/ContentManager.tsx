@@ -145,8 +145,11 @@ export function ContentManager() {
     setEditingContent(null);
   };
 
-  const openCreateDialog = () => {
+  const openCreateDialog = (dayNumber?: number) => {
     resetForm();
+    if (dayNumber) {
+      setFormDay(dayNumber);
+    }
     setContentDialogOpen(true);
   };
 
@@ -617,6 +620,7 @@ export function ContentManager() {
                 project={selectedProject}
                 content={content || []}
                 onSelectContent={openEditDialog}
+                onAddContent={openCreateDialog}
               />
             ) : (
               <Card className="bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-700">
@@ -699,7 +703,7 @@ export function ContentManager() {
         setContentDialogOpen(open);
         if (!open) resetForm();
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-navy-800">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-600">
           <DialogHeader>
             <DialogTitle className="text-navy-900 dark:text-white">
               {editingContent ? 'Edit Content' : 'Add New Content'}
@@ -712,9 +716,9 @@ export function ContentManager() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Day Number</Label>
+                <Label className="text-navy-900 dark:text-white">Day Number</Label>
                 <Select value={formDay.toString()} onValueChange={(v) => setFormDay(parseInt(v))}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -727,9 +731,9 @@ export function ContentManager() {
                 </Select>
               </div>
               <div>
-                <Label>Content Type</Label>
+                <Label className="text-navy-900 dark:text-white">Content Type</Label>
                 <Select value={formType} onValueChange={(v) => setFormType(v as CourseContentType)}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -742,22 +746,22 @@ export function ContentManager() {
             </div>
 
             <div>
-              <Label>Title</Label>
+              <Label className="text-navy-900 dark:text-white">Title</Label>
               <Input
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 placeholder="Enter content title"
-                className="mt-1"
+                className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
               />
             </div>
 
             <div>
-              <Label>Description</Label>
+              <Label className="text-navy-900 dark:text-white">Description</Label>
               <Textarea
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 placeholder="Brief description of the content"
-                className="mt-1"
+                className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                 rows={2}
               />
             </div>
@@ -766,13 +770,13 @@ export function ContentManager() {
             {formType === 'video' && (
               <>
                 <div>
-                  <Label>Video File</Label>
+                  <Label className="text-navy-900 dark:text-white">Video File</Label>
                   <div className="mt-1 flex gap-2">
                     <Input
                       value={formVideoUrl}
                       onChange={(e) => setFormVideoUrl(e.target.value)}
                       placeholder="https://... or upload a video"
-                      className="flex-1"
+                      className="flex-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                       disabled={isUploadingVideo}
                     />
                     <input
@@ -816,23 +820,23 @@ export function ContentManager() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Duration (seconds)</Label>
+                    <Label className="text-navy-900 dark:text-white">Duration (seconds)</Label>
                     <Input
                       type="number"
                       value={formVideoDuration}
                       onChange={(e) => setFormVideoDuration(parseInt(e.target.value) || 0)}
                       placeholder="300"
-                      className="mt-1"
+                      className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                     />
                   </div>
                   <div>
-                    <Label>Thumbnail Image (optional)</Label>
+                    <Label className="text-navy-900 dark:text-white">Thumbnail Image (optional)</Label>
                     <div className="mt-1 flex gap-2">
                       <Input
                         value={formThumbnailUrl}
                         onChange={(e) => setFormThumbnailUrl(e.target.value)}
                         placeholder="https://... or upload"
-                        className="flex-1"
+                        className="flex-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                       />
                       <input
                         ref={thumbnailInputRef}
@@ -867,13 +871,13 @@ export function ContentManager() {
             {/* Resource-specific fields */}
             {formType === 'resource' && (
               <div>
-                <Label>Resource File</Label>
+                <Label className="text-navy-900 dark:text-white">Resource File</Label>
                 <div className="mt-1 flex gap-2">
                   <Input
                     value={formResourceUrl}
                     onChange={(e) => setFormResourceUrl(e.target.value)}
                     placeholder="https://... or upload a file"
-                    className="flex-1"
+                    className="flex-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                   />
                   <input
                     ref={resourceInputRef}
@@ -901,10 +905,10 @@ export function ContentManager() {
 
             {/* Quiz-specific fields */}
             {formType === 'quiz' && (
-              <div className="space-y-4 border-t pt-4">
+              <div className="space-y-4 border-t border-slate-200 dark:border-navy-600 pt-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Quiz Questions</Label>
-                  <Button type="button" size="sm" onClick={addQuizQuestion}>
+                  <Label className="text-base font-semibold text-navy-900 dark:text-white">Quiz Questions</Label>
+                  <Button type="button" size="sm" onClick={addQuizQuestion} className="bg-gold-500 hover:bg-gold-600 text-navy-900">
                     <Plus className="h-4 w-4 mr-1" />
                     Add Question
                   </Button>
@@ -912,45 +916,45 @@ export function ContentManager() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label>Passing Score (%)</Label>
+                    <Label className="text-navy-900 dark:text-white">Passing Score (%)</Label>
                     <Input
                       type="number"
                       min={1}
                       max={100}
                       value={formQuizPassingScore}
                       onChange={(e) => setFormQuizPassingScore(parseInt(e.target.value) || 85)}
-                      className="mt-1"
+                      className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                     />
                   </div>
                   <div>
-                    <Label>Max Attempts</Label>
+                    <Label className="text-navy-900 dark:text-white">Max Attempts</Label>
                     <Input
                       type="number"
                       min={1}
                       max={10}
                       value={formQuizMaxAttempts}
                       onChange={(e) => setFormQuizMaxAttempts(parseInt(e.target.value) || 3)}
-                      className="mt-1"
+                      className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                     />
                   </div>
                   <div>
-                    <Label>Cooldown (hours)</Label>
+                    <Label className="text-navy-900 dark:text-white">Cooldown (hours)</Label>
                     <Input
                       type="number"
                       min={0}
                       max={168}
                       value={formQuizCooldownHours}
                       onChange={(e) => setFormQuizCooldownHours(parseInt(e.target.value) || 24)}
-                      className="mt-1"
+                      className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                     />
                   </div>
                 </div>
 
                 {formQuizQuestions.map((q, qIndex) => (
-                  <Card key={q.id} className="bg-slate-50 dark:bg-navy-700">
+                  <Card key={q.id} className="bg-slate-50 dark:bg-navy-700/50 border-slate-200 dark:border-navy-600">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <Label className="font-medium">Question {qIndex + 1}</Label>
+                        <Label className="font-medium text-navy-900 dark:text-white">Question {qIndex + 1}</Label>
                         <Button
                           type="button"
                           size="sm"
@@ -965,9 +969,9 @@ export function ContentManager() {
                         value={q.question}
                         onChange={(e) => updateQuizQuestion(qIndex, { question: e.target.value })}
                         placeholder="Enter your question"
-                        className="mb-3"
+                        className="mb-3 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                       />
-                      <Label className="text-xs text-slate-500">Options (click to set correct answer)</Label>
+                      <Label className="text-xs text-slate-500 dark:text-slate-400">Options (click to set correct answer)</Label>
                       <div className="space-y-2 mt-1">
                         {q.options.map((opt, oIndex) => (
                           <div key={oIndex} className="flex items-center gap-2">
@@ -976,7 +980,7 @@ export function ContentManager() {
                               size="sm"
                               variant={q.correctIndex === oIndex ? "default" : "outline"}
                               onClick={() => updateQuizQuestion(qIndex, { correctIndex: oIndex })}
-                              className={`h-8 w-8 p-0 ${q.correctIndex === oIndex ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                              className={`h-8 w-8 p-0 ${q.correctIndex === oIndex ? 'bg-green-500 hover:bg-green-600' : 'border-slate-200 dark:border-navy-600'}`}
                             >
                               {q.correctIndex === oIndex ? <Check className="h-4 w-4" /> : String.fromCharCode(65 + oIndex)}
                             </Button>
@@ -984,18 +988,18 @@ export function ContentManager() {
                               value={opt}
                               onChange={(e) => updateQuizOption(qIndex, oIndex, e.target.value)}
                               placeholder={`Option ${String.fromCharCode(65 + oIndex)}`}
-                              className="flex-1"
+                              className="flex-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                             />
                           </div>
                         ))}
                       </div>
                       <div className="mt-3">
-                        <Label className="text-xs text-slate-500">Explanation (shown after answering)</Label>
+                        <Label className="text-xs text-slate-500 dark:text-slate-400">Explanation (shown after answering)</Label>
                         <Input
                           value={q.explanation || ''}
                           onChange={(e) => updateQuizQuestion(qIndex, { explanation: e.target.value })}
                           placeholder="Why this answer is correct..."
-                          className="mt-1"
+                          className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                         />
                       </div>
                     </CardContent>
@@ -1005,15 +1009,15 @@ export function ContentManager() {
             )}
 
             {/* Common fields */}
-            <div className="grid grid-cols-2 gap-4 border-t pt-4">
+            <div className="grid grid-cols-2 gap-4 border-t border-slate-200 dark:border-navy-600 pt-4">
               <div>
-                <Label>Points Awarded</Label>
+                <Label className="text-navy-900 dark:text-white">Points Awarded</Label>
                 <Input
                   type="number"
                   min={0}
                   value={formPoints}
                   onChange={(e) => setFormPoints(parseInt(e.target.value) || 0)}
-                  className="mt-1"
+                  className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600"
                 />
               </div>
               <div className="flex items-center gap-3 self-end pb-2">
@@ -1021,13 +1025,13 @@ export function ContentManager() {
                   checked={formIsRequired}
                   onCheckedChange={setFormIsRequired}
                 />
-                <Label>Required for quiz unlock</Label>
+                <Label className="text-navy-900 dark:text-white">Required for quiz unlock</Label>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContentDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setContentDialogOpen(false)} className="border-slate-200 dark:border-navy-600">
               Cancel
             </Button>
             <Button
@@ -1046,10 +1050,10 @@ export function ContentManager() {
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white dark:bg-navy-800">
+        <AlertDialogContent className="bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-600">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Content?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-navy-900 dark:text-white">Delete Content?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500 dark:text-slate-400">
               Are you sure you want to delete "{contentToDelete?.title}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1068,17 +1072,17 @@ export function ContentManager() {
 
       {/* Copy Content Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
-        <DialogContent className="bg-white dark:bg-navy-800">
+        <DialogContent className="bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-600">
           <DialogHeader>
-            <DialogTitle>Copy Content to Another Project</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-navy-900 dark:text-white">Copy Content to Another Project</DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
               This will copy all content from the current project to the selected target project.
             </DialogDescription>
           </DialogHeader>
           <div>
-            <Label>Target Project</Label>
+            <Label className="text-navy-900 dark:text-white">Target Project</Label>
             <Select value={targetProjectId} onValueChange={setTargetProjectId}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger className="mt-1 bg-white dark:bg-navy-700 border-slate-200 dark:border-navy-600">
                 <SelectValue placeholder="Select target project..." />
               </SelectTrigger>
               <SelectContent>
@@ -1091,7 +1095,7 @@ export function ContentManager() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCopyDialogOpen(false)} className="border-slate-200 dark:border-navy-600">
               Cancel
             </Button>
             <Button

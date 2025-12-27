@@ -1,18 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, PanInfo } from 'framer-motion';
 import {
   Play,
-  Pause,
   Heart,
   MessageCircle,
   ChevronUp,
-  ChevronDown,
   Volume2,
   VolumeX,
   X,
   Award,
   Check,
-  Loader2
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,8 +33,19 @@ interface VideoFeedProps {
   isLikeLoading?: boolean;
 }
 
-// Heart animation particles component
-function HeartParticles({ show }: { show: boolean }) {
+// Pre-calculated particle positions for performance
+const PARTICLE_POSITIONS = Array.from({ length: 8 }, (_, i) => {
+  const angle = (i / 8) * 360;
+  const radian = (angle * Math.PI) / 180;
+  const distance = 100;
+  return {
+    x: Math.cos(radian) * distance,
+    y: Math.sin(radian) * distance,
+  };
+});
+
+// Heart animation particles component - memoized
+const HeartParticles = React.memo(function HeartParticles({ show }: { show: boolean }) {
   if (!show) return null;
 
   return (
@@ -50,44 +59,38 @@ function HeartParticles({ show }: { show: boolean }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="absolute"
+            style={{ willChange: 'transform, opacity' }}
           >
             <Heart className="w-24 h-24 text-red-500 fill-red-500" />
           </motion.div>
 
-          {/* Particle hearts */}
-          {[...Array(8)].map((_, i) => {
-            const angle = (i / 8) * 360;
-            const radian = (angle * Math.PI) / 180;
-            const distance = 100;
-            const x = Math.cos(radian) * distance;
-            const y = Math.sin(radian) * distance;
-
-            return (
-              <motion.div
-                key={i}
-                initial={{ scale: 0, opacity: 1, x: 0, y: 0 }}
-                animate={{
-                  scale: [0, 1, 0.5],
-                  opacity: [1, 1, 0],
-                  x: [0, x * 0.5, x],
-                  y: [0, y * 0.5 - 20, y - 40],
-                }}
-                transition={{
-                  duration: 0.8,
-                  ease: "easeOut",
-                  delay: i * 0.02,
-                }}
-                className="absolute"
-              >
-                <Heart className="w-6 h-6 text-red-500 fill-red-500" />
-              </motion.div>
-            );
-          })}
+          {/* Particle hearts - using pre-calculated positions */}
+          {PARTICLE_POSITIONS.map((pos, i) => (
+            <motion.div
+              key={i}
+              initial={{ scale: 0, opacity: 1, x: 0, y: 0 }}
+              animate={{
+                scale: [0, 1, 0.5],
+                opacity: [1, 1, 0],
+                x: [0, pos.x * 0.5, pos.x],
+                y: [0, pos.y * 0.5 - 20, pos.y - 40],
+              }}
+              transition={{
+                duration: 0.8,
+                ease: "easeOut",
+                delay: i * 0.02,
+              }}
+              className="absolute"
+              style={{ willChange: 'transform, opacity' }}
+            >
+              <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+            </motion.div>
+          ))}
         </div>
       )}
     </AnimatePresence>
   );
-}
+});
 
 // Up Next Preview Component
 function UpNextPreview({ nextVideo, onSwipe }: { nextVideo: VideoItem | null; onSwipe: () => void }) {
@@ -137,8 +140,8 @@ function UpNextPreview({ nextVideo, onSwipe }: { nextVideo: VideoItem | null; on
   );
 }
 
-// Single Video Card
-function VideoCard({
+// Single Video Card - memoized for performance
+const VideoCard = React.memo(function VideoCard({
   item,
   isActive,
   currentUserId,
@@ -162,21 +165,41 @@ function VideoCard({
   const [isMuted, setIsMuted] = useState(false);
   const [showHearts, setShowHearts] = useState(false);
   const [watchedPercentage, setWatchedPercentage] = useState(item.progress?.watchedPercentage || 0);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const lastUpdateRef = useRef<number>(0);
   const doubleTapRef = useRef<number>(0);
   const heartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
-  // Cleanup timeouts on unmount
+  // Optimistic like state for immediate UI feedback
+  const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
+
+  // Cleanup timeouts and track mounted state
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (heartTimeoutRef.current) clearTimeout(heartTimeoutRef.current);
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      // Cleanup video element
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.src = '';
+        videoRef.current.load();
+      }
     };
   }, []);
 
-  const isLiked = currentUserId && item.content.likedBy?.includes(currentUserId);
+  // Calculate liked state: optimistic takes precedence, then server state
+  const serverLiked = currentUserId && item.content.likedBy?.includes(currentUserId);
+  const isLiked = optimisticLiked !== null ? optimisticLiked : serverLiked;
   const isCompleted = item.progress?.status === 'completed';
+
+  // Reset optimistic state when server state changes
+  useEffect(() => {
+    setOptimisticLiked(null);
+  }, [item.content.likedBy]);
 
   // Handle play/pause when active state changes
   useEffect(() => {
@@ -187,7 +210,13 @@ function VideoCard({
       if (item.progress?.lastPosition) {
         videoRef.current.currentTime = item.progress.lastPosition;
       }
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch((err) => {
+        // Only show error for non-autoplay-blocked errors
+        if (err.name !== 'NotAllowedError' && isMountedRef.current) {
+          console.error('Video playback error:', err);
+          setVideoError('Failed to play video. Tap to retry.');
+        }
+      });
       setIsPlaying(true);
     } else {
       videoRef.current.pause();
@@ -200,6 +229,9 @@ function VideoCard({
     if (!videoRef.current) return;
 
     const video = videoRef.current;
+    // Guard against division by zero or invalid duration
+    if (!video.duration || isNaN(video.duration) || !isFinite(video.duration)) return;
+
     const percentage = (video.currentTime / video.duration) * 100;
     setWatchedPercentage(percentage);
 
@@ -211,6 +243,13 @@ function VideoCard({
     }
   }, [onProgress]);
 
+  // Handle video error
+  const handleVideoError = useCallback(() => {
+    if (isMountedRef.current) {
+      setVideoError('Video failed to load. Please check your connection.');
+    }
+  }, []);
+
   // Handle video ended
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
@@ -221,13 +260,24 @@ function VideoCard({
 
   // Toggle play/pause on tap
   const handleVideoTap = useCallback(() => {
+    // Clear any error state on tap (retry)
+    if (videoError) {
+      setVideoError(null);
+    }
+
     const now = Date.now();
     const timeSinceLastTap = now - doubleTapRef.current;
 
-    // Double tap to like
+    // Double tap to like (always like, never unlike on double-tap)
     if (timeSinceLastTap < 300) {
       if (!isLiked) {
+        setOptimisticLiked(true);
         onLike();
+        setShowHearts(true);
+        if (heartTimeoutRef.current) clearTimeout(heartTimeoutRef.current);
+        heartTimeoutRef.current = setTimeout(() => setShowHearts(false), 1000);
+      } else {
+        // Already liked - just show hearts animation
         setShowHearts(true);
         if (heartTimeoutRef.current) clearTimeout(heartTimeoutRef.current);
         heartTimeoutRef.current = setTimeout(() => setShowHearts(false), 1000);
@@ -247,18 +297,25 @@ function VideoCard({
             videoRef.current.pause();
             setIsPlaying(false);
           } else {
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch((err) => {
+              if (err.name !== 'NotAllowedError' && isMountedRef.current) {
+                setVideoError('Failed to play video. Tap to retry.');
+              }
+            });
             setIsPlaying(true);
           }
         }
       }
     }, 300);
-  }, [isPlaying, isLiked, onLike]);
+  }, [isPlaying, isLiked, onLike, videoError]);
 
   // Like button with animation
   const handleLikeClick = useCallback(() => {
+    // Set optimistic state immediately for instant UI feedback
+    const newLikedState = !isLiked;
+    setOptimisticLiked(newLikedState);
     onLike();
-    if (!isLiked) {
+    if (newLikedState) {
       setShowHearts(true);
       if (heartTimeoutRef.current) clearTimeout(heartTimeoutRef.current);
       heartTimeoutRef.current = setTimeout(() => setShowHearts(false), 1000);
@@ -275,10 +332,22 @@ function VideoCard({
         loop={false}
         muted={isMuted}
         playsInline
+        preload="metadata"
+        poster={item.content.thumbnailUrl || undefined}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
         onClick={handleVideoTap}
+        onError={handleVideoError}
       />
+
+      {/* Video error state */}
+      {videoError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
+          <p className="text-white text-center px-6">{videoError}</p>
+          <p className="text-white/60 text-sm mt-2">Tap to retry</p>
+        </div>
+      )}
 
       {/* Gradient overlays */}
       <div className="absolute inset-0 pointer-events-none">
@@ -387,7 +456,7 @@ function VideoCard({
       </div>
     </div>
   );
-}
+});
 
 export function VideoFeed({
   videos,
@@ -461,6 +530,13 @@ export function VideoFeed({
     <div
       ref={containerRef}
       className="fixed inset-0 z-50 bg-black overflow-hidden"
+      style={{
+        // Handle safe areas for notches and rounded corners
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
     >
       {/* Close button */}
       <Button
@@ -491,10 +567,10 @@ export function VideoFeed({
 
       {/* Main video area with swipe */}
       <motion.div
-        className="w-full h-full"
+        className="w-full h-full touch-none"
         drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.2}
+        dragConstraints={containerRef}
+        dragElastic={0.3}
         onDragEnd={handleDragEnd}
         style={{ y }}
       >

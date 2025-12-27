@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2025-12-27T02:56:08.297Z",
+  "generatedAt": "2025-12-27T15:23:27.887Z",
   "version": "1.0.0",
   "summary": {
     "totalAPIs": 140,
     "totalEntities": 22,
-    "totalComponents": 41,
+    "totalComponents": 44,
     "adminAPIs": 72,
     "publicAPIs": 1
   },
@@ -742,252 +742,252 @@
       "type": "api",
       "name": "PATCH /api/admin/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5109
+      "line": 5125
     },
     {
       "id": "api:DELETE:/api/admin/content/:contentId",
       "type": "api",
       "name": "DELETE /api/admin/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5149
+      "line": 5185
     },
     {
       "id": "api:POST:/api/admin/projects/:projectId/content/reorder",
       "type": "api",
       "name": "POST /api/admin/projects/:projectId/content/reorder",
       "path": "worker/user-routes.ts",
-      "line": 5174
+      "line": 5210
     },
     {
       "id": "api:POST:/api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
       "type": "api",
       "name": "POST /api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
       "path": "worker/user-routes.ts",
-      "line": 5202
+      "line": 5238
     },
     {
       "id": "api:GET:/api/admin/projects/:projectId/content/analytics",
       "type": "api",
       "name": "GET /api/admin/projects/:projectId/content/analytics",
       "path": "worker/user-routes.ts",
-      "line": 5249
+      "line": 5285
     },
     {
       "id": "api:GET:/api/course/overview",
       "type": "api",
       "name": "GET /api/course/overview",
       "path": "worker/user-routes.ts",
-      "line": 5307
+      "line": 5343
     },
     {
       "id": "api:GET:/api/course/day/:dayNumber",
       "type": "api",
       "name": "GET /api/course/day/:dayNumber",
       "path": "worker/user-routes.ts",
-      "line": 5390
+      "line": 5434
     },
     {
       "id": "api:POST:/api/course/video/progress",
       "type": "api",
       "name": "POST /api/course/video/progress",
       "path": "worker/user-routes.ts",
-      "line": 5483
+      "line": 5534
     },
     {
       "id": "api:POST:/api/course/video/complete",
       "type": "api",
       "name": "POST /api/course/video/complete",
       "path": "worker/user-routes.ts",
-      "line": 5581
+      "line": 5693
     },
     {
       "id": "api:POST:/api/course/quiz/submit",
       "type": "api",
       "name": "POST /api/course/quiz/submit",
       "path": "worker/user-routes.ts",
-      "line": 5648
+      "line": 5821
     },
     {
       "id": "api:GET:/api/course/progress",
       "type": "api",
       "name": "GET /api/course/progress",
       "path": "worker/user-routes.ts",
-      "line": 5814
+      "line": 5987
     },
     {
       "id": "api:GET:/api/course/comments/:contentId",
       "type": "api",
       "name": "GET /api/course/comments/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5839
+      "line": 6012
     },
     {
       "id": "api:POST:/api/course/comments",
       "type": "api",
       "name": "POST /api/course/comments",
       "path": "worker/user-routes.ts",
-      "line": 5856
+      "line": 6029
     },
     {
       "id": "api:POST:/api/course/comments/like",
       "type": "api",
       "name": "POST /api/course/comments/like",
       "path": "worker/user-routes.ts",
-      "line": 5888
+      "line": 6061
     },
     {
       "id": "api:POST:/api/course/content/like",
       "type": "api",
       "name": "POST /api/course/content/like",
       "path": "worker/user-routes.ts",
-      "line": 5906
+      "line": 6079
     },
     {
       "id": "api:GET:/api/course/content/:contentId",
       "type": "api",
       "name": "GET /api/course/content/:contentId",
       "path": "worker/user-routes.ts",
-      "line": 5924
+      "line": 6097
     },
     {
       "id": "api:GET:/api/notifications",
       "type": "api",
       "name": "GET /api/notifications",
       "path": "worker/user-routes.ts",
-      "line": 5946
+      "line": 6119
     },
     {
       "id": "api:GET:/api/notifications/unread-count",
       "type": "api",
       "name": "GET /api/notifications/unread-count",
       "path": "worker/user-routes.ts",
-      "line": 5961
+      "line": 6134
     },
     {
       "id": "api:POST:/api/notifications/:notificationId/read",
       "type": "api",
       "name": "POST /api/notifications/:notificationId/read",
       "path": "worker/user-routes.ts",
-      "line": 5974
+      "line": 6147
     },
     {
       "id": "api:POST:/api/notifications/mark-all-read",
       "type": "api",
       "name": "POST /api/notifications/mark-all-read",
       "path": "worker/user-routes.ts",
-      "line": 5996
+      "line": 6169
     },
     {
       "id": "api:POST:/api/admin/impersonate/start",
       "type": "api",
       "name": "POST /api/admin/impersonate/start",
       "path": "worker/user-routes.ts",
-      "line": 6023
+      "line": 6196
     },
     {
       "id": "api:POST:/api/admin/impersonate/end",
       "type": "api",
       "name": "POST /api/admin/impersonate/end",
       "path": "worker/user-routes.ts",
-      "line": 6074
+      "line": 6247
     },
     {
       "id": "api:GET:/api/admin/impersonate/audit",
       "type": "api",
       "name": "GET /api/admin/impersonate/audit",
       "path": "worker/user-routes.ts",
-      "line": 6092
+      "line": 6265
     },
     {
       "id": "api:GET:/api/admin/facilitators",
       "type": "api",
       "name": "GET /api/admin/facilitators",
       "path": "worker/user-routes.ts",
-      "line": 6144
+      "line": 6317
     },
     {
       "id": "api:GET:/api/admin/coaches",
       "type": "api",
       "name": "GET /api/admin/coaches",
       "path": "worker/user-routes.ts",
-      "line": 6147
+      "line": 6320
     },
     {
       "id": "api:POST:/api/admin/users/:userId/reassign-captain",
       "type": "api",
       "name": "POST /api/admin/users/:userId/reassign-captain",
       "path": "worker/user-routes.ts",
-      "line": 6300
+      "line": 6473
     },
     {
       "id": "api:POST:/api/admin/users/bulk-reassign-group-leader",
       "type": "api",
       "name": "POST /api/admin/users/bulk-reassign-group-leader",
       "path": "worker/user-routes.ts",
-      "line": 6430
+      "line": 6603
     },
     {
       "id": "api:POST:/api/admin/users/bulk-reassign-captain",
       "type": "api",
       "name": "POST /api/admin/users/bulk-reassign-captain",
       "path": "worker/user-routes.ts",
-      "line": 6433
+      "line": 6606
     },
     {
       "id": "api:POST:/api/admin/users/:userId/reassign-group-leader",
       "type": "api",
       "name": "POST /api/admin/users/:userId/reassign-group-leader",
       "path": "worker/user-routes.ts",
-      "line": 6590
+      "line": 6763
     },
     {
       "id": "api:POST:/api/admin/repair-team-assignments",
       "type": "api",
       "name": "POST /api/admin/repair-team-assignments",
       "path": "worker/user-routes.ts",
-      "line": 6594
+      "line": 6767
     },
     {
       "id": "api:GET:/api/push/vapid-key",
       "type": "api",
       "name": "GET /api/push/vapid-key",
       "path": "worker/user-routes.ts",
-      "line": 6695
+      "line": 6868
     },
     {
       "id": "api:POST:/api/push/subscribe",
       "type": "api",
       "name": "POST /api/push/subscribe",
       "path": "worker/user-routes.ts",
-      "line": 6700
+      "line": 6873
     },
     {
       "id": "api:POST:/api/push/unsubscribe",
       "type": "api",
       "name": "POST /api/push/unsubscribe",
       "path": "worker/user-routes.ts",
-      "line": 6734
+      "line": 6907
     },
     {
       "id": "api:GET:/api/push/status",
       "type": "api",
       "name": "GET /api/push/status",
       "path": "worker/user-routes.ts",
-      "line": 6756
+      "line": 6929
     },
     {
       "id": "api:POST:/api/admin/push/test",
       "type": "api",
       "name": "POST /api/admin/push/test",
       "path": "worker/user-routes.ts",
-      "line": 6780
+      "line": 6953
     },
     {
       "id": "api:POST:/api/push/resubscribe",
       "type": "api",
       "name": "POST /api/push/resubscribe",
       "path": "worker/user-routes.ts",
-      "line": 6817
+      "line": 6990
     },
     {
       "id": "entity:UserEntity",
@@ -1099,49 +1099,49 @@
       "type": "entity",
       "name": "UserProgressEntity",
       "path": "worker/entities.ts",
-      "line": 1028
+      "line": 1033
     },
     {
       "id": "entity:ContentCommentEntity",
       "type": "entity",
       "name": "ContentCommentEntity",
       "path": "worker/entities.ts",
-      "line": 1243
+      "line": 1259
     },
     {
       "id": "entity:CouponUsageEntity",
       "type": "entity",
       "name": "CouponUsageEntity",
       "path": "worker/entities.ts",
-      "line": 1353
+      "line": 1369
     },
     {
       "id": "entity:NotificationEntity",
       "type": "entity",
       "name": "NotificationEntity",
       "path": "worker/entities.ts",
-      "line": 1419
+      "line": 1435
     },
     {
       "id": "entity:ImpersonationSessionEntity",
       "type": "entity",
       "name": "ImpersonationSessionEntity",
       "path": "worker/entities.ts",
-      "line": 1519
+      "line": 1535
     },
     {
       "id": "entity:BugAIAnalysisEntity",
       "type": "entity",
       "name": "BugAIAnalysisEntity",
       "path": "worker/entities.ts",
-      "line": 1590
+      "line": 1606
     },
     {
       "id": "entity:PushSubscriptionEntity",
       "type": "entity",
       "name": "PushSubscriptionEntity",
       "path": "worker/entities.ts",
-      "line": 1681
+      "line": 1697
     },
     {
       "id": "component:AddToHomeScreenModal",
@@ -1162,6 +1162,13 @@
       "type": "component",
       "name": "BugMessagesPanel",
       "path": "src\\components\\admin\\BugMessagesPanel.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:ContentCalendar",
+      "type": "component",
+      "name": "ContentCalendar",
+      "path": "src\\components\\admin\\ContentCalendar.tsx",
       "line": 1
     },
     {
@@ -1232,6 +1239,20 @@
       "type": "component",
       "name": "CohortBadge",
       "path": "src\\components\\cohort-badge.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:UnifiedContentFeed",
+      "type": "component",
+      "name": "UnifiedContentFeed",
+      "path": "src\\components\\course\\UnifiedContentFeed.tsx",
+      "line": 1
+    },
+    {
+      "id": "component:VideoFeed",
+      "type": "component",
+      "name": "VideoFeed",
+      "path": "src\\components\\course\\VideoFeed.tsx",
       "line": 1
     },
     {

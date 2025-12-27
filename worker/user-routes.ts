@@ -5536,14 +5536,34 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const userId = c.req.header('X-User-ID');
       if (!userId) return c.json({ error: 'User ID required' }, 401);
 
-      const { contentId, watchedPercentage, lastPosition } = await c.req.json() as {
+      const body = await c.req.json();
+      const { contentId, watchedPercentage, lastPosition } = body as {
         contentId: string;
         watchedPercentage: number;
         lastPosition: number;
       };
 
-      if (!contentId || watchedPercentage === undefined) {
-        return bad(c, 'Content ID and watched percentage are required');
+      // Validate contentId
+      if (!contentId || typeof contentId !== 'string' || contentId.trim().length === 0) {
+        return bad(c, 'Valid content ID is required');
+      }
+
+      // Validate watchedPercentage
+      if (watchedPercentage === undefined || watchedPercentage === null) {
+        return bad(c, 'Watched percentage is required');
+      }
+      if (typeof watchedPercentage !== 'number' || isNaN(watchedPercentage) || !isFinite(watchedPercentage)) {
+        return bad(c, 'Watched percentage must be a valid number');
+      }
+      if (watchedPercentage < 0 || watchedPercentage > 100) {
+        return bad(c, 'Watched percentage must be between 0 and 100');
+      }
+
+      // Validate lastPosition (optional but must be non-negative if provided)
+      if (lastPosition !== undefined && lastPosition !== null) {
+        if (typeof lastPosition !== 'number' || isNaN(lastPosition) || !isFinite(lastPosition) || lastPosition < 0) {
+          return bad(c, 'Last position must be a non-negative number');
+        }
       }
 
       // Get user info for test mode check
@@ -5615,6 +5635,47 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
           description: `Completed video: ${content.title}`
         });
 
+        // Auto-track lesson habit when a required video is completed
+        if (content.isRequired) {
+          const userEntity = new UserEntity(c.env, userId);
+          const user = await userEntity.getState();
+          const timezone = user.timezone || 'America/New_York';
+
+          const now = new Date();
+          const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          const todayDate = dateFormatter.format(now);
+
+          const existingScores = await DailyScoreEntity.findByUserAndProject(c.env, userId, activeEnrollment.projectId);
+          const todayScore = existingScores.find(s => s.date === todayDate);
+
+          if (todayScore) {
+            if (!todayScore.habits.lesson) {
+              const scoreEntity = new DailyScoreEntity(c.env, todayScore.id);
+              await scoreEntity.save({
+                ...todayScore,
+                habits: { ...todayScore.habits, lesson: true },
+                updatedAt: Date.now()
+              });
+            }
+          } else {
+            const scoreId = `score_${userId}_${todayDate.replace(/-/g, '')}`;
+            await DailyScoreEntity.create(c.env, {
+              id: scoreId,
+              projectId: activeEnrollment.projectId,
+              userId,
+              date: todayDate,
+              habits: { water: false, steps: false, sleep: false, lesson: true },
+              totalPoints: 0,
+              updatedAt: Date.now()
+            });
+          }
+        }
+
         progress = await new UserProgressEntity(c.env, progress.id).getState();
       }
 
@@ -5637,6 +5698,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const { contentId } = await c.req.json() as { contentId: string };
       if (!contentId) return bad(c, 'Content ID is required');
 
+      // Get user info for test mode check
+      const userEntity = new UserEntity(c.env, userId);
+      const user = await userEntity.getState();
+      if (!user.id) return c.json({ error: 'User not found' }, 404);
+
       // Get user's active enrollment
       const { items: enrollments } = await ProjectEnrollmentEntity.list(c.env);
       const activeEnrollment = enrollments.find(e => e.userId === userId && e.onboardingComplete);
@@ -5650,6 +5716,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const content = await contentEntity.getState();
       if (!content.id) return notFound(c, 'Content not found');
       if (content.contentType !== 'video') return bad(c, 'Content is not a video');
+      if (content.projectId !== activeEnrollment.projectId) return bad(c, 'Content not in your enrolled project');
+
+      // Check if day is unlocked - admins and test mode users can preview content
+      const projectEntity = new ResetProjectEntity(c.env, activeEnrollment.projectId);
+      const project = await projectEntity.getState();
+      const isAdmin = user.isAdmin === true;
+      const isTestMode = user.isTestMode === true;
+      const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
+
+      if (!isContentUnlocked(content.dayNumber, currentDay)) {
+        return c.json({ error: 'Content is not yet unlocked' }, 403);
+      }
 
       // Get or create progress
       const enrollmentId = activeEnrollment.id;
@@ -5682,6 +5760,50 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         points: content.points,
         description: `Completed video: ${content.title}`
       });
+
+      // Auto-track lesson habit when a required video is completed
+      if (content.isRequired) {
+        // Get today's date in user's timezone (already have user from above)
+        const timezone = user.timezone || 'America/New_York';
+
+        // Get today's date in the user's timezone
+        const now = new Date();
+        const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        const todayDate = dateFormatter.format(now);
+
+        // Find or create today's score
+        const existingScores = await DailyScoreEntity.findByUserAndProject(c.env, userId, activeEnrollment.projectId);
+        const todayScore = existingScores.find(s => s.date === todayDate);
+
+        if (todayScore) {
+          // Update existing score to mark lesson as complete
+          if (!todayScore.habits.lesson) {
+            const scoreEntity = new DailyScoreEntity(c.env, todayScore.id);
+            await scoreEntity.save({
+              ...todayScore,
+              habits: { ...todayScore.habits, lesson: true },
+              updatedAt: Date.now()
+            });
+          }
+        } else {
+          // Create new score with lesson marked as complete
+          const scoreId = `score_${userId}_${todayDate.replace(/-/g, '')}`;
+          await DailyScoreEntity.create(c.env, {
+            id: scoreId,
+            projectId: activeEnrollment.projectId,
+            userId,
+            date: todayDate,
+            habits: { water: false, steps: false, sleep: false, lesson: true },
+            totalPoints: 0,
+            updatedAt: Date.now()
+          });
+        }
+      }
 
       progress = await new UserProgressEntity(c.env, progress.id).getState();
 

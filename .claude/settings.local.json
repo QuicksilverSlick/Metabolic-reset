@@ -23,7 +23,11 @@
       "Bash(dir:*)",
       "Bash(npx tsc:*)",
       "Bash(npx:*)",
-      "Bash(./node_modules/.bin/tsc:*)"
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(npm run deploy:check:*)",
+      "Bash(git stash:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash pop:*)"
     ],
     "deny": [],
     "ask": []

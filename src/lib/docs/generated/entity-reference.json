@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-12-27T02:56:08.296Z",
+  "generatedAt": "2025-12-27T15:23:27.886Z",
   "totalEntities": 22,
   "entities": [
     {
@@ -143,7 +143,7 @@
     {
       "name": "UserProgressEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1028,
+      "sourceLine": 1033,
       "methods": [
         "findByEnrollmentAndContent",
         "findByEnrollment",
@@ -157,7 +157,7 @@
     {
       "name": "ContentCommentEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1243,
+      "sourceLine": 1259,
       "methods": [
         "findByContent",
         "addComment",
@@ -167,7 +167,7 @@
     {
       "name": "CouponUsageEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1353,
+      "sourceLine": 1369,
       "methods": [
         "findByCode",
         "hasUserUsedCoupon",
@@ -177,7 +177,7 @@
     {
       "name": "NotificationEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1419,
+      "sourceLine": 1435,
       "methods": [
         "createNotification",
         "findByUser",
@@ -189,7 +189,7 @@
     {
       "name": "ImpersonationSessionEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1519,
+      "sourceLine": 1535,
       "methods": [
         "startSession",
         "endSession",
@@ -200,7 +200,7 @@
     {
       "name": "BugAIAnalysisEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1590,
+      "sourceLine": 1606,
       "methods": [
         "findByBugId",
         "getLatestForBug",
@@ -214,7 +214,7 @@
     {
       "name": "PushSubscriptionEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1681,
+      "sourceLine": 1697,
       "methods": [
         "findByUser",
         "findByEndpoint",

@@ -673,6 +673,7 @@ export function QuizPage() {
   const [editedPhone, setEditedPhone] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const leadSubmittedRef = useRef(false); // Prevent duplicate lead submissions
 
   // Email validation helper
   const validateEmail = (email: string): boolean => {
@@ -918,29 +919,36 @@ export function QuizPage() {
       setMetabolicAge(calculatedMetabolicAge);
 
       // Submit lead to API (fire and forget - don't block the UI)
-      leadsApi.submitLead({
-        name: leadData.name,
-        phone: leadData.phone,
-        age: chronoAge,
-        sex: leadData.sex as SexType,
-        referralCode: referralCode || null,
-        projectId: projectIdFromUrl || null,
-        quizScore: totalScore,
-        quizAnswers: answers,
-        resultType: calculatedResultType,
-        metabolicAge: calculatedMetabolicAge,  // Legacy field
-        totalScore: totalScore  // New field for display
-      }).then((result) => {
-        // Store the lead ID in session storage and state for conversion tracking
-        if (result.id) {
-          sessionStorage.setItem('quizLeadId', result.id);
-          setLeadId(result.id);
-        }
-        console.log('Lead submitted successfully:', result);
-      }).catch((err) => {
-        // Don't interrupt the user experience on API failure
-        console.error('Failed to submit lead:', err);
-      });
+      // Use ref to prevent duplicate submissions on re-renders
+      if (!leadSubmittedRef.current) {
+        leadSubmittedRef.current = true;
+
+        leadsApi.submitLead({
+          name: leadData.name,
+          phone: leadData.phone,
+          age: chronoAge,
+          sex: leadData.sex as SexType,
+          referralCode: referralCode || null,
+          projectId: projectIdFromUrl || null,
+          quizScore: totalScore,
+          quizAnswers: answers,
+          resultType: calculatedResultType,
+          metabolicAge: calculatedMetabolicAge,  // Legacy field
+          totalScore: totalScore  // New field for display
+        }).then((result) => {
+          // Store the lead ID in session storage and state for conversion tracking
+          if (result.id) {
+            sessionStorage.setItem('quizLeadId', result.id);
+            setLeadId(result.id);
+          }
+          console.log('Lead submitted successfully:', result);
+        }).catch((err) => {
+          // Don't interrupt the user experience on API failure
+          console.error('Failed to submit lead:', err);
+        });
+      } else {
+        console.log('Lead already submitted, skipping duplicate');
+      }
 
       // Send OTP immediately when calculation starts (runs in parallel with animation)
       if (!otpSent && !phoneVerified) {
@@ -1078,6 +1086,7 @@ export function QuizPage() {
   };
 
   // Create payment intent for the selected role amount
+  // Following Stripe best practices (Dec 2025): https://docs.stripe.com/api/idempotent_requests
   const createPaymentIntent = async () => {
     setStripeError(null);
     setClientSecret(null);
@@ -1086,29 +1095,37 @@ export function QuizPage() {
 
     const amount = role === 'group_leader' ? 4900 : 2800;
 
-    // Generate or reuse idempotency key for this payment session
-    // Key includes leadId, role, and amount to ensure unique payments per combination
-    // but same key if user refreshes during the same session
-    const storageKeyName = `quizPaymentIdempotencyKey_${role}_${amount}`;
-    let idempotencyKey = sessionStorage.getItem(storageKeyName);
-    if (!idempotencyKey) {
-      // Create a unique key based on lead + role + amount + timestamp
-      const keyBase = `quiz_${leadId || 'unknown'}_${role}_${amount}_${Date.now()}`;
-      idempotencyKey = keyBase;
-      sessionStorage.setItem(storageKeyName, idempotencyKey);
+    // Build metadata for Stripe tracking
+    const metadata = {
+      name: leadData?.name,
+      phone: leadData?.phone,
+      email: email || undefined,
+      role: role === 'group_leader' ? 'coach' : 'challenger'
+    };
+
+    // Stripe best practice: Generate a unique idempotency key per unique request parameters.
+    // The key must be stable for retries but unique when parameters change.
+    // We create a fingerprint of the request parameters and store the UUID against it.
+    const paramFingerprint = JSON.stringify({ amount, ...metadata });
+    const storedFingerprint = sessionStorage.getItem('quizPaymentFingerprint');
+    const storedIdempotencyKey = sessionStorage.getItem('quizPaymentIdempotencyKey');
+
+    let idempotencyKey: string;
+
+    if (storedIdempotencyKey && storedFingerprint === paramFingerprint) {
+      // Same parameters as before - reuse the key (safe for retries)
+      idempotencyKey = storedIdempotencyKey;
+    } else {
+      // Parameters changed or first request - generate new UUID v4
+      // Stripe recommends V4 UUIDs for idempotency keys
+      idempotencyKey = crypto.randomUUID();
+      sessionStorage.setItem('quizPaymentIdempotencyKey', idempotencyKey);
+      sessionStorage.setItem('quizPaymentFingerprint', paramFingerprint);
     }
 
-    console.log(`Creating payment intent for role: ${role}, amount: $${amount / 100}, idempotencyKey: ${idempotencyKey.substring(0, 20)}...`);
+    console.log(`Creating payment intent for role: ${role}, amount: $${amount / 100}, idempotencyKey: ${idempotencyKey.substring(0, 8)}...`);
 
     try {
-      // Include user metadata for Stripe tracking (name, phone, email, role)
-      const metadata = {
-        name: leadData?.name,
-        phone: leadData?.phone,
-        email: email || undefined,
-        role: role === 'group_leader' ? 'coach' : 'challenger'
-      };
-
       const { clientSecret: secret, mock } = await paymentApi.createIntent(amount, idempotencyKey, metadata);
       if (mock) {
         setIsMockPayment(true);
@@ -1119,6 +1136,10 @@ export function QuizPage() {
       }
     } catch (err) {
       console.error('Payment init failed', err);
+      // Clear stored keys on error so a fresh UUID is generated on retry
+      // This handles cases where Stripe rejected the key (e.g., parameter mismatch from stale data)
+      sessionStorage.removeItem('quizPaymentIdempotencyKey');
+      sessionStorage.removeItem('quizPaymentFingerprint');
       if (!stripeKey) {
         setIsMockPayment(true);
       } else {
@@ -1140,6 +1161,7 @@ export function QuizPage() {
       sessionStorage.removeItem('quizPaymentCompleted');
       sessionStorage.removeItem('quizPaymentIntentId');
       sessionStorage.removeItem('quizPaymentIdempotencyKey');
+      sessionStorage.removeItem('quizPaymentFingerprint');
       sessionStorage.removeItem('quizRegistrationCompleted');
       sessionStorage.removeItem('quizRegistrationInProgress');
       // Redirect to onboarding (they should already be logged in)
@@ -1197,6 +1219,7 @@ export function QuizPage() {
       sessionStorage.removeItem('quizPaymentCompleted');
       sessionStorage.removeItem('quizPaymentIntentId');
       sessionStorage.removeItem('quizPaymentIdempotencyKey');
+      sessionStorage.removeItem('quizPaymentFingerprint');
       sessionStorage.removeItem('quizRegistrationInProgress');
       // Note: quizRegistrationCompleted is cleared on next page load or redirect
 
@@ -1235,6 +1258,7 @@ export function QuizPage() {
         sessionStorage.removeItem('quizPaymentCompleted');
         sessionStorage.removeItem('quizPaymentIntentId');
         sessionStorage.removeItem('quizPaymentIdempotencyKey');
+        sessionStorage.removeItem('quizPaymentFingerprint');
         setStripeError('Your account was created! Please log in with your phone number.');
       } else {
         setStripeError(errorMessage);
@@ -2494,6 +2518,7 @@ export function QuizPage() {
                             // Clear payment state when role changes to ensure correct amount
                             setClientSecret(null);
                             sessionStorage.removeItem('quizPaymentIdempotencyKey');
+                            sessionStorage.removeItem('quizPaymentFingerprint');
                             sessionStorage.removeItem('quizRegistrationCompleted');
                           }
                           setRole(newRole);
@@ -2839,7 +2864,86 @@ export function QuizPage() {
                             </Button>
                           </div>
                         ) : clientSecret && stripePromise ? (
-                          <Elements stripe={stripePromise} options={{ clientSecret }}>
+                          <Elements
+                            stripe={stripePromise}
+                            options={{
+                              clientSecret,
+                              // Stripe Appearance API - Match brand colors (navy/gold theme)
+                              // Docs: https://docs.stripe.com/elements/appearance-api
+                              appearance: {
+                                theme: 'night',
+                                variables: {
+                                  // Brand colors
+                                  colorPrimary: '#F59E0B', // gold-500
+                                  colorBackground: '#1E293B', // navy-800/slate-800
+                                  colorText: '#F8FAFC', // slate-50
+                                  colorTextSecondary: '#94A3B8', // slate-400
+                                  colorTextPlaceholder: '#64748B', // slate-500
+                                  colorDanger: '#EF4444', // red-500
+                                  colorSuccess: '#22C55E', // green-500
+                                  // Typography
+                                  fontFamily: 'Open Sans, Inter, system-ui, sans-serif',
+                                  fontSizeBase: '16px',
+                                  fontWeightNormal: '400',
+                                  fontWeightMedium: '500',
+                                  fontWeightBold: '600',
+                                  // Spacing & borders
+                                  spacingUnit: '4px',
+                                  borderRadius: '8px',
+                                  // Focus ring
+                                  colorPrimaryText: '#0F172A', // navy-900 for text on gold
+                                },
+                                rules: {
+                                  '.Tab': {
+                                    backgroundColor: '#0F172A', // navy-900
+                                    border: '1px solid #334155', // slate-700
+                                    color: '#94A3B8', // slate-400
+                                  },
+                                  '.Tab:hover': {
+                                    backgroundColor: '#1E293B', // navy-800
+                                    color: '#F8FAFC', // slate-50
+                                  },
+                                  '.Tab--selected': {
+                                    backgroundColor: '#F59E0B', // gold-500
+                                    borderColor: '#F59E0B',
+                                    color: '#0F172A', // navy-900
+                                  },
+                                  '.Tab--selected:hover': {
+                                    backgroundColor: '#FBBF24', // gold-400
+                                    borderColor: '#FBBF24',
+                                    color: '#0F172A',
+                                  },
+                                  '.Input': {
+                                    backgroundColor: '#0F172A', // navy-900
+                                    border: '1px solid #334155', // slate-700
+                                    color: '#F8FAFC', // slate-50
+                                  },
+                                  '.Input:focus': {
+                                    borderColor: '#F59E0B', // gold-500
+                                    boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.2)',
+                                  },
+                                  '.Input--invalid': {
+                                    borderColor: '#EF4444', // red-500
+                                  },
+                                  '.Label': {
+                                    color: '#CBD5E1', // slate-300
+                                    fontWeight: '500',
+                                  },
+                                  '.Error': {
+                                    color: '#EF4444', // red-500
+                                  },
+                                  '.CheckboxInput': {
+                                    backgroundColor: '#0F172A',
+                                    borderColor: '#334155',
+                                  },
+                                  '.CheckboxInput--checked': {
+                                    backgroundColor: '#F59E0B',
+                                    borderColor: '#F59E0B',
+                                  },
+                                }
+                              }
+                            }}
+                          >
                             <StripePaymentForm
                               onSuccess={handlePaymentSuccess}
                               amount={role === 'group_leader' ? 4900 : 2800}

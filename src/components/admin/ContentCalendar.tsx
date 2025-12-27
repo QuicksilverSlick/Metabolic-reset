@@ -23,7 +23,8 @@ import {
   Calendar as CalendarIcon,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,9 +41,10 @@ interface ContentCalendarProps {
   project: ResetProject;
   content: CourseContent[];
   onSelectContent: (content: CourseContent) => void;
+  onAddContent?: (dayNumber: number) => void;
 }
 
-export function ContentCalendar({ project, content, onSelectContent }: ContentCalendarProps) {
+export function ContentCalendar({ project, content, onSelectContent, onAddContent }: ContentCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     // Start at project start date or current month
     return project.startDate ? parseISO(project.startDate) : new Date();
@@ -206,30 +208,54 @@ export function ContentCalendar({ project, content, onSelectContent }: ContentCa
             const dayContent = contentByDate.get(dateKey) || [];
             const isInProject = !isBefore(day, projectStart) && !isAfter(day, projectEnd);
             const isPast = isBefore(day, new Date()) && !isToday(day);
+            const dayNumber = Math.floor((day.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
             return (
               <div
                 key={dateKey}
                 className={cn(
-                  "min-h-[100px] rounded border transition-colors",
+                  "min-h-[100px] rounded border transition-colors group relative",
                   isToday(day) && "border-amber-500 bg-amber-500/10",
                   !isToday(day) && isInProject && "border-slate-600 bg-slate-800/50 hover:border-slate-500",
                   !isToday(day) && !isInProject && "border-slate-700/50 bg-slate-900/50",
-                  isPast && "opacity-60"
+                  isPast && "opacity-60",
+                  isInProject && onAddContent && "cursor-pointer"
                 )}
+                onClick={() => {
+                  // Only trigger if clicking on empty space (not on content items)
+                  if (isInProject && onAddContent && dayContent.length === 0) {
+                    onAddContent(dayNumber);
+                  }
+                }}
               >
+                {/* Day header with add button */}
                 <div className={cn(
-                  "text-right text-xs p-1",
+                  "text-right text-xs p-1 flex items-center justify-between",
                   isToday(day) && "text-amber-400 font-bold",
                   !isToday(day) && isInProject && "text-slate-300",
                   !isInProject && "text-slate-600"
                 )}>
-                  {format(day, 'd')}
-                  {isInProject && (
-                    <span className="ml-1 text-slate-500">
-                      D{Math.floor((day.getTime() - projectStart.getTime()) / (1000 * 60 * 60 * 24)) + 1}
-                    </span>
+                  {/* Add button - visible on hover for project days */}
+                  {isInProject && onAddContent && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddContent(dayNumber);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-slate-600"
+                      title={`Add content for Day ${dayNumber}`}
+                    >
+                      <Plus className="w-3 h-3 text-slate-400 hover:text-white" />
+                    </button>
                   )}
+                  <span className="ml-auto">
+                    {format(day, 'd')}
+                    {isInProject && (
+                      <span className="ml-1 text-slate-500">
+                        D{dayNumber}
+                      </span>
+                    )}
+                  </span>
                 </div>
 
                 <div className="px-1 space-y-1 overflow-y-auto max-h-[70px]">

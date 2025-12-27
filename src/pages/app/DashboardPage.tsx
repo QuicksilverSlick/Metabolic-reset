@@ -6,7 +6,6 @@ import {
   Droplets,
   Footprints,
   Moon,
-  PlayCircle,
   Scale,
   ChevronRight,
   Loader2,
@@ -183,11 +182,11 @@ export function DashboardPage() {
     }, 250);
   }, []);
 
+  // Habit items for manual tracking - lesson is auto-tracked when required videos are completed
   const habitItems = [
     { id: 'water', label: 'Water', icon: Droplets, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
     { id: 'steps', label: 'Steps', icon: Footprints, color: 'text-gold-500', bg: 'bg-gold-50 dark:bg-gold-900/20' },
     { id: 'sleep', label: 'Sleep (7h+)', icon: Moon, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-    { id: 'lesson', label: 'Daily Lesson', icon: PlayCircle, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/20' },
   ] as const;
 
   const handleToggle = (habitId: string) => {
@@ -723,7 +722,7 @@ export function DashboardPage() {
                               {allComplete ? (
                                 <Check className="h-4 w-4 text-white" />
                               ) : (
-                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{completedCount}/4</span>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{completedCount}/3</span>
                               )}
                             </div>
                             <div>
@@ -734,7 +733,7 @@ export function DashboardPage() {
                                 {score.habits.water && <Droplets className="h-3 w-3 text-blue-500" />}
                                 {score.habits.steps && <Footprints className="h-3 w-3 text-gold-500" />}
                                 {score.habits.sleep && <Moon className="h-3 w-3 text-indigo-500" />}
-                                {score.habits.lesson && <PlayCircle className="h-3 w-3 text-green-500" />}
+                                {/* Lesson habit is auto-tracked via video completion */}
                               </div>
                             </div>
                           </div>
