@@ -278,12 +278,12 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-navy-800 border-navy-600">
-                  <SelectItem value="other">General Question</SelectItem>
-                  <SelectItem value="functionality">Account Help</SelectItem>
-                  <SelectItem value="data">Billing / Payment</SelectItem>
-                  <SelectItem value="ui">App Usage</SelectItem>
-                  <SelectItem value="performance">Technical Issue</SelectItem>
+                <SelectContent className="bg-navy-800 border-navy-600 text-white">
+                  <SelectItem value="other" className="text-white hover:bg-navy-700 focus:bg-navy-700 focus:text-white">General Question</SelectItem>
+                  <SelectItem value="functionality" className="text-white hover:bg-navy-700 focus:bg-navy-700 focus:text-white">Account Help</SelectItem>
+                  <SelectItem value="data" className="text-white hover:bg-navy-700 focus:bg-navy-700 focus:text-white">Billing / Payment</SelectItem>
+                  <SelectItem value="ui" className="text-white hover:bg-navy-700 focus:bg-navy-700 focus:text-white">App Usage</SelectItem>
+                  <SelectItem value="performance" className="text-white hover:bg-navy-700 focus:bg-navy-700 focus:text-white">Technical Issue</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -304,7 +304,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 size="sm"
                 onClick={handleCaptureScreenshot}
                 disabled={store.isRecording}
-                className="border-navy-600 text-navy-300 hover:bg-navy-800 hover:text-white flex-1"
+                className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
               >
                 <Image className="h-4 w-4 mr-2" />
                 Take Screenshot
@@ -317,7 +317,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                   size="sm"
                   onClick={handleStartRecording}
                   disabled={store.isRecording}
-                  className="border-navy-600 text-navy-300 hover:bg-navy-800 hover:text-white flex-1"
+                  className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
                 >
                   <Video className="h-4 w-4 mr-2" />
                   Record Screen
@@ -411,7 +411,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
               type="button"
               variant="outline"
               onClick={() => store.reset()}
-              className="border-navy-600 text-navy-300 hover:bg-navy-800"
+              className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white"
             >
               Cancel
             </Button>
