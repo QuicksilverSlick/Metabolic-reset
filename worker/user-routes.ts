@@ -4057,10 +4057,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       await sendNotification(
         c.env,
         userId,
-        isSupport ? 'support_submitted' : 'bug_submitted',
+        'bug_submitted',  // Both bugs and support requests use bug_submitted for user confirmation
         userNotifTitle,
         userNotifMessage,
-        { data: { bugId }, pushUrl: `/app/my-bug-reports?bugId=${bugId}` }
+        { data: { bugId, type: reportType }, pushUrl: `/app/my-bug-reports?bugId=${bugId}` }
       );
 
       // Notify all admins about the new report (in-app + push)
