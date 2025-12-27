@@ -1100,24 +1100,34 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
 
   // --- Group Leaders List (Public) ---
-  // Helper function to get all group leaders
+  // Helper function to get all group leaders with group size and proper sorting
   const getGroupLeaders = async (c: any) => {
     try {
       const groupLeaderIndex = new GroupLeaderIndex(c.env);
       const groupLeaderIds = await groupLeaderIndex.list();
-      // Limit to 50 for performance
-      const limitedIds = groupLeaderIds.slice(0, 50);
-      const groupLeaders = await Promise.all(limitedIds.map(async (id) => {
+
+      // Fetch all group leaders with their group sizes (no arbitrary limit)
+      const groupLeaders = await Promise.all(groupLeaderIds.map(async (id) => {
         const user = await new UserEntity(c.env, id).getState();
+        // Get group size from recruits index
+        const recruitIndex = new Index(c.env, `recruits:${id}`);
+        const recruitIds = await recruitIndex.list();
         return {
           id: user.id,
           name: user.name,
           role: user.role,
-          referralCode: user.referralCode
+          referralCode: user.referralCode,
+          avatarUrl: user.avatarUrl,
+          groupSize: recruitIds.length
         };
       }));
-      // Filter out any invalid entries - accept both 'coach' and 'facilitator' roles
-      const validGroupLeaders = groupLeaders.filter(gl => gl.id && (gl.role === 'coach' || gl.role === 'facilitator'));
+
+      // Filter out any invalid/deleted entries - accept both 'coach' and 'facilitator' roles
+      // Sort alphabetically by name for consistent display
+      const validGroupLeaders = groupLeaders
+        .filter(gl => gl.id && (gl.role === 'coach' || gl.role === 'facilitator'))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
       return ok(c, validGroupLeaders);
     } catch (e: any) {
       return c.json({ error: e.message }, 500);
@@ -1129,6 +1139,75 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
   // Legacy endpoint (@deprecated - use /api/group-leaders)
   app.get('/api/captains', getGroupLeaders);
+
+  // --- Group Leaders Search (with server-side filtering for scalability) ---
+  app.get('/api/group-leaders/search', async (c) => {
+    try {
+      const query = (c.req.query('q') || '').toLowerCase().trim();
+      const sortBy = c.req.query('sort') || 'name-asc';
+      const limit = Math.min(parseInt(c.req.query('limit') || '50'), 100);
+      const offset = parseInt(c.req.query('offset') || '0');
+
+      const groupLeaderIndex = new GroupLeaderIndex(c.env);
+      const groupLeaderIds = await groupLeaderIndex.list();
+
+      // Fetch all group leaders with their group sizes
+      const allGroupLeaders = await Promise.all(groupLeaderIds.map(async (id) => {
+        const user = await new UserEntity(c.env, id).getState();
+        const recruitIndex = new Index(c.env, `recruits:${id}`);
+        const recruitIds = await recruitIndex.list();
+        return {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          referralCode: user.referralCode,
+          avatarUrl: user.avatarUrl,
+          groupSize: recruitIds.length
+        };
+      }));
+
+      // Filter out invalid entries and apply search
+      let filtered = allGroupLeaders.filter(gl =>
+        gl.id &&
+        (gl.role === 'coach' || gl.role === 'facilitator') &&
+        (!query ||
+          gl.name.toLowerCase().includes(query) ||
+          gl.referralCode.toLowerCase().includes(query))
+      );
+
+      // Sort based on parameter
+      switch (sortBy) {
+        case 'name-desc':
+          filtered.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+        case 'group-size-asc':
+          filtered.sort((a, b) => a.groupSize - b.groupSize);
+          break;
+        case 'group-size-desc':
+          filtered.sort((a, b) => b.groupSize - a.groupSize);
+          break;
+        case 'name-asc':
+        default:
+          filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      // Apply pagination
+      const total = filtered.length;
+      const paginated = filtered.slice(offset, offset + limit);
+      const hasMore = offset + limit < total;
+
+      return ok(c, {
+        groupLeaders: paginated,
+        total,
+        limit,
+        offset,
+        hasMore
+      });
+    } catch (e: any) {
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // --- Orphan Assignment ---
   app.post('/api/orphan/assign', async (c) => {
     try {

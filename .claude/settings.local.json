@@ -20,14 +20,13 @@
       "Bash(npm install:*)",
       "Bash(node scripts/generate-icons.js:*)",
       "Bash(npm run build:*)",
-      "Bash(dir:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npx:*)",
-      "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(npm run deploy:check:*)",
+      "Bash(find:*)",
+      "Bash(npx vite build)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run docs:validate:*)",
+      "Bash(git fetch:*)",
       "Bash(git stash:*)",
-      "Bash(git rebase:*)",
-      "Bash(git stash pop:*)"
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

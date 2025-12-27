@@ -173,6 +173,16 @@ export const biometricApi = {
     }),
 };
 
+// Extended type for group leader with group size
+export interface GroupLeaderWithSize {
+  id: string;
+  name: string;
+  role: string;
+  referralCode: string;
+  avatarUrl?: string;
+  groupSize: number;
+}
+
 export const rosterApi = {
   getTeamRoster: (userId: string) =>
     api<User[]>('/api/roster', { headers: { 'X-User-ID': userId } }),
@@ -181,8 +191,30 @@ export const rosterApi = {
       recruit: { id: string; name: string; email: string; points: number; createdAt: number };
       biometrics: WeeklyBiometric[];
     }>(`/api/roster/${recruitId}/biometrics`, { headers: { 'X-User-ID': userId } }),
+  // Get all group leaders (includes group size, sorted alphabetically)
   searchCaptains: () =>
-    api<User[]>('/api/captains'),
+    api<GroupLeaderWithSize[]>('/api/group-leaders'),
+  // Server-side search with pagination (for large deployments)
+  searchGroupLeaders: (options?: {
+    q?: string;
+    sort?: 'name-asc' | 'name-desc' | 'group-size-asc' | 'group-size-desc';
+    limit?: number;
+    offset?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (options?.q) params.set('q', options.q);
+    if (options?.sort) params.set('sort', options.sort);
+    if (options?.limit) params.set('limit', options.limit.toString());
+    if (options?.offset) params.set('offset', options.offset.toString());
+    const queryString = params.toString();
+    return api<{
+      groupLeaders: GroupLeaderWithSize[];
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    }>(`/api/group-leaders/search${queryString ? `?${queryString}` : ''}`);
+  },
   assignCaptain: (userId: string, captainId: string) =>
     api<User>('/api/orphan/assign', {
       method: 'POST',
