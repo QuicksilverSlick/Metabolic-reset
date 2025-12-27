@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, MessageCircle } from 'lucide-react';
+import { Menu, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useBugReportStore } from '@/lib/bug-report-store';
@@ -169,15 +169,18 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
         </div>
       </footer>
       {/* Floating Support Button */}
-      <Button
+      <button
         onClick={openAsSupport}
-        variant="ghost"
-        size="icon"
-        className="fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full bg-navy-800/90 text-gold hover:bg-navy-700 hover:text-gold-400 shadow-lg border border-navy-600"
+        className="fixed bottom-4 right-4 z-50 flex flex-col items-center gap-1 group"
         title="Contact Support"
       >
-        <MessageCircle className="h-5 w-5" />
-      </Button>
+        <span className="text-xs font-medium text-gold-400 opacity-90 group-hover:opacity-100 transition-opacity">
+          Need Help?
+        </span>
+        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gold-500 to-gold-600 text-navy-900 shadow-lg flex items-center justify-center group-hover:from-gold-400 group-hover:to-gold-500 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200">
+          <HelpCircle className="h-6 w-6" />
+        </div>
+      </button>
 
       {/* Support Dialog - renders without trigger, controlled by store */}
       <BugReportDialog trigger={<span className="hidden" />} />

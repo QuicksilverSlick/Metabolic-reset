@@ -749,6 +749,7 @@ export type NotificationType =
   | 'bug_status_changed'      // Bug status updated (in_progress, resolved, etc.)
   | 'bug_response'            // Admin/user replied to a bug thread
   | 'new_bug_report'          // Alert to admins when a new bug is submitted
+  | 'new_support_request'     // Alert to admins when a support request is submitted
   | 'bug_satisfaction'        // Satisfaction survey after bug resolution
   | 'general';                // General notifications
 

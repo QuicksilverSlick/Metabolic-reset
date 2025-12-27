@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, Check, CheckCheck, Loader2, UserCog, Trophy, Megaphone,
   Info, Bug, MessageCircle, ThumbsUp, AlertTriangle, ChevronRight,
-  RefreshCw
+  RefreshCw, HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +39,7 @@ const notificationIcons: Record<NotificationType, React.ReactNode> = {
   bug_status_changed: <Bug className="h-5 w-5 text-blue-500" />,
   bug_response: <MessageCircle className="h-5 w-5 text-indigo-500" />,
   new_bug_report: <AlertTriangle className="h-5 w-5 text-red-500" />,
+  new_support_request: <HelpCircle className="h-5 w-5 text-gold-500" />,
   bug_satisfaction: <ThumbsUp className="h-5 w-5 text-amber-500" />,
   general: <Bell className="h-5 w-5 text-slate-500" />,
 };
@@ -62,7 +63,8 @@ function getNotificationDeepLink(notification: Notification): string {
       return '/app/bugs';
 
     case 'new_bug_report':
-      // Admin notification - link to admin bug panel with specific bug
+    case 'new_support_request':
+      // Admin notification - link to admin bug panel with specific bug/support ticket
       if (data.bugId) {
         return `/app/admin?tab=bugs&bugId=${data.bugId}`;
       }

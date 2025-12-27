@@ -75,6 +75,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   bug_status_changed: 'Bug Status Updated',
   bug_response: 'Bug Report Response',
   new_bug_report: 'New Bug Report',
+  new_support_request: 'New Support Request',
   bug_satisfaction: 'Feedback Request',
   general: 'Notification',
 };
