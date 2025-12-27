@@ -2469,7 +2469,8 @@ New endpoints with legacy aliases:
 
 | New Endpoint | Legacy Alias | Purpose |
 |--------------|--------------|---------|
-| GET /api/group-leaders | GET /api/captains | List all group leaders |
+| GET /api/group-leaders | GET /api/captains | List all group leaders (with groupSize, sorted A-Z) |
+| GET /api/group-leaders/search | - | Server-side search with pagination (q, sort, limit, offset) |
 | GET /api/admin/facilitators | GET /api/admin/coaches | Admin list of facilitators |
 | POST /api/admin/users/:id/reassign-group-leader | POST /api/admin/users/:id/reassign-captain | Reassign user |
 | POST /api/admin/users/bulk-reassign-group-leader | POST /api/admin/users/bulk-reassign-captain | Bulk reassign |

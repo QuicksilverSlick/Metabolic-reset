@@ -396,7 +396,32 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
     authentication: 'user',
     responseBody: { type: 'GroupLeader[]', description: 'All group leaders (legacy alias)' },
     sourceFile: 'worker/user-routes.ts',
-    sourceLine: 1131,
+    sourceLine: 1141,
+  },
+  {
+    method: 'GET',
+    path: '/api/group-leaders/search',
+    description: 'Server-side search for group leaders with pagination. Supports filtering by name/referral code and sorting by name or group size.',
+    authentication: 'none',
+    queryParams: [
+      { name: 'q', type: 'string', description: 'Search query (matches name or referral code)', required: false },
+      { name: 'sort', type: 'string', description: 'Sort order: name-asc, name-desc, group-size-asc, group-size-desc', required: false },
+      { name: 'limit', type: 'number', description: 'Max results to return (default 50, max 100)', required: false },
+      { name: 'offset', type: 'number', description: 'Pagination offset (default 0)', required: false },
+    ],
+    responseBody: {
+      type: 'GroupLeaderSearchResponse',
+      description: 'Paginated search results',
+      fields: [
+        { name: 'groupLeaders', type: 'GroupLeaderWithSize[]', description: 'Array of matching group leaders' },
+        { name: 'total', type: 'number', description: 'Total matching results' },
+        { name: 'limit', type: 'number', description: 'Limit used for this query' },
+        { name: 'offset', type: 'number', description: 'Offset used for this query' },
+        { name: 'hasMore', type: 'boolean', description: 'Whether more results are available' },
+      ]
+    },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 1144,
   },
   {
     method: 'POST',
