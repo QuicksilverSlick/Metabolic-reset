@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useBugReportStore } from '@/lib/bug-report-store';
+import { BugReportDialog } from '@/components/BugReportDialog';
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -11,6 +13,7 @@ interface MarketingLayoutProps {
 export function MarketingLayout({ children }: MarketingLayoutProps) {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const openAsSupport = useBugReportStore(s => s.openAsSupport);
   const navLinks = [
     { name: 'The Problem', href: '#problem' },
     { name: 'The Solution', href: '#solution' },
@@ -147,7 +150,14 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               <ul className="space-y-3 text-sm">
                 <li><Link to="/legal/cookies" className="text-slate-400 hover:text-gold-400 transition-colors">Cookie Policy</Link></li>
                 <li><Link to="/legal/accessibility" className="text-slate-400 hover:text-gold-400 transition-colors">Accessibility</Link></li>
-                <li><a href="mailto:support@28dayreset.com" className="text-slate-400 hover:text-gold-400 transition-colors">Contact Support</a></li>
+                <li>
+                  <button
+                    onClick={openAsSupport}
+                    className="text-slate-400 hover:text-gold-400 transition-colors text-left"
+                  >
+                    Contact Support
+                  </button>
+                </li>
                 <li><Link to="/login" className="text-slate-400 hover:text-gold-400 transition-colors">Sign In</Link></li>
               </ul>
             </div>
@@ -157,6 +167,8 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           </div>
         </div>
       </footer>
+      {/* Support Dialog - renders without trigger, controlled by store */}
+      <BugReportDialog trigger={<span className="hidden" />} />
     </div>
   );
 }

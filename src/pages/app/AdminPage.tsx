@@ -123,7 +123,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole, GenealogyNode } from '@shared/types';
+import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole, GenealogyNode, ReportType } from '@shared/types';
 
 // Lazy load heavy genealogy components
 const GenealogyTree = lazy(() => import('@/components/ui/genealogy-tree').then(m => ({ default: m.GenealogyTree })));
@@ -256,6 +256,7 @@ export function AdminPage() {
   const [selectedBug, setSelectedBug] = useState<BugReport | null>(null);
   const [bugDetailSheetOpen, setBugDetailSheetOpen] = useState(false);
   const [bugStatusFilter, setBugStatusFilter] = useState<BugStatus | 'all'>('all');
+  const [bugTypeFilter, setBugTypeFilter] = useState<ReportType | 'all'>('all');
   const [adminNotes, setAdminNotes] = useState('');
 
   // Genealogy state
@@ -758,9 +759,11 @@ export function AdminPage() {
   };
 
   // Filter bug reports
-  const filteredBugs = (bugReports || []).filter(bug =>
-    bugStatusFilter === 'all' ? true : bug.status === bugStatusFilter
-  );
+  const filteredBugs = (bugReports || []).filter(bug => {
+    const matchesStatus = bugStatusFilter === 'all' || bug.status === bugStatusFilter;
+    const matchesType = bugTypeFilter === 'all' || (bug.type || 'bug') === bugTypeFilter;
+    return matchesStatus && matchesType;
+  });
 
   // Get unique captains (coaches) for the filter dropdown
   const captains = (users || []).filter(u => u.role === 'coach');
@@ -1800,12 +1803,37 @@ export function AdminPage() {
       {activeTab === 'bugs' && (
         <Card className="bg-white dark:bg-navy-900 border-slate-200 dark:border-navy-800 transition-colors">
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle>Bug Reports</CardTitle>
-                <CardDescription>View and manage user-submitted bug reports</CardDescription>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle>Bug Reports & Support</CardTitle>
+                  <CardDescription>View and manage user-submitted bug reports and support requests</CardDescription>
+                </div>
+                {/* Type filter */}
+                <div className="flex gap-2">
+                  {(['all', 'bug', 'support'] as const).map((type) => (
+                    <Button
+                      key={type}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBugTypeFilter(type)}
+                      className={`${
+                        bugTypeFilter === type
+                          ? type === 'support'
+                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30'
+                            : type === 'bug'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30'
+                            : 'bg-gold-500/20 text-gold-400 border-gold-500/50 hover:bg-gold-500/30'
+                          : 'border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {type === 'all' ? 'All' : type === 'bug' ? 'Bugs' : 'Support'}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-2">
+              {/* Status filter */}
+              <div className="flex gap-2 flex-wrap">
                 {(['all', 'open', 'in_progress', 'resolved', 'closed'] as const).map((status) => (
                   <Button
                     key={status}
@@ -1818,7 +1846,7 @@ export function AdminPage() {
                         : 'border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white'
                     }`}
                   >
-                    {status === 'all' ? 'All' : status === 'in_progress' ? 'In Progress' : status}
+                    {status === 'all' ? 'All Status' : status === 'in_progress' ? 'In Progress' : status}
                   </Button>
                 ))}
               </div>
@@ -1836,10 +1864,20 @@ export function AdminPage() {
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex-1 min-w-0 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              (bug.type || 'bug') === 'support'
+                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                                : 'bg-red-500/10 text-red-400 border-red-500/30'
+                            }`}
+                          >
+                            {(bug.type || 'bug') === 'support' ? 'Support' : 'Bug'}
+                          </Badge>
                           <h3 className="font-semibold text-navy-900 dark:text-white truncate max-w-[300px] sm:max-w-none">
                             {bug.title}
                           </h3>
-                          {getBugSeverityBadge(bug.severity)}
+                          {(bug.type || 'bug') === 'bug' && getBugSeverityBadge(bug.severity)}
                           {getBugStatusBadge(bug.status)}
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{bug.description}</p>
@@ -1900,9 +1938,11 @@ export function AdminPage() {
               <div className="text-center py-8">
                 <Bug className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">
-                  {bugStatusFilter === 'all'
-                    ? 'No bug reports submitted yet.'
-                    : `No ${bugStatusFilter === 'in_progress' ? 'in progress' : bugStatusFilter} bugs.`}
+                  {bugTypeFilter === 'all' && bugStatusFilter === 'all'
+                    ? 'No reports submitted yet.'
+                    : bugTypeFilter === 'support'
+                    ? `No ${bugStatusFilter === 'all' ? '' : bugStatusFilter === 'in_progress' ? 'in progress ' : bugStatusFilter + ' '}support requests.`
+                    : `No ${bugStatusFilter === 'all' ? '' : bugStatusFilter === 'in_progress' ? 'in progress ' : bugStatusFilter + ' '}bug reports.`}
                 </p>
               </div>
             )}

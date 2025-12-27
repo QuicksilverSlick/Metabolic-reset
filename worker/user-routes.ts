@@ -4001,7 +4001,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!user.id) return notFound(c, 'User not found');
 
       const body = await c.req.json() as BugReportSubmitRequest;
-      const { title, description, severity, category, screenshotUrl, videoUrl, pageUrl, userAgent } = body;
+      const { type, title, description, severity, category, screenshotUrl, videoUrl, pageUrl, userAgent } = body;
 
       if (!title || !description) {
         return bad(c, 'Title and description are required');
@@ -4009,10 +4009,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
 
       const bugId = crypto.randomUUID();
       const now = Date.now();
+      const reportType = type || 'bug';
+      const isSupport = reportType === 'support';
 
       const bugSeverity = severity || 'medium';
       await BugReportEntity.create(c.env, {
         id: bugId,
+        type: reportType,
         userId,
         userName: user.name,
         userEmail: user.email,
@@ -4034,38 +4037,48 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const bugIndex = new BugReportIndex(c.env);
       await bugIndex.add(bugId);
 
-      // Create system message for bug submission (visible in thread)
+      // Create system message for submission (visible in thread)
+      const systemMessage = isSupport
+        ? `Support request submitted by ${user.name}. Our team will respond shortly.`
+        : `Bug report submitted by ${user.name}. Our team will review it shortly.`;
       await BugMessageEntity.createSystemMessage(
         c.env,
         bugId,
         'submitted',
-        `Bug report submitted by ${user.name}. Our team will review it shortly.`
+        systemMessage
       );
 
       // Send confirmation notification to user (in-app + push)
+      const userNotifTitle = isSupport ? 'Support request received!' : 'Bug report received!';
+      const userNotifMessage = isSupport
+        ? `Thanks for contacting support about "${title}". We'll get back to you soon.`
+        : `Thanks for reporting "${title}". We'll look into it and get back to you soon.`;
       await sendNotification(
         c.env,
         userId,
-        'bug_submitted',
-        'Bug report received!',
-        `Thanks for reporting "${title}". We'll look into it and get back to you soon.`,
+        isSupport ? 'support_submitted' : 'bug_submitted',
+        userNotifTitle,
+        userNotifMessage,
         { data: { bugId }, pushUrl: `/app/my-bug-reports?bugId=${bugId}` }
       );
 
-      // Notify all admins about the new bug report (in-app + push)
+      // Notify all admins about the new report (in-app + push)
       const adminIndex = new AdminIndex(c.env);
       const adminIds = await adminIndex.list();
-      const severityEmoji = bugSeverity === 'critical' ? '🚨' : bugSeverity === 'high' ? '⚠️' : bugSeverity === 'medium' ? '📋' : '📝';
+      const severityEmoji = isSupport ? '💬' : (bugSeverity === 'critical' ? '🚨' : bugSeverity === 'high' ? '⚠️' : bugSeverity === 'medium' ? '📋' : '📝');
+      const adminNotifTitle = isSupport
+        ? `💬 New support request: ${title}`
+        : `${severityEmoji} New ${bugSeverity} bug: ${title}`;
       await sendNotificationToUsers(
         c.env,
         adminIds,
-        'new_bug_report',
-        `${severityEmoji} New ${bugSeverity} bug: ${title}`,
-        `${user.name} reported: "${description.substring(0, 150)}${description.length > 150 ? '...' : ''}"`,
+        isSupport ? 'new_support_request' : 'new_bug_report',
+        adminNotifTitle,
+        `${user.name}: "${description.substring(0, 150)}${description.length > 150 ? '...' : ''}"`,
         {
-          data: { bugId, severity: bugSeverity, userId, userName: user.name },
+          data: { bugId, severity: bugSeverity, userId, userName: user.name, type: reportType },
           pushUrl: `/app/admin?tab=bugs&bugId=${bugId}`,
-          priority: bugSeverity === 'critical' ? 'urgent' : bugSeverity === 'high' ? 'high' : 'normal'
+          priority: isSupport ? 'normal' : (bugSeverity === 'critical' ? 'urgent' : bugSeverity === 'high' ? 'high' : 'normal')
         }
       );
 

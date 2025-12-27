@@ -334,9 +334,11 @@ export interface UpdateProjectRequest {
 export type BugSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type BugStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type BugCategory = 'ui' | 'functionality' | 'performance' | 'data' | 'other';
+export type ReportType = 'bug' | 'support'; // Bug report or support request
 
 export interface BugReport {
   id: string;
+  type: ReportType; // 'bug' for bug reports, 'support' for support requests
   userId: string;
   userName: string;
   userEmail: string;
@@ -355,6 +357,7 @@ export interface BugReport {
 }
 
 export interface BugReportSubmitRequest {
+  type?: ReportType; // Defaults to 'bug' if not provided
   title: string;
   description: string;
   severity: BugSeverity;

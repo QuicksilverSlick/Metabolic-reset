@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BugSeverity, BugCategory } from '@shared/types';
+import type { BugSeverity, BugCategory, ReportType } from '@shared/types';
 
 export type CaptureMode = 'idle' | 'recording' | 'screenshot-pending';
 
@@ -12,6 +12,7 @@ interface CapturedMedia {
 
 interface BugReportState {
   // Form state
+  reportType: ReportType; // 'bug' or 'support'
   title: string;
   description: string;
   severity: BugSeverity;
@@ -31,10 +32,15 @@ interface BugReportState {
   isMinimized: boolean;
 
   // Actions
+  setReportType: (type: ReportType) => void;
   setTitle: (title: string) => void;
   setDescription: (description: string) => void;
   setSeverity: (severity: BugSeverity) => void;
   setCategory: (category: BugCategory) => void;
+
+  // Open dialog in a specific mode
+  openAsBug: () => void;
+  openAsSupport: () => void;
 
   setCaptureMode: (mode: CaptureMode) => void;
   setIsRecording: (isRecording: boolean) => void;
@@ -66,6 +72,7 @@ const initialMedia: CapturedMedia = {
 
 export const useBugReportStore = create<BugReportState>((set) => ({
   // Initial form state
+  reportType: 'bug',
   title: '',
   description: '',
   severity: 'medium',
@@ -85,10 +92,15 @@ export const useBugReportStore = create<BugReportState>((set) => ({
   isMinimized: false,
 
   // Form actions
+  setReportType: (reportType) => set({ reportType }),
   setTitle: (title) => set({ title }),
   setDescription: (description) => set({ description }),
   setSeverity: (severity) => set({ severity }),
   setCategory: (category) => set({ category }),
+
+  // Open dialog in specific mode
+  openAsBug: () => set({ reportType: 'bug', isDialogOpen: true, isMinimized: false }),
+  openAsSupport: () => set({ reportType: 'support', isDialogOpen: true, isMinimized: false }),
 
   // Capture actions
   setCaptureMode: (captureMode) => set({ captureMode }),
@@ -127,6 +139,7 @@ export const useBugReportStore = create<BugReportState>((set) => ({
 
   // Reset everything
   reset: () => set({
+    reportType: 'bug',
     title: '',
     description: '',
     severity: 'medium',

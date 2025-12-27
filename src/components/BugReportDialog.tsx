@@ -1,8 +1,9 @@
 'use client';
 
 // Bug report dialog - uses FloatingBugCapture for screen recording/screenshots
+// Also supports "support" mode for general support requests
 import React, { useState } from 'react';
-import { Bug, AlertCircle, Image, Video, Loader2, Camera, X, Upload, Check } from 'lucide-react';
+import { Bug, AlertCircle, Image, Video, Loader2, Camera, X, Upload, Check, MessageCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,9 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
   const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean; video?: boolean }>({});
 
   const submitBug = useSubmitBugReport();
+
+  // Check if we're in support mode
+  const isSupport = store.reportType === 'support';
 
   // Handle dialog open state from store
   const handleOpenChange = (open: boolean) => {
@@ -139,6 +143,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     }
 
     await submitBug.mutateAsync({
+      type: store.reportType,
       title: store.title,
       description: store.description,
       severity: store.severity,
@@ -160,6 +165,18 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     'mediaDevices' in navigator &&
     'getDisplayMedia' in navigator.mediaDevices;
 
+  // Dynamic content based on mode
+  const Icon = isSupport ? MessageCircle : Bug;
+  const dialogTitle = isSupport ? 'Contact Support' : 'Report a Bug';
+  const dialogDescription = isSupport
+    ? 'Have a question or need help? Send us a message and we\'ll get back to you soon.'
+    : 'Help us improve by reporting issues you encounter. You can capture a screenshot or record your screen.';
+  const titlePlaceholder = isSupport ? 'What do you need help with?' : 'Brief description of the issue';
+  const descriptionPlaceholder = isSupport
+    ? 'Tell us more about your question or what you need help with...'
+    : 'What happened? What did you expect to happen? Steps to reproduce...';
+  const submitButtonText = isSupport ? 'Send Message' : 'Submit Report';
+
   return (
     <Dialog open={store.isDialogOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -177,11 +194,11 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       <DialogContent className="sm:max-w-[550px] bg-navy-900 border-navy-700 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white">
-            <Bug className="h-5 w-5 text-gold" />
-            Report a Bug
+            <Icon className="h-5 w-5 text-gold" />
+            {dialogTitle}
           </DialogTitle>
           <DialogDescription className="text-navy-300">
-            Help us improve by reporting issues you encounter. You can capture a screenshot or record your screen.
+            {dialogDescription}
           </DialogDescription>
         </DialogHeader>
 
@@ -189,11 +206,11 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-white">
-              Title <span className="text-red-400">*</span>
+              {isSupport ? 'Subject' : 'Title'} <span className="text-red-400">*</span>
             </Label>
             <Input
               id="title"
-              placeholder="Brief description of the issue"
+              placeholder={titlePlaceholder}
               value={store.title}
               onChange={(e) => store.setTitle(e.target.value)}
               className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
@@ -203,59 +220,80 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description" className="text-white">
-              Description <span className="text-red-400">*</span>
+              {isSupport ? 'Message' : 'Description'} <span className="text-red-400">*</span>
             </Label>
             <Textarea
               id="description"
-              placeholder="What happened? What did you expect to happen? Steps to reproduce..."
+              placeholder={descriptionPlaceholder}
               value={store.description}
               onChange={(e) => store.setDescription(e.target.value)}
-              rows={3}
+              rows={isSupport ? 4 : 3}
               className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
             />
           </div>
 
-          {/* Severity and Category row */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Severity */}
-            <div className="space-y-2">
-              <Label className="text-white">Severity</Label>
-              <Select value={store.severity} onValueChange={(v) => store.setSeverity(v as BugSeverity)}>
-                <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-navy-800 border-navy-600">
-                  <SelectItem value="low" className="text-green-400">Low - Minor issue</SelectItem>
-                  <SelectItem value="medium" className="text-yellow-400">Medium - Noticeable</SelectItem>
-                  <SelectItem value="high" className="text-orange-400">High - Major issue</SelectItem>
-                  <SelectItem value="critical" className="text-red-400">Critical - Broken</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Severity and Category row - only show for bug reports */}
+          {!isSupport && (
+            <div className="grid grid-cols-2 gap-4">
+              {/* Severity */}
+              <div className="space-y-2">
+                <Label className="text-white">Severity</Label>
+                <Select value={store.severity} onValueChange={(v) => store.setSeverity(v as BugSeverity)}>
+                  <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-navy-800 border-navy-600">
+                    <SelectItem value="low" className="text-green-400">Low - Minor issue</SelectItem>
+                    <SelectItem value="medium" className="text-yellow-400">Medium - Noticeable</SelectItem>
+                    <SelectItem value="high" className="text-orange-400">High - Major issue</SelectItem>
+                    <SelectItem value="critical" className="text-red-400">Critical - Broken</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Category */}
+              {/* Category */}
+              <div className="space-y-2">
+                <Label className="text-white">Category</Label>
+                <Select value={store.category} onValueChange={(v) => store.setCategory(v as BugCategory)}>
+                  <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-navy-800 border-navy-600">
+                    <SelectItem value="ui">UI / Visual</SelectItem>
+                    <SelectItem value="functionality">Functionality</SelectItem>
+                    <SelectItem value="performance">Performance</SelectItem>
+                    <SelectItem value="data">Data / Sync</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Category for support - simpler version */}
+          {isSupport && (
             <div className="space-y-2">
-              <Label className="text-white">Category</Label>
+              <Label className="text-white">Topic</Label>
               <Select value={store.category} onValueChange={(v) => store.setCategory(v as BugCategory)}>
                 <SelectTrigger className="bg-navy-800 border-navy-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-navy-800 border-navy-600">
-                  <SelectItem value="ui">UI / Visual</SelectItem>
-                  <SelectItem value="functionality">Functionality</SelectItem>
-                  <SelectItem value="performance">Performance</SelectItem>
-                  <SelectItem value="data">Data / Sync</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="other">General Question</SelectItem>
+                  <SelectItem value="functionality">Account Help</SelectItem>
+                  <SelectItem value="data">Billing / Payment</SelectItem>
+                  <SelectItem value="ui">App Usage</SelectItem>
+                  <SelectItem value="performance">Technical Issue</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          )}
 
           {/* Media Capture Section */}
           <div className="space-y-3">
             <Label className="text-white flex items-center gap-2">
               <Camera className="h-4 w-4 text-navy-400" />
-              Capture Media (optional)
+              {isSupport ? 'Attach Screenshot (optional)' : 'Capture Media (optional)'}
             </Label>
 
             {/* Capture Buttons */}
@@ -272,7 +310,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 Take Screenshot
               </Button>
 
-              {isScreenRecordingSupported && (
+              {isScreenRecordingSupported && !isSupport && (
                 <Button
                   type="button"
                   variant="outline"
@@ -287,9 +325,11 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
               )}
             </div>
 
-            <p className="text-xs text-navy-400">
-              Navigate anywhere in the app while recording. Click "Stop Recording" when done.
-            </p>
+            {!isSupport && (
+              <p className="text-xs text-navy-400">
+                Navigate anywhere in the app while recording. Click "Stop Recording" when done.
+              </p>
+            )}
 
             {/* Screenshot Preview */}
             {store.media.screenshotPreview && (
@@ -360,7 +400,9 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
           <div className="flex items-start gap-2 p-3 rounded-lg bg-navy-800/50 border border-navy-700">
             <AlertCircle className="h-4 w-4 text-gold mt-0.5 flex-shrink-0" />
             <p className="text-xs text-navy-300">
-              Your current page URL and browser info will be automatically included to help us debug.
+              {isSupport
+                ? 'We typically respond within 24 hours. For urgent issues, please include as much detail as possible.'
+                : 'Your current page URL and browser info will be automatically included to help us debug.'}
             </p>
           </div>
 
@@ -381,12 +423,12 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
               {submitBug.isPending || isUploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isUploading ? 'Uploading...' : 'Submitting...'}
+                  {isUploading ? 'Uploading...' : 'Sending...'}
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Submit Report
+                  {submitButtonText}
                 </>
               )}
             </Button>

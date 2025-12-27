@@ -482,12 +482,13 @@ export class UserEnrollmentIndex extends Index<string> {
   }
 }
 
-// Bug Report Entity - stores user-submitted bug reports
+// Bug Report Entity - stores user-submitted bug reports and support requests
 export class BugReportEntity extends IndexedEntity<BugReport> {
   static readonly entityName = "bug-report";
   static readonly indexName = "bug-reports";
   static readonly initialState: BugReport = {
     id: "",
+    type: "bug", // 'bug' or 'support'
     userId: "",
     userName: "",
     userEmail: "",
@@ -521,6 +522,12 @@ export class BugReportEntity extends IndexedEntity<BugReport> {
   static async findByUser(env: Env, userId: string): Promise<BugReport[]> {
     const { items } = await BugReportEntity.list(env);
     return items.filter(b => b.userId === userId).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Get reports by type (bug or support)
+  static async findByType(env: Env, type: BugReport['type']): Promise<BugReport[]> {
+    const { items } = await BugReportEntity.list(env);
+    return items.filter(b => (b.type || 'bug') === type).sort((a, b) => b.createdAt - a.createdAt);
   }
 }
 
