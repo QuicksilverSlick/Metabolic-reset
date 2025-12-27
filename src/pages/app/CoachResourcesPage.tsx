@@ -336,13 +336,15 @@ Join me for the 28-Day Metabolic Reset starting January 1st! 💪`
   return posts[platform];
 };
 
-// Media asset card with enhanced sharing
+// Media asset card with enhanced sharing and single-click download
 function MediaCard({
   title,
   description,
   type,
   embedUrl,
   downloadUrl,
+  downloadFilename,
+  isGoogleDrive = false,
   quizLink,
   showSocialPost = false
 }: {
@@ -351,6 +353,8 @@ function MediaCard({
   type: 'video' | 'image';
   embedUrl: string;
   downloadUrl: string;
+  downloadFilename?: string;
+  isGoogleDrive?: boolean;
   quizLink?: string;
   showSocialPost?: boolean;
 }) {
@@ -364,25 +368,59 @@ function MediaCard({
     await copyToClipboard(post, `${platform}-post-${title}`, `${platformName} post copied! Now paste in your ${platformName} post.`);
   };
 
+  // Single-click download handler for local files
+  const handleDownload = async () => {
+    if (isGoogleDrive) {
+      // Google Drive files open in new tab for download
+      window.open(downloadUrl, '_blank');
+      return;
+    }
+
+    try {
+      const response = await fetch(downloadUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadFilename || downloadUrl.split('/').pop() || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Download started!');
+    } catch (error) {
+      // Fallback to direct link if fetch fails
+      window.open(downloadUrl, '_blank');
+    }
+  };
+
   return (
     <Card className="border-navy-700 bg-navy-800/50 overflow-hidden">
-      {/* Media Preview - auto-plays for videos via embed */}
+      {/* Media Preview */}
       <div className="relative aspect-video bg-navy-900">
         {type === 'video' ? (
-          <iframe
-            src={embedUrl}
-            className="w-full h-full"
-            allow="autoplay; encrypted-media; fullscreen"
-            allowFullScreen
-            title={title}
-          />
+          isGoogleDrive ? (
+            <iframe
+              src={embedUrl}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+              title={title}
+            />
+          ) : (
+            <video
+              src={embedUrl}
+              className="w-full h-full object-contain"
+              controls
+              preload="metadata"
+            />
+          )
         ) : (
           <img
             src={embedUrl}
             alt={title}
             className="w-full h-full object-contain bg-white"
             onError={(e) => {
-              // Fallback if direct URL doesn't work
               (e.target as HTMLImageElement).src = downloadUrl;
             }}
           />
@@ -402,7 +440,7 @@ function MediaCard({
               <span className="text-sm font-medium text-gold-400">Copy viral post for social media</span>
             </div>
 
-            {/* Copy Post Buttons - Fixed CSS with proper grid and spacing */}
+            {/* Copy Post Buttons */}
             <div className="grid grid-cols-3 gap-3">
               <Button
                 onClick={() => handleCopyForPlatform('facebook')}
@@ -454,14 +492,12 @@ function MediaCard({
           </div>
         )}
 
-        {/* Download Button - Prominent */}
+        {/* Download Button - Single click download */}
         <Button
-          asChild
+          onClick={handleDownload}
           className="w-full min-h-[52px] bg-green-600 hover:bg-green-700 text-white font-semibold"
         >
-          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download>
-            <Download className="h-5 w-5 mr-2" /> Download {type === 'video' ? 'Video' : 'Image'}
-          </a>
+          <Download className="h-5 w-5 mr-2" /> Download {type === 'video' ? 'Video' : 'Image'}
         </Button>
       </CardContent>
     </Card>
@@ -812,38 +848,167 @@ Group Facilitator`),
     }
   ];
 
-  // Media assets - using Google Drive direct URLs for better embedding
-  // Video embed: /file/d/{ID}/preview | Download: /uc?export=download&id={ID}
-  // Image direct: https://lh3.googleusercontent.com/d/{ID}
-  const mediaAssets = [
-    {
-      title: "Promotional Video (with your link)",
-      description: "Share this video with your viral post - includes your quiz referral link",
-      type: "video" as const,
-      fileId: "1CtColKeyRbrVVN24nUC2sFv776X9jCmE",
-      embedUrl: "https://drive.google.com/file/d/1CtColKeyRbrVVN24nUC2sFv776X9jCmE/preview",
-      downloadUrl: "https://drive.google.com/uc?export=download&id=1CtColKeyRbrVVN24nUC2sFv776X9jCmE",
-      showSocialPost: true
+  // Media assets organized by category
+  // Google Drive: embed = /file/d/{ID}/preview, download = /uc?export=download&id={ID}
+  // Local assets: served from /resources/* folder via Cloudflare CDN
+
+  const mediaCategories = {
+    videos: {
+      title: "Videos",
+      icon: "video",
+      description: "Promotional videos and backgrounds for Zoom/virtual meetings",
+      assets: [
+        {
+          title: "Promotional Video (with your link)",
+          description: "Share this video with your viral post - includes your quiz referral link",
+          type: "video" as const,
+          embedUrl: "https://drive.google.com/file/d/1CtColKeyRbrVVN24nUC2sFv776X9jCmE/preview",
+          downloadUrl: "https://drive.google.com/uc?export=download&id=1CtColKeyRbrVVN24nUC2sFv776X9jCmE",
+          isGoogleDrive: true,
+          showSocialPost: true
+        },
+        {
+          title: "Promotional Video (generic)",
+          description: "General promotional video without coach-specific URL",
+          type: "video" as const,
+          embedUrl: "https://drive.google.com/file/d/1yDUDbirheQa8fw6Uq_SQq6HSl-rO2v5v/preview",
+          downloadUrl: "https://drive.google.com/uc?export=download&id=1yDUDbirheQa8fw6Uq_SQq6HSl-rO2v5v",
+          isGoogleDrive: true,
+          showSocialPost: true
+        },
+        {
+          title: "Zoom Background",
+          description: "Virtual background for Zoom meetings with MRP branding",
+          type: "video" as const,
+          embedUrl: "/resources/videos/Zoom Background v2.mp4",
+          downloadUrl: "/resources/videos/Zoom Background v2.mp4",
+          downloadFilename: "MRP-Zoom-Background.mp4",
+          isGoogleDrive: false,
+          showSocialPost: false
+        }
+      ]
     },
-    {
-      title: "Promotional Video (generic)",
-      description: "General promotional video without coach-specific URL",
-      type: "video" as const,
-      fileId: "1yDUDbirheQa8fw6Uq_SQq6HSl-rO2v5v",
-      embedUrl: "https://drive.google.com/file/d/1yDUDbirheQa8fw6Uq_SQq6HSl-rO2v5v/preview",
-      downloadUrl: "https://drive.google.com/uc?export=download&id=1yDUDbirheQa8fw6Uq_SQq6HSl-rO2v5v",
-      showSocialPost: true
+    logos: {
+      title: "Logos",
+      icon: "image",
+      description: "Official MRP logos in various sizes for emails, documents, and presentations",
+      assets: [
+        {
+          title: "MRP Logo (512px)",
+          description: "Large logo for presentations and print materials",
+          type: "image" as const,
+          embedUrl: "/resources/logos/Metabolic Reset Project LOGO 512.png",
+          downloadUrl: "/resources/logos/Metabolic Reset Project LOGO 512.png",
+          downloadFilename: "MRP-Logo-512.png",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Logo (192px)",
+          description: "Medium logo for documents and email signatures",
+          type: "image" as const,
+          embedUrl: "/resources/logos/EDIT V3 Metabolic Reset Project LOGO 192.png",
+          downloadUrl: "/resources/logos/EDIT V3 Metabolic Reset Project LOGO 192.png",
+          downloadFilename: "MRP-Logo-192.png",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Logo (180px)",
+          description: "Small logo for social media profiles and icons",
+          type: "image" as const,
+          embedUrl: "/resources/logos/EDIT V3 Metabolic Reset Project LOGO 180.png",
+          downloadUrl: "/resources/logos/EDIT V3 Metabolic Reset Project LOGO 180.png",
+          downloadFilename: "MRP-Logo-180.png",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Icon (SVG)",
+          description: "Vector icon logo - scalable for any size",
+          type: "image" as const,
+          embedUrl: "/resources/logos/Metabolic Reset Icon logo.svg",
+          downloadUrl: "/resources/logos/Metabolic Reset Icon logo.svg",
+          downloadFilename: "MRP-Icon.svg",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Logo 4K (Google Drive)",
+          description: "Web-ready 4K logo (Black font) for emails and social media",
+          type: "image" as const,
+          embedUrl: "https://lh3.googleusercontent.com/d/1ErjO-G-oYH1AaCgwgSnRcDRX93pscEzF",
+          downloadUrl: "https://drive.google.com/uc?export=download&id=1ErjO-G-oYH1AaCgwgSnRcDRX93pscEzF",
+          isGoogleDrive: true,
+          showSocialPost: false
+        }
+      ]
     },
-    {
-      title: "Metabolic Reset Project Logo",
-      description: "Web-ready 4K logo (Black font) for emails and social media",
-      type: "image" as const,
-      fileId: "1ErjO-G-oYH1AaCgwgSnRcDRX93pscEzF",
-      embedUrl: "https://lh3.googleusercontent.com/d/1ErjO-G-oYH1AaCgwgSnRcDRX93pscEzF",
-      downloadUrl: "https://drive.google.com/uc?export=download&id=1ErjO-G-oYH1AaCgwgSnRcDRX93pscEzF",
-      showSocialPost: false
+    social: {
+      title: "Social Media",
+      icon: "share",
+      description: "Banners and images sized for Facebook, Instagram, and other platforms",
+      assets: [
+        {
+          title: "Facebook Banner (Black)",
+          description: "Facebook cover/banner with dark background",
+          type: "image" as const,
+          embedUrl: "/resources/social/Facebook Banner Black Background.png",
+          downloadUrl: "/resources/social/Facebook Banner Black Background.png",
+          downloadFilename: "MRP-Facebook-Banner-Black.png",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "Facebook Banner (White)",
+          description: "Facebook cover/banner with light background",
+          type: "image" as const,
+          embedUrl: "/resources/social/Facebook Banner White Background.png",
+          downloadUrl: "/resources/social/Facebook Banner White Background.png",
+          downloadFilename: "MRP-Facebook-Banner-White.png",
+          isGoogleDrive: false,
+          showSocialPost: false
+        }
+      ]
+    },
+    graphics: {
+      title: "Graphics",
+      icon: "sparkles",
+      description: "Promotional graphics and infographics for sharing",
+      assets: [
+        {
+          title: "MRP Details",
+          description: "Infographic showing project details and benefits",
+          type: "image" as const,
+          embedUrl: "/resources/graphics/MRP Details.jpeg",
+          downloadUrl: "/resources/graphics/MRP Details.jpeg",
+          downloadFilename: "MRP-Details.jpeg",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Next Step",
+          description: "Call-to-action graphic for next steps",
+          type: "image" as const,
+          embedUrl: "/resources/graphics/MRP next Step.jpeg",
+          downloadUrl: "/resources/graphics/MRP next Step.jpeg",
+          downloadFilename: "MRP-Next-Step.jpeg",
+          isGoogleDrive: false,
+          showSocialPost: false
+        },
+        {
+          title: "MRP Static Simple",
+          description: "Clean, simple promotional graphic",
+          type: "image" as const,
+          embedUrl: "/resources/graphics/MRP Static Simple.jpeg",
+          downloadUrl: "/resources/graphics/MRP Static Simple.jpeg",
+          downloadFilename: "MRP-Static-Simple.jpeg",
+          isGoogleDrive: false,
+          showSocialPost: false
+        }
+      ]
     }
-  ];
+  };
 
   return (
     <div className="space-y-8">
@@ -1039,16 +1204,97 @@ Group Facilitator`),
             </div>
           </TabsContent>
 
-          {/* Media Tab */}
-          <TabsContent value="media" className="space-y-4">
-            <h2 className="text-xl font-semibold text-white">Media Assets</h2>
-            <p className="text-slate-400 text-sm">
-              Videos and images to use in your outreach. Download the video, then use the viral post to share on social media.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mediaAssets.map((asset, index) => (
-                <MediaCard key={index} {...asset} quizLink={quizLink} />
-              ))}
+          {/* Media Tab - Organized by Category */}
+          <TabsContent value="media" className="space-y-8">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Media Assets</h2>
+              <p className="text-slate-400 text-sm">
+                Videos and images organized by type. Click download for instant one-click saves.
+              </p>
+            </div>
+
+            {/* Videos Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/20">
+                  <Play className="h-5 w-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{mediaCategories.videos.title}</h3>
+                  <p className="text-sm text-slate-400">{mediaCategories.videos.description}</p>
+                </div>
+                <Badge variant="outline" className="ml-auto text-slate-400 border-slate-600">
+                  {mediaCategories.videos.assets.length} items
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {mediaCategories.videos.assets.map((asset, index) => (
+                  <MediaCard key={index} {...asset} quizLink={quizLink} />
+                ))}
+              </div>
+            </div>
+
+            {/* Logos Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/20">
+                  <ImageIcon className="h-5 w-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{mediaCategories.logos.title}</h3>
+                  <p className="text-sm text-slate-400">{mediaCategories.logos.description}</p>
+                </div>
+                <Badge variant="outline" className="ml-auto text-slate-400 border-slate-600">
+                  {mediaCategories.logos.assets.length} items
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {mediaCategories.logos.assets.map((asset, index) => (
+                  <MediaCard key={index} {...asset} quizLink={quizLink} />
+                ))}
+              </div>
+            </div>
+
+            {/* Social Media Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <Share2 className="h-5 w-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{mediaCategories.social.title}</h3>
+                  <p className="text-sm text-slate-400">{mediaCategories.social.description}</p>
+                </div>
+                <Badge variant="outline" className="ml-auto text-slate-400 border-slate-600">
+                  {mediaCategories.social.assets.length} items
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {mediaCategories.social.assets.map((asset, index) => (
+                  <MediaCard key={index} {...asset} quizLink={quizLink} />
+                ))}
+              </div>
+            </div>
+
+            {/* Graphics Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gold-500/20">
+                  <Sparkles className="h-5 w-5 text-gold-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{mediaCategories.graphics.title}</h3>
+                  <p className="text-sm text-slate-400">{mediaCategories.graphics.description}</p>
+                </div>
+                <Badge variant="outline" className="ml-auto text-slate-400 border-slate-600">
+                  {mediaCategories.graphics.assets.length} items
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {mediaCategories.graphics.assets.map((asset, index) => (
+                  <MediaCard key={index} {...asset} quizLink={quizLink} />
+                ))}
+              </div>
             </div>
           </TabsContent>
         </Tabs>
