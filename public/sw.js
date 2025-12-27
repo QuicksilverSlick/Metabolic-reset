@@ -1,19 +1,27 @@
 // Metabolic Reset Service Worker
-// PWA installability + Push Notifications
+// PWA installability + Push Notifications + Asset Caching
 
-const CACHE_NAME = 'metabolic-reset-v2';
+const CACHE_VERSION = 'v3';
+const STATIC_CACHE = `metabolic-reset-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `metabolic-reset-dynamic-${CACHE_VERSION}`;
 
-// Install event - cache essential assets
+// Static assets to precache (shell)
+const PRECACHE_ASSETS = [
+  '/',
+  '/app',
+  '/icons/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
+
+// File extensions that should use cache-first strategy (immutable assets)
+const CACHE_FIRST_EXTENSIONS = ['.js', '.css', '.woff2', '.woff', '.ttf', '.png', '.jpg', '.jpeg', '.webp', '.svg', '.ico'];
+
+// Install event - precache essential assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/app',
-        '/icons/icon.svg',
-        '/icons/icon-192.png',
-        '/icons/icon-512.png',
-      ]);
+    caches.open(STATIC_CACHE).then((cache) => {
+      return cache.addAll(PRECACHE_ASSETS);
     })
   );
   // Activate immediately
@@ -26,7 +34,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => !name.includes(CACHE_VERSION))
           .map((name) => caches.delete(name))
       );
     })
@@ -35,28 +43,80 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - network first, fallback to cache
+// Helper: Check if request is for a static asset (hashed filename)
+function isStaticAsset(url) {
+  return CACHE_FIRST_EXTENSIONS.some(ext => url.includes(ext)) &&
+         (url.includes('/assets/') || url.includes('-') && url.match(/\.[a-f0-9]{8}\./));
+}
+
+// Fetch event - smart caching strategies
 self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
   // Skip API requests - always go to network
-  if (event.request.url.includes('/api/')) return;
+  if (url.includes('/api/')) return;
 
+  // Skip WebSocket and extension requests
+  if (url.startsWith('ws') || url.includes('chrome-extension')) return;
+
+  // STRATEGY 1: Cache-first for static assets (JS/CSS with hashes, fonts, images)
+  // These have content hashes in filenames, so they're immutable
+  if (isStaticAsset(url)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) {
+          return cached;
+        }
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // STRATEGY 2: Stale-while-revalidate for HTML pages
+  // Show cached version immediately, update cache in background
+  if (event.request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request).then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        });
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // STRATEGY 3: Network-first for everything else
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Clone and cache successful responses
         if (response.ok) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
+          caches.open(DYNAMIC_CACHE).then((cache) => {
             cache.put(event.request, responseClone);
           });
         }
         return response;
       })
       .catch(() => {
-        // Fallback to cache
         return caches.match(event.request);
       })
   );

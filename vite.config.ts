@@ -86,10 +86,31 @@ export default ({ mode }: { mode: string }) => {
     ],
     build: {
       minify: true,
-      sourcemap: "inline", // Use inline source maps for better error reporting
+      sourcemap: true, // External source maps - reduces bundle size, loaded on-demand by dev tools
+      chunkSizeWarningLimit: 500, // Warn if chunks exceed 500KB
       rollupOptions: {
         output: {
           sourcemapExcludeSources: false, // Include original source in source maps
+          manualChunks: {
+            // Core React runtime - loaded on every page
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            // UI framework components
+            'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority'],
+            // Data fetching and state management
+            'vendor-data': ['@tanstack/react-query', 'zustand', 'zod'],
+            // Forms and validation
+            'vendor-forms': ['react-hook-form', '@hookform/resolvers'],
+            // Charts and visualization (large, lazy-load candidate)
+            'vendor-charts': ['recharts'],
+            // Animation libraries
+            'vendor-animation': ['framer-motion'],
+            // Date utilities
+            'vendor-date': ['date-fns'],
+            // Stripe payment processing
+            'vendor-stripe': ['@stripe/stripe-js', '@stripe/react-stripe-js'],
+            // Toast notifications
+            'vendor-toast': ['sonner'],
+          },
         },
       },
     },

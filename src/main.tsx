@@ -10,7 +10,7 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   createBrowserRouter,
@@ -25,42 +25,63 @@ import { ScrollToTop } from '@/components/ScrollToTop';
 import '@/index.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
-// Pages
+import { Loader2 } from 'lucide-react';
+
+// Loading fallback component for Suspense
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-navy-950">
+    <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
+  </div>
+);
+
+// ============================================================================
+// CRITICAL PATH PAGES - Eagerly loaded for fast initial render
+// ============================================================================
 import { HomePage } from '@/pages/HomePage';
 import { QuizPage } from '@/pages/QuizPage';
-import { RegistrationPage } from '@/pages/auth/RegistrationPage';
-import { CoachOnboardingPage } from '@/pages/auth/CoachOnboardingPage';
-import { LoginPage } from '@/pages/auth/LoginPage';
 import { OtpLoginPage } from '@/pages/auth/OtpLoginPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
-import { BiometricsPage } from '@/pages/app/BiometricsPage';
-import { RosterPage } from '@/pages/app/RosterPage';
-import { ProfilePage } from '@/pages/app/ProfilePage';
-import { AssignCaptainPage } from '@/pages/app/AssignCaptainPage';
-import { AdminPage } from '@/pages/app/AdminPage';
-import { MyProjectsPage } from '@/pages/app/MyProjectsPage';
-import { EnrollProjectPage } from '@/pages/app/EnrollProjectPage';
-import { CoursePage } from '@/pages/app/CoursePage';
-import { CoachResourcesPage } from '@/pages/app/CoachResourcesPage';
-import { MyBugReportsPage } from '@/pages/app/MyBugReportsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { AppLayout } from '@/components/layout/AppLayout';
-// Onboarding Pages
-import CohortSelectionPage from '@/pages/app/onboarding/CohortSelectionPage';
-import ProfilePhotoPage from '@/pages/app/onboarding/ProfilePhotoPage';
-import PhoneVerificationPage from '@/pages/app/onboarding/PhoneVerificationPage';
-import VideoOrientationPage from '@/pages/app/onboarding/VideoOrientationPage';
-import KitConfirmationPage from '@/pages/app/onboarding/KitConfirmationPage';
-import CoachCartLinkPage from '@/pages/app/onboarding/CoachCartLinkPage';
-import AllAudienceVideoPage from '@/pages/app/onboarding/AllAudienceVideoPage';
-// Legal Pages
-import MedicalDisclaimerPage from '@/pages/legal/MedicalDisclaimerPage';
-import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage';
-import TermsOfServicePage from '@/pages/legal/TermsOfServicePage';
-import AssumptionOfRiskPage from '@/pages/legal/AssumptionOfRiskPage';
-import RefundPolicyPage from '@/pages/legal/RefundPolicyPage';
-import CookiePolicyPage from '@/pages/legal/CookiePolicyPage';
-import AccessibilityStatementPage from '@/pages/legal/AccessibilityStatementPage';
+
+// ============================================================================
+// LAZY-LOADED PAGES - Code-split for smaller initial bundle
+// ============================================================================
+
+// Auth pages (less frequently accessed)
+const RegistrationPage = lazy(() => import('@/pages/auth/RegistrationPage').then(m => ({ default: m.RegistrationPage })));
+const CoachOnboardingPage = lazy(() => import('@/pages/auth/CoachOnboardingPage').then(m => ({ default: m.CoachOnboardingPage })));
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })));
+
+// App pages (loaded after dashboard)
+const BiometricsPage = lazy(() => import('@/pages/app/BiometricsPage').then(m => ({ default: m.BiometricsPage })));
+const RosterPage = lazy(() => import('@/pages/app/RosterPage').then(m => ({ default: m.RosterPage })));
+const ProfilePage = lazy(() => import('@/pages/app/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const AssignCaptainPage = lazy(() => import('@/pages/app/AssignCaptainPage').then(m => ({ default: m.AssignCaptainPage })));
+const AdminPage = lazy(() => import('@/pages/app/AdminPage').then(m => ({ default: m.AdminPage })));
+const MyProjectsPage = lazy(() => import('@/pages/app/MyProjectsPage').then(m => ({ default: m.MyProjectsPage })));
+const EnrollProjectPage = lazy(() => import('@/pages/app/EnrollProjectPage').then(m => ({ default: m.EnrollProjectPage })));
+const CoursePage = lazy(() => import('@/pages/app/CoursePage').then(m => ({ default: m.CoursePage })));
+const CoachResourcesPage = lazy(() => import('@/pages/app/CoachResourcesPage').then(m => ({ default: m.CoachResourcesPage })));
+const MyBugReportsPage = lazy(() => import('@/pages/app/MyBugReportsPage').then(m => ({ default: m.MyBugReportsPage })));
+
+// Onboarding Pages (only needed during initial setup)
+const CohortSelectionPage = lazy(() => import('@/pages/app/onboarding/CohortSelectionPage'));
+const ProfilePhotoPage = lazy(() => import('@/pages/app/onboarding/ProfilePhotoPage'));
+const PhoneVerificationPage = lazy(() => import('@/pages/app/onboarding/PhoneVerificationPage'));
+const VideoOrientationPage = lazy(() => import('@/pages/app/onboarding/VideoOrientationPage'));
+const KitConfirmationPage = lazy(() => import('@/pages/app/onboarding/KitConfirmationPage'));
+const CoachCartLinkPage = lazy(() => import('@/pages/app/onboarding/CoachCartLinkPage'));
+const AllAudienceVideoPage = lazy(() => import('@/pages/app/onboarding/AllAudienceVideoPage'));
+
+// Legal Pages (rarely accessed)
+const MedicalDisclaimerPage = lazy(() => import('@/pages/legal/MedicalDisclaimerPage'));
+const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'));
+const TermsOfServicePage = lazy(() => import('@/pages/legal/TermsOfServicePage'));
+const AssumptionOfRiskPage = lazy(() => import('@/pages/legal/AssumptionOfRiskPage'));
+const RefundPolicyPage = lazy(() => import('@/pages/legal/RefundPolicyPage'));
+const CookiePolicyPage = lazy(() => import('@/pages/legal/CookiePolicyPage'));
+const AccessibilityStatementPage = lazy(() => import('@/pages/legal/AccessibilityStatementPage'));
 
 // Redirect component for /register that preserves query params
 function RegisterRedirect() {
@@ -69,17 +90,54 @@ function RegisterRedirect() {
   return <Navigate to={`/quiz${params ? `?${params}` : ''}`} replace />;
 }
 
-// Root layout that wraps all routes with ScrollToTop
+// Prefetch common routes during idle time for instant navigation
+// Uses requestIdleCallback to avoid blocking the main thread
+function prefetchCommonRoutes() {
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(() => {
+      // Prefetch routes that users commonly navigate to after login
+      import('@/pages/app/BiometricsPage');
+      import('@/pages/app/RosterPage');
+      import('@/pages/app/ProfilePage');
+      import('@/pages/app/CoursePage');
+    }, { timeout: 5000 });
+  }
+}
+
+// Root layout that wraps all routes with ScrollToTop and Suspense for lazy-loaded pages
 function RootLayout() {
+  // Trigger prefetch after first render
+  useEffect(() => {
+    prefetchCommonRoutes();
+  }, []);
+
   return (
     <>
       <ScrollToTop />
-      <Outlet />
+      <Suspense fallback={<PageLoader />}>
+        <Outlet />
+      </Suspense>
     </>
   );
 }
 
-const queryClient = new QueryClient();
+// Configure QueryClient with optimized defaults for better performance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't refetch on window focus by default (reduces unnecessary requests)
+      refetchOnWindowFocus: false,
+      // Don't refetch on reconnect by default
+      refetchOnReconnect: false,
+      // Keep data in cache for 10 minutes after component unmounts
+      gcTime: 1000 * 60 * 10,
+      // Data is considered fresh for 30 seconds
+      staleTime: 1000 * 30,
+      // Retry failed requests up to 2 times
+      retry: 2,
+    },
+  },
+});
 
 const router = createBrowserRouter([
   {
