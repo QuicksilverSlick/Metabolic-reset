@@ -1,7 +1,7 @@
 // Metabolic Reset Service Worker
 // PWA installability + Push Notifications + Asset Caching
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `metabolic-reset-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `metabolic-reset-dynamic-${CACHE_VERSION}`;
 

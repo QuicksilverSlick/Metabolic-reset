@@ -4019,6 +4019,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         userId,
         userName: user.name,
         userEmail: user.email,
+        userPhone: user.phone,
         title,
         description,
         severity: bugSeverity,

@@ -1882,7 +1882,7 @@ export function AdminPage() {
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{bug.description}</p>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="truncate max-w-[250px]">From: {bug.userName} ({bug.userEmail})</span>
+                          <span className="truncate max-w-[300px]">From: {bug.userName} ({bug.userEmail}{bug.userPhone ? `, ${bug.userPhone}` : ''})</span>
                           <span>Category: {getBugCategoryLabel(bug.category)}</span>
                           <span>{new Date(bug.createdAt).toLocaleDateString()}</span>
                         </div>
@@ -2657,6 +2657,9 @@ export function AdminPage() {
                       <Label className="text-xs text-slate-500">Submitted By</Label>
                       <p className="mt-1">{selectedBug.userName}</p>
                       <p className="text-xs text-slate-500">{selectedBug.userEmail}</p>
+                      {selectedBug.userPhone && (
+                        <p className="text-xs text-slate-500">{selectedBug.userPhone}</p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs text-slate-500">Date</Label>

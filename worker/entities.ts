@@ -492,6 +492,7 @@ export class BugReportEntity extends IndexedEntity<BugReport> {
     userId: "",
     userName: "",
     userEmail: "",
+    userPhone: "",
     title: "",
     description: "",
     severity: "medium",

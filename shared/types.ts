@@ -342,6 +342,7 @@ export interface BugReport {
   userId: string;
   userName: string;
   userEmail: string;
+  userPhone: string;
   title: string;
   description: string;
   severity: BugSeverity;

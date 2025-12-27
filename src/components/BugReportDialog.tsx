@@ -3,7 +3,7 @@
 // Bug report dialog - uses FloatingBugCapture for screen recording/screenshots
 // Also supports "support" mode for general support requests
 import React, { useState } from 'react';
-import { Bug, AlertCircle, Image, Video, Loader2, Camera, X, Upload, Check, MessageCircle } from 'lucide-react';
+import { Bug, AlertCircle, Image, Loader2, Camera, X, Upload, Check, MessageCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,6 @@ declare global {
   interface Window {
     __bugCapture?: {
       captureScreenshot: () => Promise<void>;
-      startRecording: () => Promise<void>;
-      stopRecording: () => void;
     };
   }
 }
@@ -50,7 +48,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
   const store = useBugReportStore();
 
   // Local upload progress state
-  const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean; video?: boolean }>({});
+  const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean }>({});
 
   const submitBug = useSubmitBugReport();
 
@@ -83,22 +81,11 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     }, 200);
   };
 
-  // Trigger screen recording via global handler
-  const handleStartRecording = () => {
-    window.__bugCapture?.startRecording();
-  };
-
-  // Remove captured media
+  // Remove captured screenshot
   const removeScreenshot = () => {
     if (store.media.screenshotPreview) URL.revokeObjectURL(store.media.screenshotPreview);
     store.setScreenshot(null, null);
     store.setUploadedUrl('screenshot', undefined);
-  };
-
-  const removeVideo = () => {
-    if (store.media.videoPreview) URL.revokeObjectURL(store.media.videoPreview);
-    store.setVideo(null, null);
-    store.setUploadedUrl('video', undefined);
   };
 
   // Upload media to R2
@@ -138,10 +125,6 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       screenshotUrl = await uploadMedia(store.media.screenshot, 'screenshot') || undefined;
     }
 
-    if (store.media.video && !videoUrl) {
-      videoUrl = await uploadMedia(store.media.video, 'video') || undefined;
-    }
-
     await submitBug.mutateAsync({
       type: store.reportType,
       title: store.title,
@@ -149,7 +132,6 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       severity: store.severity,
       category: store.category,
       screenshotUrl: screenshotUrl || undefined,
-      videoUrl: videoUrl || undefined,
       pageUrl: window.location.href,
       userAgent: navigator.userAgent,
     });
@@ -158,19 +140,14 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
   };
 
   const isValid = store.title.trim().length > 0 && store.description.trim().length > 0;
-  const isUploading = uploadProgress.screenshot || uploadProgress.video;
-
-  // Check if screen recording is supported
-  const isScreenRecordingSupported = typeof navigator !== 'undefined' &&
-    'mediaDevices' in navigator &&
-    'getDisplayMedia' in navigator.mediaDevices;
+  const isUploading = uploadProgress.screenshot;
 
   // Dynamic content based on mode
   const Icon = isSupport ? MessageCircle : Bug;
   const dialogTitle = isSupport ? 'Contact Support' : 'Report a Bug';
   const dialogDescription = isSupport
     ? 'Have a question or need help? Send us a message and we\'ll get back to you soon.'
-    : 'Help us improve by reporting issues you encounter. You can capture a screenshot or record your screen.';
+    : 'Help us improve by reporting issues you encounter. You can capture a screenshot to help illustrate the problem.';
   const titlePlaceholder = isSupport ? 'What do you need help with?' : 'Brief description of the issue';
   const descriptionPlaceholder = isSupport
     ? 'Tell us more about your question or what you need help with...'
@@ -303,33 +280,16 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
                 variant="outline"
                 size="sm"
                 onClick={handleCaptureScreenshot}
-                disabled={store.isRecording}
                 className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
               >
                 <Image className="h-4 w-4 mr-2" />
                 Take Screenshot
               </Button>
-
-              {isScreenRecordingSupported && !isSupport && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleStartRecording}
-                  disabled={store.isRecording}
-                  className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
-                >
-                  <Video className="h-4 w-4 mr-2" />
-                  Record Screen
-                </Button>
-              )}
             </div>
 
-            {!isSupport && (
-              <p className="text-xs text-navy-400">
-                Navigate anywhere in the app while recording. Click "Stop Recording" when done.
-              </p>
-            )}
+            <p className="text-xs text-navy-400">
+              Capture the current screen to help illustrate your {isSupport ? 'question' : 'issue'}.
+            </p>
 
             {/* Screenshot Preview */}
             {store.media.screenshotPreview && (
@@ -363,37 +323,6 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
               </div>
             )}
 
-            {/* Video Preview */}
-            {store.media.videoPreview && (
-              <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
-                <video
-                  src={store.media.videoPreview}
-                  controls
-                  className="w-full h-32 object-cover"
-                />
-                <div className="absolute top-2 right-2 flex gap-1">
-                  {store.uploadedUrls.video && (
-                    <div className="bg-green-600 text-white p-1 rounded-full">
-                      <Check className="h-3 w-3" />
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="destructive"
-                    className="h-6 w-6"
-                    onClick={removeVideo}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-                {uploadProgress.video && (
-                  <div className="absolute inset-0 bg-navy-900/80 flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 text-gold animate-spin" />
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Info note */}
@@ -417,7 +346,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             </Button>
             <Button
               type="submit"
-              disabled={!isValid || submitBug.isPending || isUploading || store.isRecording}
+              disabled={!isValid || submitBug.isPending || isUploading}
               className="bg-gold hover:bg-gold-600 text-navy-900"
             >
               {submitBug.isPending || isUploading ? (
