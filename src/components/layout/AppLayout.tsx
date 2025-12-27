@@ -88,9 +88,11 @@ export function AppLayout({ children, container = false, className, contentClass
   }
 
   // Gatekeeper: If user has an enrollment but hasn't completed onboarding, redirect
-  if (activeEnrollment && !activeEnrollment.onboardingComplete) {
+  // Skip onboarding redirects during impersonation - admin is just viewing, not completing onboarding
+  if (activeEnrollment && !activeEnrollment.onboardingComplete && !impersonation.isImpersonating) {
     // Check if user is a coach (from user object or enrollment)
-    const isCoach = user?.role === 'coach' || activeEnrollment.role === 'coach';
+    // Use displayUser to ensure we check the correct user during impersonation
+    const isCoach = displayUser?.role === 'coach' || activeEnrollment.role === 'coach';
 
     // Coaches skip cohort selection entirely - they're always GROUP_A (Optavia coaches)
     // Send them directly to cart-link page to set up their referral link
