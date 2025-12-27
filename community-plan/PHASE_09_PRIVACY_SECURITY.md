@@ -1,7 +1,51 @@
 # 📄 PHASE_09_PRIVACY_SECURITY.md
 
+> ## 🔴 HIGH PRIORITY - COMPLIANCE CRITICAL
+>
+> This phase contains **GDPR/CCPA compliance requirements** that should be implemented early.
+>
+> ### Current Security Gaps (Must Address)
+> | Gap | Risk Level | Status |
+> |-----|------------|--------|
+> | `X-User-ID` header forgeable | 🔴 Critical | Not implemented |
+> | `consentTimestamp` on User | 🟡 High | Missing from schema |
+> | `consentVersionId` on User | 🟡 High | Missing from schema |
+> | Biometric vault (private R2) | 🟡 High | Not implemented |
+> | "Right to be Forgotten" UI | 🟡 High | Not implemented |
+> | Data export PDF generation | 🟢 Medium | Not implemented |
+>
+> ### Recommended Implementation Order
+> 1. Add consent fields to User entity (before community launch)
+> 2. Implement consent gate modal (registration flow)
+> 3. Upgrade auth to signed sessions (before community launch)
+> 4. Build biometric vault with signed URLs
+> 5. Implement data deletion workflow
+
+---
+
 ## 1. Objective
 Establish a "Fortress of Trust" for sensitive biometric data. Given the **Metabolic Reset** involves tracking weight, body fat, and metabolic age, this phase ensures that participants (Ages 50–70) feel their data is handled with concierge-level security. We implement strict data isolation, private media storage, and the **"Physician's Report"** data-export feature.
+
+---
+
+## 1.1 Authentication Security Upgrade
+
+> ⚠️ **CRITICAL:** Current auth uses `X-User-ID` header which is easily forgeable.
+
+**Required Before Community Launch:**
+```typescript
+// Current (INSECURE)
+const userId = c.req.header('X-User-ID');
+
+// Required (SECURE)
+const session = await verifySignedSession(c.req.header('Authorization'));
+const userId = session.userId;
+```
+
+**Options:**
+1. **JWT with HMAC-SHA256** - Signed tokens with expiry
+2. **Cloudflare Access** - Zero-trust identity verification
+3. **Session cookies** - HttpOnly, Secure, SameSite=Strict
 
 ---
 

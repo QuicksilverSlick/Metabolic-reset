@@ -5,6 +5,25 @@ Transform the "Metabolic Reset" from a static tracking tool into a living, breat
 
 ---
 
+## 1.0 Critical Architecture Note
+
+> ⚠️ **DO NOT MODIFY `GlobalDurableObject`**
+>
+> The existing codebase uses `GlobalDurableObject` (in `worker/core-utils.ts`) as a **storage-only** pattern for 26+ entity types. It does NOT support WebSockets.
+>
+> **Required:** Create a **NEW** `CommunityDurableObject` class specifically for real-time features.
+
+### Existing vs. New Architecture
+| Aspect | GlobalDurableObject (Existing) | CommunityDurableObject (New) |
+|--------|-------------------------------|------------------------------|
+| **Purpose** | KV-style entity storage | Real-time communication |
+| **Pattern** | 1:1 entity-to-DO | M:1 clients-to-DO per team |
+| **WebSocket** | ❌ Not supported | ✅ Required |
+| **Hibernation** | N/A | ✅ Required for cost savings |
+| **Alarm API** | ❌ Not used | ✅ For batch flush |
+
+---
+
 ## 1.1 Implementation Priority (Phased Approach)
 
 > **RECOMMENDATION:** Ship social features first with MVP real-time, then enhance.
@@ -38,6 +57,47 @@ Add WebSocket infrastructure after social features are validated:
 
 ## 2. Durable Object Architecture (Phase 2)
 We will implement a **`CommunityDurableObject`** class. Each active Community/Team gets its own DO instance to manage state and WebSocket connections at the edge.
+
+### 2.0 WebSocket Hibernation (December 2025 Best Practice)
+
+> **Reference:** [Cloudflare DO WebSocket Best Practices](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
+
+WebSocket Hibernation is **required** for cost-effective real-time features:
+
+```typescript
+// CommunityDurableObject must use Hibernation API
+export class CommunityDurableObject extends DurableObject {
+  async fetch(request: Request): Promise<Response> {
+    if (request.headers.get('Upgrade') === 'websocket') {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+
+      // Use acceptWebSocket for hibernation support
+      this.ctx.acceptWebSocket(server);
+
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    // ... handle other requests
+  }
+
+  // Called when DO wakes from hibernation
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
+    const data = JSON.parse(message as string);
+    // Handle message...
+  }
+
+  // Called when WebSocket closes
+  async webSocketClose(ws: WebSocket, code: number, reason: string) {
+    // Cleanup...
+  }
+}
+```
+
+**Key Hibernation Rules:**
+1. After 10 seconds of inactivity, DO hibernates (in-memory state lost)
+2. Use `ws.serializeAttachment()` to persist state before hibernation
+3. Use `ws.deserializeAttachment()` to restore state on wake
+4. Use `this.ctx.getWebSockets()` to get all connected clients
 
 ### 2.1 The "Heartbeat" (Presence)
 *   **Logic:** When a user opens the "Community" or "Team" tab, the frontend establishes a WebSocket connection to the corresponding DO.
@@ -105,6 +165,33 @@ When a new post is detected by the DO while the user is viewing the feed:
 
 ## 7. AI Directive
 When implementing the Durable Objects, ensure that **Alarm API** is used for the "Batch Flush" logic to ensure that even if the DO is evicted from memory, the pending likes are eventually written to the D1 database.
+
+---
+
+## 8. Wrangler Configuration (New DO Class)
+
+Add to `wrangler.jsonc`:
+```jsonc
+"durable_objects": {
+  "bindings": [
+    { "name": "GlobalDurableObject", "class_name": "GlobalDurableObject" },
+    { "name": "CommunityDurableObject", "class_name": "CommunityDurableObject" }  // NEW
+  ]
+}
+```
+
+---
+
+## 9. Design Pattern Reference (December 2025)
+
+> **Reference:** [Rules of Durable Objects](https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/)
+
+**Key Principle:** "Create one Durable Object per logical unit that needs coordination: a chat room, a game session, a document."
+
+For this project:
+- **One `CommunityDurableObject` per team** (not per user, not global)
+- Team ID = Coach's user ID (from `ProjectEnrollmentEntity.groupLeaderId`)
+- All team members connect to the same DO instance
 
 ---
 

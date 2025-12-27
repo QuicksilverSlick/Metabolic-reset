@@ -6,6 +6,11 @@
 *   **Core Logic:** A structured "Study" where challengers track 4 daily habits and weekly biometrics.
 *   **Branding Theme:** "Midnight Gold Elite" (Navy-950, Gold-500, Apple-style Liquid Glass effects).
 *   **Engagement Strategy:** **In-App Only.** No external Email/SMS. The app must be the sole destination for community and nudges.
+*   **Push Notifications:** ✅ **Implemented and allowed.** Web Push (VAPID) is an in-app mechanism that respects user preferences. Push notifications are NOT the same as external Email/SMS and are permitted for:
+    - Coach pin alerts
+    - Bug report responses
+    - System announcements
+    - Achievement celebrations
 
 ## 2. Technical Stack (The "Cloudflare Native" Rule)
 Any AI agent generating code must strictly adhere to:
@@ -58,13 +63,20 @@ This table tells the AI agent which `.md` file governs which phase of the projec
 | **6** | **Moderation/Admin**| `PHASE_06_ADMIN_MODERATION.md` | Ready |
 | **7** | **Optimization** | `PHASE_07_OPTIMIZATION_LAUNCH.md` | Ready |
 | **8** | **Monetization** | `PHASE_08_PAYMENTS.md` | Partial* |
-| **9** | **Compliance** | `PHASE_09_PRIVACY_SECURITY.md` | Ready |
+| **9** | **Compliance** | `PHASE_09_PRIVACY_SECURITY.md` | 🔴 HIGH PRIORITY |
 | **10** | **In-App Nudges** | `PHASE_10_ENGAGEMENT.md` | Ready |
 | **11** | **Genealogy** | `PHASE_11_GENEALOGY_INTEGRATION.md` | Partial** |
 | **12** | **Lifecycle** | `PHASE_12_CHALLENGE_CONTROL.md` | Ready |
 
 *\*Phase 8: Core payment infrastructure exists; document focuses on post-challenge Alumni monetization.*
 *\*\*Phase 11: Genealogy logic exists in the current repo; document governs integration into the new Social API.*
+
+### December 2025 Updates Applied
+- **Phase 1:** Added existing secondary index patterns and D1 location hints
+- **Phase 3:** Added reference to existing Hono API patterns in `worker/index.ts`
+- **Phase 5:** Added WebSocket Hibernation requirement and `CommunityDurableObject` spec
+- **Phase 9:** Flagged as HIGH PRIORITY with security gap inventory
+- **Phase 10:** Added TanStack Query pattern references
 
 ---
 

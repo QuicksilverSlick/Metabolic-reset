@@ -58,8 +58,44 @@ A centralized place for social and study updates, replacing the need for push no
 
 ## 5. Technical Implementation (TanStack & Zustand)
 
+### 5.1 Existing TanStack Query Patterns (Follow These)
+
+> **Reference:** `src/hooks/use-queries.ts` contains 95+ hooks with established patterns.
+
+**Stale Time Strategy (Already Implemented):**
+| Data Type | Stale Time | Pattern |
+|-----------|------------|---------|
+| Settings/System | 30 minutes | `staleTime: 1000 * 60 * 30` |
+| User/Projects | 5 minutes | `staleTime: 1000 * 60 * 5` |
+| Scores/Progress | 2 minutes | `staleTime: 1000 * 60 * 2` |
+| Comments/Likes | 5 seconds | `staleTime: 1000 * 5` + `refetchInterval` |
+| Notifications | 30 seconds | `refetchInterval: 15000` |
+
+**Engagement features should use:**
 ```typescript
-// Zustand State for Nudges
+// Daily streak - cache for 2 minutes, refetch on focus
+export function useDailyStreak() {
+  return useQuery({
+    queryKey: ['streak', 'daily', userId],
+    queryFn: () => streakApi.getDailyStreak(userId),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// Global pulse ticker - poll every 30 seconds
+export function useGlobalPulse() {
+  return useQuery({
+    queryKey: ['pulse', 'global'],
+    queryFn: () => pulseApi.getGlobalStats(),
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false, // Don't poll in background tabs
+  });
+}
+```
+
+### 5.2 Zustand State for Nudges
+```typescript
 interface EngagementStore {
   dailyProgress: number; // 0 to 1
   streakCount: number;
@@ -71,6 +107,7 @@ interface EngagementStore {
 
 *   **Real-time Updates:** The **Durable Object** pushes "Pulse" updates via WebSocket. The frontend updates the ticker without a full page re-render.
 *   **Edge Caching:** Daily Streaks are calculated at the edge in D1 to ensure the dashboard loads in <200ms globally.
+*   **Impersonation Awareness:** Use `useEffectiveUserId()` pattern for admin viewing (already established in codebase).
 
 ---
 

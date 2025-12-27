@@ -5,6 +5,35 @@ Develop the core "brain" of the social ecosystem using **Hono.js** and **Cloudfl
 
 ---
 
+## 1.1 Existing API Patterns (Follow These)
+
+> **IMPORTANT:** The codebase has 100+ established API endpoints in `worker/index.ts`. Social APIs must follow these conventions.
+
+### Established Conventions
+| Pattern | Example | Notes |
+|---------|---------|-------|
+| **Route Structure** | `/api/{resource}` or `/api/{resource}/:id` | Consistent RESTful design |
+| **Response Wrapper** | `ApiResponse<T>` | Standardized `{ success, data, error }` |
+| **Auth Header** | `X-User-ID` | Current auth model (see Phase 9 for security upgrade) |
+| **Cache Control** | `Cache-Control: no-store` | Recently added to prevent stale data |
+| **Idempotency** | `Idempotency-Key` header | Used for payment operations |
+
+### Reference Implementation (`worker/index.ts`)
+```typescript
+// Existing pattern for entity operations
+app.get('/api/scores/history', async (c) => {
+  const userId = c.req.header('X-User-ID');
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  // ... implementation
+  return c.json({ success: true, data: scores });
+});
+```
+
+### Social API Namespace
+Use `/api/v1/social/*` to clearly separate social features from existing routes while maintaining the same conventions.
+
+---
+
 ## 2. API Route Map (Hono)
 
 All routes are protected by a `verifySession` and `checkMembership` middleware.

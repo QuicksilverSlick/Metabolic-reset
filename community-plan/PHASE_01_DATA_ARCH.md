@@ -9,6 +9,27 @@ Establish the relational foundation in **Cloudflare D1** to support the **Midnig
 
 > **IMPORTANT:** This project uses a **hybrid storage approach**. See `MASTER_GOVERNANCE_CONTEXT.md` Section 2.1 for full details.
 
+### Existing Secondary Index Patterns (Reuse These)
+The codebase already has sophisticated secondary index patterns that social features should follow:
+
+| Existing Index | Pattern | Reuse For |
+|----------------|---------|-----------|
+| `UserDailyScoresIndex` | `i:{userId}` prefix | User's posts lookup |
+| `ProjectEnrollmentIndex` | `i:{projectId}` prefix | Community posts listing |
+| `UserEnrollmentIndex` | `i:{userId}` prefix | User's team membership |
+
+**Implementation Pattern (from `worker/core-utils.ts`):**
+```typescript
+// Batch index operations with transactions
+async indexAddBatch<T>(items: T[]): Promise<void> {
+  await this.ctx.storage.transaction(async (txn) => {
+    for (const it of items) await txn.put('i:' + String(it), 1);
+  });
+}
+```
+
+> **AI Directive:** When implementing social features, follow the existing `IndexedEntity` pattern for consistency.
+
 ### What Already Exists (Durable Objects - Do Not Recreate)
 The following concepts are **already implemented** in the existing codebase and should NOT be duplicated:
 
@@ -155,7 +176,13 @@ export interface Post {
 *   **Recovery:** Admins can see these in the dashboard and "Restore" them if the deletion was accidental.
 
 ### 4.3 Implementation Plan
-1.  **Step 1:** Create D1 database: `npx wrangler d1 create metabolic-social`.
+
+> **December 2025 Best Practice:** D1 queries are now [40-60% faster](https://developers.cloudflare.com/changelog/2025-01-07-d1-faster-query/) due to reduced network round trips.
+
+1.  **Step 1:** Create D1 database with location hint for optimal placement:
+    ```bash
+    npx wrangler d1 create metabolic-social --location=wnam  # Western North America
+    ```
 2.  **Step 2:** Add D1 binding to `wrangler.jsonc`:
     ```jsonc
     "d1_databases": [
