@@ -89,6 +89,31 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
   },
 
   // ============================================================================
+  // DATABASE MAINTENANCE & INDEXING
+  // ============================================================================
+  {
+    method: 'POST',
+    path: '/api/admin/backfill-indexes',
+    description: 'Admin tool to rebuild secondary indexes for optimized queries. Backfills phone mappings, enrollment indexes, daily score indexes, and points ledger indexes. Use when indexes are out of sync or after data migrations.',
+    authentication: 'admin',
+    requestBody: {
+      type: 'BackfillIndexesRequest',
+      description: 'Backfill configuration (query params)',
+      fields: [
+        { name: 'type', type: 'string', required: false, description: 'Index type to backfill: "phones", "enrollments", "scores", "points", or "all" (default)' },
+        { name: 'limit', type: 'number', required: false, description: 'Max records to process per batch (default: 100, max: 200)' },
+        { name: 'offset', type: 'number', required: false, description: 'Starting offset for pagination (default: 0)' },
+      ],
+    },
+    responseBody: {
+      type: '{ type: string, limit: number, offset: number, enrollments: IndexResult, dailyScores: IndexResult, phoneMappings: IndexResult, pointsLedger: IndexResult, errors: string[] }',
+      description: 'Backfill results showing processed/indexed counts per type and any errors'
+    },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 2617,
+  },
+
+  // ============================================================================
   // REGISTRATION & AUTH
   // ============================================================================
   {
@@ -357,12 +382,21 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
   },
   {
     method: 'GET',
-    path: '/api/captains',
-    description: 'Get list of all coaches/captains',
+    path: '/api/group-leaders',
+    description: 'Get list of all group leaders (facilitators/coaches). Returns users with role=facilitator or role=coach who can lead participant groups.',
     authentication: 'user',
-    responseBody: { type: 'Captain[]', description: 'All captains' },
+    responseBody: { type: 'GroupLeader[]', description: 'All group leaders with their stats' },
     sourceFile: 'worker/user-routes.ts',
-    sourceLine: 1093,
+    sourceLine: 1128,
+  },
+  {
+    method: 'GET',
+    path: '/api/captains',
+    description: '@deprecated - Use /api/group-leaders instead. Legacy endpoint for backwards compatibility.',
+    authentication: 'user',
+    responseBody: { type: 'GroupLeader[]', description: 'All group leaders (legacy alias)' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 1131,
   },
   {
     method: 'POST',
@@ -604,37 +638,90 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
   },
   {
     method: 'GET',
-    path: '/api/admin/coaches',
-    description: 'Get all coaches with team stats',
+    path: '/api/admin/facilitators',
+    description: 'Get all group facilitators with their group statistics. Returns facilitators (role=facilitator or role=coach) with recruit counts, active members, and performance metrics.',
     authentication: 'admin',
-    responseBody: { type: 'CoachWithStats[]', description: 'Coaches with team info' },
+    responseBody: { type: 'FacilitatorWithStats[]', description: 'Facilitators with group stats including recruitCount, activeCount, and groupPerformance' },
     sourceFile: 'worker/user-routes.ts',
-    sourceLine: 5376,
+    sourceLine: 6144,
+  },
+  {
+    method: 'GET',
+    path: '/api/admin/coaches',
+    description: '@deprecated - Use /api/admin/facilitators instead. Legacy endpoint for backwards compatibility.',
+    authentication: 'admin',
+    responseBody: { type: 'FacilitatorWithStats[]', description: 'Facilitators with group stats (legacy alias)' },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6147,
+  },
+  {
+    method: 'POST',
+    path: '/api/admin/users/:userId/reassign-group-leader',
+    description: 'Reassign a user to a different group leader. Updates the user\'s captainId field, manages recruit indexes, and optionally notifies affected parties. Prevents self-assignment to avoid circular references.',
+    authentication: 'admin',
+    requestBody: {
+      type: 'ReassignGroupLeaderRequest',
+      description: 'Reassignment details',
+      fields: [
+        { name: 'newGroupLeaderId', type: 'string | null', required: true, description: 'New group leader ID (or null to unassign)' },
+        { name: 'newCaptainId', type: 'string | null', required: false, description: 'Legacy field - use newGroupLeaderId instead' },
+        { name: 'projectId', type: 'string', required: false, description: 'Project context for enrollment updates' },
+        { name: 'notify', type: 'boolean', required: false, description: 'Send notification to affected users (default: true)' },
+      ],
+    },
+    responseBody: {
+      type: '{ success: boolean, user: User, oldGroupLeader?: User, newGroupLeader?: User }',
+      description: 'Updated user with old and new group leader info'
+    },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6590,
   },
   {
     method: 'POST',
     path: '/api/admin/users/:userId/reassign-captain',
-    description: 'Reassign a user to different captain',
+    description: '@deprecated - Use /api/admin/users/:userId/reassign-group-leader instead. Legacy endpoint for backwards compatibility.',
     authentication: 'admin',
     requestBody: {
       type: 'ReassignCaptainRequest',
-      description: 'Reassignment details',
+      description: 'Reassignment details (legacy)',
       fields: [
         { name: 'newCaptainId', type: 'string', required: true, description: 'New captain ID' },
         { name: 'notify', type: 'boolean', required: false, description: 'Send notification' },
       ],
     },
     sourceFile: 'worker/user-routes.ts',
-    sourceLine: 5408,
+    sourceLine: 6299,
+  },
+  {
+    method: 'POST',
+    path: '/api/admin/users/bulk-reassign-group-leader',
+    description: 'Bulk reassign multiple users to a new group leader. Efficiently processes batch reassignments with a single API call. Returns detailed results for each user including success/failure status.',
+    authentication: 'admin',
+    requestBody: {
+      type: 'BulkReassignGroupLeaderRequest',
+      description: 'Bulk reassignment request',
+      fields: [
+        { name: 'userIds', type: 'string[]', required: true, description: 'Array of user IDs to reassign' },
+        { name: 'newGroupLeaderId', type: 'string', required: true, description: 'New group leader ID for all users' },
+        { name: 'newCaptainId', type: 'string', required: false, description: 'Legacy field - use newGroupLeaderId instead' },
+        { name: 'notify', type: 'boolean', required: false, description: 'Send notifications to affected users (default: true)' },
+      ],
+    },
+    responseBody: {
+      type: '{ results: Array<{ userId: string, success: boolean, error?: string }>, summary: { total: number, succeeded: number, failed: number } }',
+      description: 'Batch results with per-user status and summary counts'
+    },
+    sourceFile: 'worker/user-routes.ts',
+    sourceLine: 6430,
   },
   {
     method: 'POST',
     path: '/api/admin/users/bulk-reassign-captain',
-    description: 'Bulk reassign multiple users to new captain',
+    description: '@deprecated - Use /api/admin/users/bulk-reassign-group-leader instead. Legacy endpoint for backwards compatibility.',
     authentication: 'admin',
     requestBody: {
       type: 'BulkReassignRequest',
-      description: 'Bulk reassignment',
+      description: 'Bulk reassignment (legacy)',
       fields: [
         { name: 'userIds', type: 'string[]', required: true, description: 'Users to reassign' },
         { name: 'newCaptainId', type: 'string', required: true, description: 'New captain ID' },
@@ -642,7 +729,7 @@ export const FULL_API_ENDPOINTS: APIEndpointDoc[] = [
       ],
     },
     sourceFile: 'worker/user-routes.ts',
-    sourceLine: 5532,
+    sourceLine: 6433,
   },
   {
     method: 'POST',

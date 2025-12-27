@@ -26,7 +26,7 @@ import { ALL_COMPONENTS } from './component-docs-full';
 // ============================================================================
 
 export const PLATFORM_CONTEXT = `
-The Metabolic Reset Challenge is a 28-day health transformation platform.
+The Metabolic Reset Project is a 28-day health transformation platform.
 
 TECH STACK:
 - Frontend: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui
@@ -41,19 +41,28 @@ KEY FEATURES:
 - Daily habit tracking (water, steps, sleep, lessons)
 - Weekly biometric submissions with photo evidence
 - Course content with videos and quizzes
-- Coach/team leader referral system
+- Group leader referral system (genealogy tree)
 - Admin panel for user management
 - AI-powered bug analysis
 
 USER ROLES:
-1. Participants: Pay $28, track habits, submit biometrics
-2. Coaches (Group Leaders): Free registration, referral links, team roster
-3. Administrators: Full access, impersonation, content management
+1. Participants: Pay $28, track habits, submit biometrics (role=participant)
+2. Group Facilitators: Free registration, referral links, group roster (role=facilitator)
+3. Administrators: Full access, impersonation, content management (role=admin)
+
+TERMINOLOGY (Legacy -> Current):
+- Captain -> Group Leader (user who leads a group)
+- Coach -> Facilitator (role type)
+- Challenger -> Participant (regular user)
+- Team -> Group (collection of participants)
+- Challenge -> Project (28-day program)
+- Recruits -> Group Members (users in a group)
 
 KEY FILES:
 - src/pages/app/AdminPage.tsx - Main admin panel
 - src/pages/app/DashboardPage.tsx - User dashboard
-- worker/user-routes.ts - All API endpoints (~3800 lines)
+- src/lib/terminology.ts - UI text constants
+- worker/user-routes.ts - All API endpoints (~6600 lines)
 - worker/entities.ts - Durable Object entities (~1400 lines)
 - shared/types.ts - TypeScript type definitions (~700 lines)
 `.trim();
@@ -2389,6 +2398,181 @@ GET /api/bugs/:bugId/detail - Get bug + messages + satisfaction
 - \`worker/entities.ts:530\` - BugSatisfactionEntity
         `.trim(),
         relatedArticles: ['bug-overview'],
+      },
+    ],
+  },
+  {
+    id: 'terminology',
+    title: 'Terminology & Naming',
+    description: 'Official naming conventions and terminology mappings',
+    icon: 'BookText',
+    order: 14,
+    aiContext: 'Terminology section defines the official naming conventions. CRITICAL for understanding legacy vs new terminology. Captain=GroupLeader, Challenger=Participant, Coach=Facilitator, Team=Group, Challenge=Project.',
+    relatedSections: ['overview', 'user-management'],
+    articles: [
+      {
+        id: 'terminology-overview',
+        title: 'Naming Conventions',
+        description: 'Official terminology and legacy mappings',
+        tags: ['terminology', 'naming', 'legacy', 'migration', 'captain', 'coach', 'facilitator', 'group-leader'],
+        lastUpdated: '2025-12-26',
+        importance: 10,
+        symptoms: ['terminology confusion', 'legacy API usage', 'role name mismatch', 'captain vs facilitator'],
+        codeReferences: [
+          { filePath: 'src/lib/terminology.ts', description: 'UI text constants and helpers', type: 'lib' },
+          { filePath: 'shared/types.ts', lineStart: 11, description: 'Role normalization functions', type: 'types' },
+        ],
+        apiEndpoints: ['/api/group-leaders', '/api/admin/facilitators', '/api/admin/users/:userId/reassign-group-leader'],
+        entities: ['UserEntity'],
+        components: [],
+        content: `
+# Terminology & Naming Conventions
+
+The platform migrated from legacy "challenge" terminology to "Metabolic Reset Project" terminology in December 2025.
+
+## Role Terminology
+
+| Legacy Term | Current Term | Description |
+|-------------|--------------|-------------|
+| **Captain** | **Group Leader** | User who leads a group of participants |
+| **Coach** | **Facilitator** | Role type for group leaders (role=facilitator) |
+| **Challenger** | **Participant** | Regular user tracking habits (role=participant) |
+| **Team** | **Group** | Collection of participants under a leader |
+| **Challenge** | **Project** | The 28-day metabolic reset program |
+| **Recruits** | **Group Members** | Users assigned to a group leader |
+
+## Database Field Mappings
+
+The database still uses legacy field names for backwards compatibility:
+
+| Database Field | UI Display | Notes |
+|----------------|------------|-------|
+| captainId | Group Leader ID | User's assigned group leader |
+| role: 'coach' | Group Facilitator | Legacy role value |
+| role: 'facilitator' | Group Facilitator | New role value |
+| role: 'challenger' | Participant | Legacy role value |
+| role: 'participant' | Participant | New role value |
+
+## Helper Functions
+
+Use these functions from src/lib/terminology.ts or shared/types.ts:
+
+- normalizeRole(role) - Returns 'participant' or 'facilitator'
+- isGroupLeader(role) - True if facilitator/coach
+- isParticipant(role) - True if participant/challenger
+- getRoleDisplayName(role) - Returns "Group Facilitator" or "Participant"
+- getCohortDisplayName(cohort) - Returns "Protocol A/B/C"
+
+## API Endpoint Mappings
+
+New endpoints with legacy aliases:
+
+| New Endpoint | Legacy Alias | Purpose |
+|--------------|--------------|---------|
+| GET /api/group-leaders | GET /api/captains | List all group leaders |
+| GET /api/admin/facilitators | GET /api/admin/coaches | Admin list of facilitators |
+| POST /api/admin/users/:id/reassign-group-leader | POST /api/admin/users/:id/reassign-captain | Reassign user |
+| POST /api/admin/users/bulk-reassign-group-leader | POST /api/admin/users/bulk-reassign-captain | Bulk reassign |
+
+## UI Text Constants
+
+Use UI_TEXT from src/lib/terminology.ts:
+
+- UI_TEXT.groupRoster - "Group Roster"
+- UI_TEXT.groupManagement - "Group Management"
+- UI_TEXT.groupFacilitator - "Group Facilitator"
+- UI_TEXT.participant - "Participant"
+- UI_TEXT.groupLeader - "Group Leader"
+- UI_TEXT.metabolicResetProject - "Metabolic Reset Project"
+- UI_TEXT.protocolA - "Protocol A"
+- UI_TEXT.protocolB - "Protocol B"
+- UI_TEXT.protocolC - "Protocol C (Switchers)"
+
+## Key Files
+
+- src/lib/terminology.ts - UI text constants and re-exports
+- shared/types.ts:11-47 - Role normalization functions
+- worker/user-routes.ts - API endpoints with legacy aliases
+        `.trim(),
+        relatedArticles: ['introduction', 'user-overview'],
+      },
+    ],
+  },
+  {
+    id: 'roadmap',
+    title: 'Roadmap & Planning',
+    description: 'Future feature development plans',
+    icon: 'Map',
+    order: 15,
+    aiContext: 'Roadmap section covers planned features. The community-plan directory contains 12-phase development plans for social features, real-time updates, and more.',
+    relatedSections: ['overview'],
+    articles: [
+      {
+        id: 'community-features',
+        title: 'Community Features Roadmap',
+        description: '12-phase plan for social and community features',
+        tags: ['roadmap', 'community', 'social', 'future', 'planning', 'phases'],
+        lastUpdated: '2025-12-26',
+        importance: 7,
+        symptoms: ['feature request', 'planned feature', 'future development'],
+        codeReferences: [
+          { filePath: 'community-plan/MASTER_GOVERNANCE_CONTEXT.md', description: 'Master governance document', type: 'docs' },
+          { filePath: 'community-plan/DESIGN_SYSTEM_MIDNIGHT_GOLD.md', description: 'Design system specifications', type: 'docs' },
+        ],
+        apiEndpoints: [],
+        entities: [],
+        components: [],
+        content: `
+# Community Features Roadmap
+
+A 12-phase development plan for social and community features is documented in the community-plan/ directory.
+
+## Phase Overview
+
+| Phase | Name | Description |
+|-------|------|-------------|
+| 1 | Data Architecture | Entity schemas, indexes, migrations |
+| 2 | Media Pipeline | Image/video upload, processing, CDN |
+| 3 | Social API | Posts, comments, reactions, feeds |
+| 5 | Realtime DO | Durable Objects for live updates |
+| 6 | Admin Moderation | Content moderation tools |
+| 7 | Optimization Launch | Performance tuning, launch prep |
+| 8 | Payments | Subscription tiers, premium features |
+| 9 | Privacy Security | Data protection, audit logs |
+| 10 | Engagement | Gamification, achievements |
+| 11 | Genealogy Integration | Team hierarchy visualization |
+| 12 | Challenge Control | Project lifecycle management |
+
+## Design System
+
+The "Midnight Gold" design system defines:
+- Navy (#0F172A) and Gold (#F59E0B) brand colors
+- Montserrat (display) and Open Sans (body) typography
+- Glassmorphism and gold glow effects
+- Dark-first responsive design
+
+## Key Planning Documents
+
+community-plan/
+- MASTER_GOVERNANCE_CONTEXT.md - Overall governance
+- DESIGN_SYSTEM_MIDNIGHT_GOLD.md - Visual design specs
+- PHASE_01_DATA_ARCH.md - Data architecture
+- PHASE_02_MEDIA_PIPELINE.md - Media handling
+- PHASE_03_SOCIAL_API.md - Social features
+- PHASE_05_REALTIME_DO.md - Real-time updates
+- PHASE_06_ADMIN_MODERATION.md - Moderation tools
+- PHASE_07_OPTIMIZATION_LAUNCH.md - Launch prep
+- PHASE_08_PAYMENTS.md - Payment features
+- PHASE_09_PRIVACY_SECURITY.md - Security
+- PHASE_10_ENGAGEMENT.md - Gamification
+- PHASE_11_GENEALOGY_INTEGRATION.md - Team trees
+- PHASE_12_CHALLENGE_CONTROL.md - Project mgmt
+
+## Status
+
+These features are **planned but not yet implemented**. Current development focuses on core platform stability and the existing feature set.
+        `.trim(),
+        relatedArticles: ['introduction'],
       },
     ],
   },
