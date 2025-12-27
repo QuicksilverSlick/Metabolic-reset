@@ -16,6 +16,7 @@ export const NOTIFICATION_CATEGORIES = {
   bug_status_changed: 'bugUpdates',
   bug_response: 'bugUpdates',
   new_bug_report: 'bugUpdates',
+  new_support_request: 'bugUpdates',  // Support requests go to same category as bugs
 
   // Group/leader notifications (new terminology - preferred)
   group_leader_reassigned: 'teamChanges',
@@ -41,6 +42,7 @@ export const NOTIFICATION_CATEGORIES = {
 // Notification priority levels for different treatment
 export const NOTIFICATION_PRIORITIES: Record<NotificationType, 'urgent' | 'high' | 'normal' | 'low'> = {
   new_bug_report: 'high',             // Admins need to see bugs quickly
+  new_support_request: 'high',        // Admins need to see support requests quickly
   bug_response: 'high',               // User waiting for response
   bug_submitted: 'normal',            // Confirmation
   bug_status_changed: 'normal',       // Status update
@@ -174,7 +176,8 @@ function getPushUrlForType(type: NotificationType, data?: Record<string, unknown
       return '/app/my-bug-reports';
 
     case 'new_bug_report':
-      // Admin: link to bug management
+    case 'new_support_request':
+      // Admin: link to bug/support management
       if (data?.bugId) {
         return `/app/admin?tab=bugs&bugId=${data.bugId}`;
       }

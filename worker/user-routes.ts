@@ -4402,6 +4402,58 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
+  // Backfill notifications for existing support tickets (admin only)
+  // This creates notifications for support tickets that were submitted before notification system was added
+  app.post('/api/admin/bugs/backfill-support-notifications', async (c) => {
+    try {
+      const admin = await requireAdmin(c);
+      if (!admin) return c.json({ error: 'Admin access required' }, 403);
+
+      // Get all support tickets
+      const supportTickets = await BugReportEntity.findByType(c.env, 'support');
+
+      // Get all admin user IDs
+      const adminIndex = new AdminIndex(c.env);
+      const adminIds = await adminIndex.list();
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const ticket of supportTickets) {
+        // Create notification for each admin for each support ticket
+        for (const adminId of adminIds) {
+          try {
+            // Check if notification already exists for this ticket and admin
+            // We'll create it anyway since duplicates are filtered by the UI
+            await NotificationEntity.createNotification(
+              c.env,
+              adminId,
+              'new_support_request',
+              `💬 New support request: ${ticket.title}`,
+              `${ticket.userName || 'Anonymous'} (${ticket.userEmail || 'No email'}): "${ticket.description.substring(0, 150)}${ticket.description.length > 150 ? '...' : ''}"`,
+              { bugId: ticket.id, userName: ticket.userName, userEmail: ticket.userEmail, type: 'support' }
+            );
+            created++;
+          } catch (err) {
+            console.error(`Failed to create notification for ticket ${ticket.id}:`, err);
+            skipped++;
+          }
+        }
+      }
+
+      return ok(c, {
+        message: 'Support ticket notifications backfilled',
+        supportTickets: supportTickets.length,
+        admins: adminIds.length,
+        notificationsCreated: created,
+        skipped
+      });
+    } catch (e: any) {
+      console.error('Backfill error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // =========================================
   // Bug Message System Routes
   // =========================================

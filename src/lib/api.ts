@@ -964,6 +964,16 @@ export const adminBugApi = {
     api<{ analyses: BugAIAnalysis[] }>('/api/admin/ai-analyses', {
       headers: { 'X-User-ID': adminUserId }
     }),
+
+  // Backfill notifications for existing support tickets
+  backfillSupportNotifications: (adminUserId: string) =>
+    api<{ message: string; supportTickets: number; admins: number; notificationsCreated: number; skipped: number }>(
+      '/api/admin/bugs/backfill-support-notifications',
+      {
+        method: 'POST',
+        headers: { 'X-User-ID': adminUserId }
+      }
+    ),
 };
 
 // Genealogy API - for viewing referral trees
