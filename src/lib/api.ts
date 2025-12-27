@@ -671,6 +671,13 @@ export const bugApi = {
       headers: { 'X-User-ID': userId }
     }),
 
+  // Submit a public support request (no auth required)
+  submitPublicSupport: (data: BugReportSubmitRequest) =>
+    api<{ id: string; message: string }>('/api/support', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
   // Get current user's bug reports
   getMyBugs: (userId: string) =>
     api<BugReport[]>('/api/bugs/mine', { headers: { 'X-User-ID': userId } }),

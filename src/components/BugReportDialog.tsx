@@ -3,7 +3,7 @@
 // Bug report dialog - uses FloatingBugCapture for screen recording/screenshots
 // Also supports "support" mode for general support requests
 import React, { useState } from 'react';
-import { Bug, AlertCircle, Image, Loader2, Camera, X, Upload, Check, MessageCircle } from 'lucide-react';
+import { Bug, AlertCircle, Image, Video, Loader2, Camera, X, Upload, Check, MessageCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useSubmitBugReport } from '@/hooks/use-queries';
+import { useSubmitBugReport, useSubmitPublicSupport } from '@/hooks/use-queries';
 import { useAuthStore } from '@/lib/auth-store';
-import { uploadApi } from '@/lib/api';
+import { uploadApi, bugApi } from '@/lib/api';
 import { useBugReportStore } from '@/lib/bug-report-store';
+import { toast } from 'sonner';
 import type { BugSeverity, BugCategory } from '@shared/types';
 
 interface BugReportDialogProps {
@@ -39,27 +40,40 @@ declare global {
   interface Window {
     __bugCapture?: {
       captureScreenshot: () => Promise<void>;
+      startRecording: () => Promise<void>;
+      stopRecording: () => void;
     };
   }
 }
 
 export function BugReportDialog({ trigger }: BugReportDialogProps) {
   const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
   const store = useBugReportStore();
 
   // Local upload progress state
-  const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean }>({});
+  const [uploadProgress, setUploadProgress] = useState<{ screenshot?: boolean; video?: boolean }>({});
 
   const submitBug = useSubmitBugReport();
+  const submitPublicSupport = useSubmitPublicSupport();
 
   // Check if we're in support mode
   const isSupport = store.reportType === 'support';
+
+  // Check if user is authenticated
+  const isAuthenticated = !!userId;
 
   // Handle dialog open state from store
   const handleOpenChange = (open: boolean) => {
     if (open) {
       store.setDialogOpen(true);
       store.setMinimized(false);
+      // Pre-fill contact info from user if authenticated
+      if (isAuthenticated && user) {
+        store.setContactName(user.name || '');
+        store.setContactEmail(user.email || '');
+        store.setContactPhone(user.phone || '');
+      }
     } else {
       // Only truly close if not in capture mode
       if (store.captureMode === 'idle') {
@@ -81,14 +95,25 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     }, 200);
   };
 
-  // Remove captured screenshot
+  // Trigger screen recording via global handler
+  const handleStartRecording = () => {
+    window.__bugCapture?.startRecording();
+  };
+
+  // Remove captured media
   const removeScreenshot = () => {
     if (store.media.screenshotPreview) URL.revokeObjectURL(store.media.screenshotPreview);
     store.setScreenshot(null, null);
     store.setUploadedUrl('screenshot', undefined);
   };
 
-  // Upload media to R2
+  const removeVideo = () => {
+    if (store.media.videoPreview) URL.revokeObjectURL(store.media.videoPreview);
+    store.setVideo(null, null);
+    store.setUploadedUrl('video', undefined);
+  };
+
+  // Upload media to R2 (only for authenticated users)
   const uploadMedia = async (blob: Blob, type: 'screenshot' | 'video'): Promise<string | null> => {
     if (!userId) return null;
 
@@ -117,12 +142,42 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Upload any captured media first
+    // For support mode without auth, use public endpoint
+    if (isSupport && !isAuthenticated) {
+      try {
+        await bugApi.submitPublicSupport({
+          type: 'support',
+          title: store.title,
+          description: store.description,
+          severity: 'medium',
+          category: store.category,
+          pageUrl: window.location.href,
+          userAgent: navigator.userAgent,
+          contactName: store.contactName,
+          contactEmail: store.contactEmail,
+          contactPhone: store.contactPhone,
+        });
+        toast.success('Support request submitted!', {
+          description: "We'll get back to you at " + store.contactEmail
+        });
+        store.reset();
+      } catch (error) {
+        console.error('Support submission error:', error);
+        toast.error('Failed to submit support request');
+      }
+      return;
+    }
+
+    // For authenticated users, upload media and submit through normal flow
     let screenshotUrl = store.uploadedUrls.screenshot;
     let videoUrl = store.uploadedUrls.video;
 
     if (store.media.screenshot && !screenshotUrl) {
       screenshotUrl = await uploadMedia(store.media.screenshot, 'screenshot') || undefined;
+    }
+
+    if (store.media.video && !videoUrl) {
+      videoUrl = await uploadMedia(store.media.video, 'video') || undefined;
     }
 
     await submitBug.mutateAsync({
@@ -132,6 +187,7 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
       severity: store.severity,
       category: store.category,
       screenshotUrl: screenshotUrl || undefined,
+      videoUrl: videoUrl || undefined,
       pageUrl: window.location.href,
       userAgent: navigator.userAgent,
     });
@@ -139,15 +195,27 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
     store.reset();
   };
 
-  const isValid = store.title.trim().length > 0 && store.description.trim().length > 0;
-  const isUploading = uploadProgress.screenshot;
+  // Validation - for support mode, also require contact info if not authenticated
+  const isValidBase = store.title.trim().length > 0 && store.description.trim().length > 0;
+  const isValidContact = isAuthenticated || (
+    store.contactName.trim().length > 0 &&
+    store.contactEmail.trim().length > 0 &&
+    store.contactEmail.includes('@')
+  );
+  const isValid = isValidBase && (isSupport ? isValidContact : true);
+  const isUploading = uploadProgress.screenshot || uploadProgress.video;
+
+  // Check if screen recording is supported
+  const isScreenRecordingSupported = typeof navigator !== 'undefined' &&
+    'mediaDevices' in navigator &&
+    'getDisplayMedia' in navigator.mediaDevices;
 
   // Dynamic content based on mode
   const Icon = isSupport ? MessageCircle : Bug;
   const dialogTitle = isSupport ? 'Contact Support' : 'Report a Bug';
   const dialogDescription = isSupport
     ? 'Have a question or need help? Send us a message and we\'ll get back to you soon.'
-    : 'Help us improve by reporting issues you encounter. You can capture a screenshot to help illustrate the problem.';
+    : 'Help us improve by reporting issues you encounter. You can capture a screenshot or record your screen.';
   const titlePlaceholder = isSupport ? 'What do you need help with?' : 'Brief description of the issue';
   const descriptionPlaceholder = isSupport
     ? 'Tell us more about your question or what you need help with...'
@@ -180,6 +248,56 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Contact Info - only show for support mode */}
+          {isSupport && (
+            <div className="space-y-3 p-3 rounded-lg bg-navy-800/50 border border-navy-700">
+              <Label className="text-white text-sm font-medium">Your Contact Information</Label>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="contactName" className="text-xs text-navy-400">
+                    Name <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    id="contactName"
+                    placeholder="Your name"
+                    value={store.contactName}
+                    onChange={(e) => store.setContactName(e.target.value)}
+                    className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
+                    disabled={isAuthenticated}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="contactEmail" className="text-xs text-navy-400">
+                    Email <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    id="contactEmail"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={store.contactEmail}
+                    onChange={(e) => store.setContactEmail(e.target.value)}
+                    className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
+                    disabled={isAuthenticated}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="contactPhone" className="text-xs text-navy-400">
+                    Phone (optional)
+                  </Label>
+                  <Input
+                    id="contactPhone"
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    value={store.contactPhone}
+                    onChange={(e) => store.setContactPhone(e.target.value)}
+                    className="bg-navy-800 border-navy-600 text-white placeholder:text-navy-400"
+                    disabled={isAuthenticated}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-white">
@@ -266,64 +384,112 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             </div>
           )}
 
-          {/* Media Capture Section */}
-          <div className="space-y-3">
-            <Label className="text-white flex items-center gap-2">
-              <Camera className="h-4 w-4 text-navy-400" />
-              {isSupport ? 'Attach Screenshot (optional)' : 'Capture Media (optional)'}
-            </Label>
+          {/* Media Capture Section - only show for authenticated users or bug reports */}
+          {(isAuthenticated || !isSupport) && (
+            <div className="space-y-3">
+              <Label className="text-white flex items-center gap-2">
+                <Camera className="h-4 w-4 text-navy-400" />
+                Capture Media (optional)
+              </Label>
 
-            {/* Capture Buttons */}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCaptureScreenshot}
-                className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
-              >
-                <Image className="h-4 w-4 mr-2" />
-                Take Screenshot
-              </Button>
-            </div>
+              {/* Capture Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCaptureScreenshot}
+                  disabled={store.isRecording}
+                  className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
+                >
+                  <Image className="h-4 w-4 mr-2" />
+                  Take Screenshot
+                </Button>
 
-            <p className="text-xs text-navy-400">
-              Capture the current screen to help illustrate your {isSupport ? 'question' : 'issue'}.
-            </p>
-
-            {/* Screenshot Preview */}
-            {store.media.screenshotPreview && (
-              <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
-                <img
-                  src={store.media.screenshotPreview}
-                  alt="Screenshot preview"
-                  className="w-full h-32 object-cover object-top"
-                />
-                <div className="absolute top-2 right-2 flex gap-1">
-                  {store.uploadedUrls.screenshot && (
-                    <div className="bg-green-600 text-white p-1 rounded-full">
-                      <Check className="h-3 w-3" />
-                    </div>
-                  )}
+                {isScreenRecordingSupported && (
                   <Button
                     type="button"
-                    size="icon"
-                    variant="destructive"
-                    className="h-6 w-6"
-                    onClick={removeScreenshot}
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartRecording}
+                    disabled={store.isRecording}
+                    className="border-navy-600 bg-navy-800/50 text-white hover:bg-navy-700 hover:text-white flex-1"
                   >
-                    <X className="h-3 w-3" />
+                    <Video className="h-4 w-4 mr-2" />
+                    Record Screen
                   </Button>
-                </div>
-                {uploadProgress.screenshot && (
-                  <div className="absolute inset-0 bg-navy-900/80 flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 text-gold animate-spin" />
-                  </div>
                 )}
               </div>
-            )}
 
-          </div>
+              <p className="text-xs text-navy-400">
+                Navigate anywhere in the app while recording. Click "Stop Recording" when done.
+              </p>
+
+              {/* Screenshot Preview */}
+              {store.media.screenshotPreview && (
+                <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
+                  <img
+                    src={store.media.screenshotPreview}
+                    alt="Screenshot preview"
+                    className="w-full h-32 object-cover object-top"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {store.uploadedUrls.screenshot && (
+                      <div className="bg-green-600 text-white p-1 rounded-full">
+                        <Check className="h-3 w-3" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      className="h-6 w-6"
+                      onClick={removeScreenshot}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {uploadProgress.screenshot && (
+                    <div className="absolute inset-0 bg-navy-900/80 flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 text-gold animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Video Preview */}
+              {store.media.videoPreview && (
+                <div className="relative rounded-lg overflow-hidden border border-navy-600 bg-navy-800">
+                  <video
+                    src={store.media.videoPreview}
+                    controls
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    {store.uploadedUrls.video && (
+                      <div className="bg-green-600 text-white p-1 rounded-full">
+                        <Check className="h-3 w-3" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      className="h-6 w-6"
+                      onClick={removeVideo}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {uploadProgress.video && (
+                    <div className="absolute inset-0 bg-navy-900/80 flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 text-gold animate-spin" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Info note */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-navy-800/50 border border-navy-700">
@@ -346,10 +512,10 @@ export function BugReportDialog({ trigger }: BugReportDialogProps) {
             </Button>
             <Button
               type="submit"
-              disabled={!isValid || submitBug.isPending || isUploading}
+              disabled={!isValid || submitBug.isPending || submitPublicSupport.isPending || isUploading || store.isRecording}
               className="bg-gold hover:bg-gold-600 text-navy-900"
             >
-              {submitBug.isPending || isUploading ? (
+              {submitBug.isPending || submitPublicSupport.isPending || isUploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   {isUploading ? 'Uploading...' : 'Sending...'}

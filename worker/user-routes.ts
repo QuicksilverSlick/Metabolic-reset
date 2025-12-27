@@ -4090,6 +4090,79 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
   });
 
+  // Submit a public support request (no auth required - for pre-login users)
+  app.post('/api/support', async (c) => {
+    try {
+      const body = await c.req.json() as BugReportSubmitRequest;
+      const { title, description, category, screenshotUrl, videoUrl, pageUrl, userAgent, contactName, contactEmail, contactPhone } = body;
+
+      if (!title || !description) {
+        return bad(c, 'Title and description are required');
+      }
+
+      if (!contactName || !contactEmail) {
+        return bad(c, 'Name and email are required for support requests');
+      }
+
+      const bugId = crypto.randomUUID();
+      const now = Date.now();
+
+      await BugReportEntity.create(c.env, {
+        id: bugId,
+        type: 'support',
+        userId: '', // No user ID for unauthenticated requests
+        userName: contactName,
+        userEmail: contactEmail,
+        userPhone: contactPhone || '',
+        title,
+        description,
+        severity: 'medium', // Support requests default to medium
+        category: category || 'other',
+        status: 'open',
+        screenshotUrl: screenshotUrl || '',
+        videoUrl: videoUrl || '',
+        pageUrl: pageUrl || '',
+        userAgent: userAgent || '',
+        createdAt: now,
+        updatedAt: now,
+        adminNotes: ''
+      });
+
+      // Add to bug report index
+      const bugIndex = new BugReportIndex(c.env);
+      await bugIndex.add(bugId);
+
+      // Create system message for submission
+      await BugMessageEntity.createSystemMessage(
+        c.env,
+        bugId,
+        'submitted',
+        `Support request submitted by ${contactName} (${contactEmail}). Our team will respond shortly.`
+      );
+
+      // Notify all admins about the new support request
+      const adminIndex = new AdminIndex(c.env);
+      const adminIds = await adminIndex.list();
+      await sendNotificationToUsers(
+        c.env,
+        adminIds,
+        'new_support_request',
+        `💬 New support request: ${title}`,
+        `${contactName} (${contactEmail}): "${description.substring(0, 150)}${description.length > 150 ? '...' : ''}"`,
+        {
+          data: { bugId, userName: contactName, userEmail: contactEmail, type: 'support' },
+          pushUrl: `/app/admin?tab=bugs&bugId=${bugId}`,
+          priority: 'normal'
+        }
+      );
+
+      return ok(c, { id: bugId, message: 'Support request submitted successfully' });
+    } catch (e: any) {
+      console.error('Public support submission error:', e);
+      return c.json({ error: e.message }, 500);
+    }
+  });
+
   // Get user's own bug reports (requires auth)
   app.get('/api/bugs/mine', async (c) => {
     try {

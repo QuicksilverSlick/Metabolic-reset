@@ -18,6 +18,11 @@ interface BugReportState {
   severity: BugSeverity;
   category: BugCategory;
 
+  // Contact info (for support requests from unauthenticated users)
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+
   // Capture state
   captureMode: CaptureMode;
   isRecording: boolean;
@@ -37,6 +42,9 @@ interface BugReportState {
   setDescription: (description: string) => void;
   setSeverity: (severity: BugSeverity) => void;
   setCategory: (category: BugCategory) => void;
+  setContactName: (name: string) => void;
+  setContactEmail: (email: string) => void;
+  setContactPhone: (phone: string) => void;
 
   // Open dialog in a specific mode
   openAsBug: () => void;
@@ -78,6 +86,11 @@ export const useBugReportStore = create<BugReportState>((set) => ({
   severity: 'medium',
   category: 'other',
 
+  // Initial contact info
+  contactName: '',
+  contactEmail: '',
+  contactPhone: '',
+
   // Initial capture state
   captureMode: 'idle',
   isRecording: false,
@@ -97,6 +110,9 @@ export const useBugReportStore = create<BugReportState>((set) => ({
   setDescription: (description) => set({ description }),
   setSeverity: (severity) => set({ severity }),
   setCategory: (category) => set({ category }),
+  setContactName: (contactName) => set({ contactName }),
+  setContactEmail: (contactEmail) => set({ contactEmail }),
+  setContactPhone: (contactPhone) => set({ contactPhone }),
 
   // Open dialog in specific mode
   openAsBug: () => set({ reportType: 'bug', isDialogOpen: true, isMinimized: false }),
@@ -144,6 +160,9 @@ export const useBugReportStore = create<BugReportState>((set) => ({
     description: '',
     severity: 'medium',
     category: 'other',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
     captureMode: 'idle',
     isRecording: false,
     recordingTime: 0,

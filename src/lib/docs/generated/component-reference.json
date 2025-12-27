@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2025-12-27T21:24:44.014Z",
-  "totalComponents": 44,
+  "generatedAt": "2025-12-27T21:36:15.277Z",
+  "totalComponents": 45,
   "components": [
     {
       "name": "AddToHomeScreenModal",
@@ -180,7 +180,8 @@
       "hooks": [
         "useAuthStore",
         "useBugReportStore",
-        "useSubmitBugReport"
+        "useSubmitBugReport",
+        "useSubmitPublicSupport"
       ]
     },
     {
@@ -273,8 +274,8 @@
       "props": [],
       "hooks": [
         "useBugReportStore",
-        "useCallback",
-        "useEffect"
+        "useEffect",
+        "useCallback"
       ]
     },
     {
@@ -442,6 +443,14 @@
         "useLocation",
         "useEffect",
         "useScrollToTop"
+      ]
+    },
+    {
+      "name": "SupportButton",
+      "filePath": "src\\components\\SupportButton.tsx",
+      "props": [],
+      "hooks": [
+        "useBugReportStore"
       ]
     },
     {

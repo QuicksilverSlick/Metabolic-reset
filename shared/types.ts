@@ -367,6 +367,10 @@ export interface BugReportSubmitRequest {
   videoUrl?: string;
   pageUrl: string;
   userAgent: string;
+  // Contact info for unauthenticated support requests
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface BugReportUpdateRequest {

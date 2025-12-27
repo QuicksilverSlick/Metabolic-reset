@@ -769,7 +769,7 @@ export function useAdminRemoveUserFromProject() {
 // Bug Report hooks
 // =========================================
 
-// Submit a bug report
+// Submit a bug report (authenticated)
 export function useSubmitBugReport() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
@@ -787,6 +787,23 @@ export function useSubmitBugReport() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to submit bug report');
+    }
+  });
+}
+
+// Submit a public support request (no auth required)
+export function useSubmitPublicSupport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: BugReportSubmitRequest) => {
+      return bugApi.submitPublicSupport(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bugs'] });
+      // Toast handled in component for customization
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit support request');
     }
   });
 }

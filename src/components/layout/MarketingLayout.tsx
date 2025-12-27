@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Menu, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useBugReportStore } from '@/lib/bug-report-store';
 import { BugReportDialog } from '@/components/BugReportDialog';
+import { FloatingBugCapture } from '@/components/FloatingBugCapture';
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -167,8 +168,22 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           </div>
         </div>
       </footer>
+      {/* Floating Support Button */}
+      <Button
+        onClick={openAsSupport}
+        variant="ghost"
+        size="icon"
+        className="fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full bg-navy-800/90 text-gold hover:bg-navy-700 hover:text-gold-400 shadow-lg border border-navy-600"
+        title="Contact Support"
+      >
+        <MessageCircle className="h-5 w-5" />
+      </Button>
+
       {/* Support Dialog - renders without trigger, controlled by store */}
       <BugReportDialog trigger={<span className="hidden" />} />
+
+      {/* Floating capture component for screenshots/recording */}
+      <FloatingBugCapture />
     </div>
   );
 }
