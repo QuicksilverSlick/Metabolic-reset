@@ -147,7 +147,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               <ul className="space-y-3 text-sm">
                 <li><Link to="/legal/cookies" className="text-slate-400 hover:text-gold-400 transition-colors">Cookie Policy</Link></li>
                 <li><Link to="/legal/accessibility" className="text-slate-400 hover:text-gold-400 transition-colors">Accessibility</Link></li>
-                <li><a href="mailto:support@craveoptimalhealth.com" className="text-slate-400 hover:text-gold-400 transition-colors">Contact Support</a></li>
+                <li><a href="mailto:support@28dayreset.com" className="text-slate-400 hover:text-gold-400 transition-colors">Contact Support</a></li>
                 <li><Link to="/login" className="text-slate-400 hover:text-gold-400 transition-colors">Sign In</Link></li>
               </ul>
             </div>
