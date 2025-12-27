@@ -2501,22 +2501,24 @@ Use UI_TEXT from src/lib/terminology.ts:
   {
     id: 'roadmap',
     title: 'Roadmap & Planning',
-    description: 'Future feature development plans',
+    description: 'Future feature development plans and security priorities',
     icon: 'Map',
     order: 15,
-    aiContext: 'Roadmap section covers planned features. The community-plan directory contains 12-phase development plans for social features, real-time updates, and more.',
+    aiContext: 'Roadmap section covers planned features. The community-plan directory contains 12-phase development plans. CRITICAL: Phase 9 (Privacy/Security) is HIGH PRIORITY - current auth uses forgeable X-User-ID headers. Push notifications ARE allowed (in-app mechanism).',
     relatedSections: ['overview'],
     articles: [
       {
         id: 'community-features',
         title: 'Community Features Roadmap',
         description: '12-phase plan for social and community features',
-        tags: ['roadmap', 'community', 'social', 'future', 'planning', 'phases'],
+        tags: ['roadmap', 'community', 'social', 'future', 'planning', 'phases', 'security', 'privacy'],
         lastUpdated: '2025-12-26',
-        importance: 7,
-        symptoms: ['feature request', 'planned feature', 'future development'],
+        importance: 9,
+        symptoms: ['feature request', 'planned feature', 'future development', 'security concern', 'auth question'],
         codeReferences: [
           { filePath: 'community-plan/MASTER_GOVERNANCE_CONTEXT.md', description: 'Master governance document', type: 'docs' },
+          { filePath: 'community-plan/PHASE_09_PRIVACY_SECURITY.md', description: 'Security gaps and compliance', type: 'docs' },
+          { filePath: 'community-plan/PHASE_05_REALTIME_DO.md', description: 'WebSocket Hibernation patterns', type: 'docs' },
           { filePath: 'community-plan/DESIGN_SYSTEM_MIDNIGHT_GOLD.md', description: 'Design system specifications', type: 'docs' },
         ],
         apiEndpoints: [],
@@ -2525,52 +2527,85 @@ Use UI_TEXT from src/lib/terminology.ts:
         content: `
 # Community Features Roadmap
 
-A 12-phase development plan for social and community features is documented in the community-plan/ directory.
+A 12-phase development plan for social and community features documented in community-plan/.
 
-## Phase Overview
+## Phase Overview (December 2025 Updated)
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 1 | Data Architecture | Entity schemas, indexes, migrations |
-| 2 | Media Pipeline | Image/video upload, processing, CDN |
-| 3 | Social API | Posts, comments, reactions, feeds |
-| 5 | Realtime DO | Durable Objects for live updates |
-| 6 | Admin Moderation | Content moderation tools |
-| 7 | Optimization Launch | Performance tuning, launch prep |
-| 8 | Payments | Subscription tiers, premium features |
-| 9 | Privacy Security | Data protection, audit logs |
-| 10 | Engagement | Gamification, achievements |
-| 11 | Genealogy Integration | Team hierarchy visualization |
-| 12 | Challenge Control | Project lifecycle management |
+| Phase | Name | Status | Priority |
+|-------|------|--------|----------|
+| 0 | Governance | ACTIVE | Core |
+| 1 | Data Architecture | Ready | - |
+| 2 | Media Pipeline | Ready | - |
+| 3 | Social API | Ready | - |
+| 4 | Design System | CORE TRUTH | - |
+| 5 | Realtime DO | Ready | WebSocket Hibernation required |
+| 6 | Admin Moderation | Ready | - |
+| 7 | Optimization Launch | Ready | - |
+| 8 | Payments | Partial | Alumni monetization focus |
+| 9 | Privacy Security | HIGH PRIORITY | Compliance critical |
+| 10 | Engagement | Ready | TanStack Query patterns |
+| 11 | Genealogy Integration | Partial | Existing DO integration |
+| 12 | Challenge Control | Ready | - |
 
-## Design System
+## HIGH PRIORITY: Security Gaps (Phase 9)
 
-The "Midnight Gold" design system defines:
-- Navy (#0F172A) and Gold (#F59E0B) brand colors
-- Montserrat (display) and Open Sans (body) typography
-- Glassmorphism and gold glow effects
-- Dark-first responsive design
+Current auth uses X-User-ID header which is FORGEABLE. Before community launch:
+
+| Gap | Risk | Status |
+|-----|------|--------|
+| X-User-ID forgeable | CRITICAL | Not fixed |
+| consentTimestamp on User | High | Missing |
+| consentVersionId on User | High | Missing |
+| Biometric vault (private R2) | High | Not implemented |
+| Right to be Forgotten UI | High | Not implemented |
+
+**Recommended Fix:** Upgrade to signed sessions (JWT/Cloudflare Access/HttpOnly cookies)
+
+## Push Notifications: ALLOWED
+
+Push notifications ARE permitted (in-app VAPID mechanism). They are NOT external Email/SMS.
+
+Allowed uses:
+- Coach pin alerts
+- Bug report responses
+- System announcements
+- Achievement celebrations
+
+## December 2025 Updates Applied
+
+- **Phase 1:** Added existing secondary index patterns and D1 location hints
+- **Phase 3:** Added Hono API pattern references from worker/index.ts
+- **Phase 5:** Added WebSocket Hibernation requirement and CommunityDurableObject spec
+- **Phase 9:** Flagged HIGH PRIORITY with security gap inventory
+- **Phase 10:** Added TanStack Query stale time patterns
+
+## Hybrid Storage Architecture
+
+**Existing (Durable Objects - DO NOT MODIFY):**
+- UserEntity, ResetProjectEntity, ProjectEnrollmentEntity
+- DailyScoreEntity, WeeklyBiometricEntity
+- NotificationEntity, PushSubscriptionEntity
+- ReferralLedgerEntity, PointsLedgerEntity (26 total entities)
+
+**New (D1 Database - Social Features):**
+- community_posts, post_comments, post_likes
+- teams (extends existing group concept)
+- moderation_logs
+
+## Design System: Midnight Gold Elite
+
+- Navy-950 (#0F172A) and Gold-500 (#F59E0B)
+- Apple-style Liquid Glass effects
+- High contrast for 50-70 age demographic
+- 18px minimum body font size
+- Large touch targets
 
 ## Key Planning Documents
 
-community-plan/
-- MASTER_GOVERNANCE_CONTEXT.md - Overall governance
+- MASTER_GOVERNANCE_CONTEXT.md - Overall governance + December 2025 changelog
+- PHASE_09_PRIVACY_SECURITY.md - Security gaps (HIGH PRIORITY)
+- PHASE_05_REALTIME_DO.md - WebSocket Hibernation + CommunityDurableObject
 - DESIGN_SYSTEM_MIDNIGHT_GOLD.md - Visual design specs
-- PHASE_01_DATA_ARCH.md - Data architecture
-- PHASE_02_MEDIA_PIPELINE.md - Media handling
-- PHASE_03_SOCIAL_API.md - Social features
-- PHASE_05_REALTIME_DO.md - Real-time updates
-- PHASE_06_ADMIN_MODERATION.md - Moderation tools
-- PHASE_07_OPTIMIZATION_LAUNCH.md - Launch prep
-- PHASE_08_PAYMENTS.md - Payment features
-- PHASE_09_PRIVACY_SECURITY.md - Security
-- PHASE_10_ENGAGEMENT.md - Gamification
-- PHASE_11_GENEALOGY_INTEGRATION.md - Team trees
-- PHASE_12_CHALLENGE_CONTROL.md - Project mgmt
-
-## Status
-
-These features are **planned but not yet implemented**. Current development focuses on core platform stability and the existing feature set.
         `.trim(),
         relatedArticles: ['introduction'],
       },
