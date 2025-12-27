@@ -524,6 +524,9 @@ export type CourseContentType = 'video' | 'quiz' | 'resource';
 // Status of content availability for user
 export type ContentStatus = 'locked' | 'available' | 'in_progress' | 'completed';
 
+// Publish status for admin scheduling
+export type ContentPublishStatus = 'draft' | 'scheduled' | 'published';
+
 // Quiz question structure
 export interface QuizQuestion {
   id: string;
@@ -536,8 +539,8 @@ export interface QuizQuestion {
 // Quiz data embedded in CourseContent
 export interface QuizData {
   questions: QuizQuestion[];
-  passingScore: number; // Percentage (0-100), default 80
-  maxAttempts: number; // Maximum attempts allowed, default 2
+  passingScore: number; // Percentage (0-100), default 85
+  maxAttempts: number; // Maximum attempts allowed, default 3
   cooldownHours: number; // Hours between attempts, default 24
   timeLimit?: number; // Optional time limit in minutes
 }
@@ -546,7 +549,7 @@ export interface QuizData {
 export interface CourseContent {
   id: string;
   projectId: string; // Links to ResetProject
-  dayNumber: number; // 1-28 (when content unlocks)
+  dayNumber: number; // 1-28 (when content unlocks based on project start)
   contentType: CourseContentType;
   title: string;
   description: string;
@@ -562,9 +565,15 @@ export interface CourseContent {
   // Points and metadata
   points: number; // Points awarded on completion
   isRequired: boolean; // Must complete to unlock quiz for that week
+  // Scheduling fields (new)
+  publishStatus: ContentPublishStatus; // draft, scheduled, or published
+  scheduledReleaseDate?: string; // YYYY-MM-DD - optional override for dayNumber-based scheduling
+  publishedAt?: number; // Timestamp when content was published
+  scheduledBy?: string; // Admin userId who scheduled this content
   // Engagement tracking
   likes: number; // Total likes on this content
   likedBy: string[]; // Array of userIds who liked
+  commentCount: number; // Total comments on this content
   createdAt: number;
   updatedAt: number;
 }
@@ -606,6 +615,9 @@ export interface CreateCourseContentRequest {
   resourceUrl?: string;
   points?: number;
   isRequired?: boolean;
+  // Scheduling fields
+  publishStatus?: ContentPublishStatus; // Defaults to 'published' for backward compatibility
+  scheduledReleaseDate?: string; // YYYY-MM-DD - optional override
 }
 
 export interface UpdateCourseContentRequest {
@@ -621,6 +633,9 @@ export interface UpdateCourseContentRequest {
   resourceUrl?: string;
   points?: number;
   isRequired?: boolean;
+  // Scheduling fields
+  publishStatus?: ContentPublishStatus;
+  scheduledReleaseDate?: string;
 }
 
 // Video progress update

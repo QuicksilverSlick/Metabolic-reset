@@ -960,6 +960,11 @@ export class CourseContentEntity extends IndexedEntity<CourseContent> {
     resourceUrl: "",
     points: 0,
     isRequired: true,
+    // Scheduling fields - default to 'published' for backward compatibility
+    publishStatus: "published",
+    scheduledReleaseDate: undefined,
+    publishedAt: undefined,
+    scheduledBy: undefined,
     likes: 0,
     likedBy: [],
     createdAt: 0,
@@ -1203,24 +1208,29 @@ export function calculateCurrentDay(
 ): number {
   const projectStart = new Date(projectStartDate);
   const now = new Date();
-  const enrollmentDate = new Date(enrolledAt);
 
-  // For admins or test mode users testing before project starts, use days since enrollment
-  // This allows admins/testers to preview content during setup
-  const canPreviewContent = isAdmin || isTestMode;
-  if (canPreviewContent && now < projectStart) {
+  // ADMINS: Always have access to ALL 28 days for content management
+  // This allows admins to preview, edit, and manage scheduled content
+  if (isAdmin) {
+    return 28;
+  }
+
+  // TEST MODE: Users testing before project starts see days since enrollment
+  // This allows testers to preview content during setup
+  if (isTestMode && now < projectStart) {
+    const enrollmentDate = new Date(enrolledAt);
     const diffTime = now.getTime() - enrollmentDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    // Admins/testers can see up to all 28 days for testing
     return Math.max(1, Math.min(28, diffDays));
   }
 
-  // If project hasn't started yet, show day 1
+  // REGULAR USERS: Project hasn't started yet - no content available (day 0)
+  // This prevents non-admin users from seeing any content before project starts
   if (now < projectStart) {
-    return 1;
+    return 0;
   }
 
-  // Calculate days since project started (not since user enrolled)
+  // REGULAR USERS: Calculate days since project started (not since user enrolled)
   // This ensures all users see the same content based on project timeline
   const diffTime = now.getTime() - projectStart.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -1230,10 +1240,16 @@ export function calculateCurrentDay(
 }
 
 // Helper function to check if content is unlocked for user
+// Returns true if the content's day number is <= user's current day
+// If currentUserDay is 0 (project not started), all content is locked
 export function isContentUnlocked(
   contentDayNumber: number,
   currentUserDay: number
 ): boolean {
+  // If currentUserDay is 0, project hasn't started - all content is locked
+  if (currentUserDay === 0) {
+    return false;
+  }
   return contentDayNumber <= currentUserDay;
 }
 

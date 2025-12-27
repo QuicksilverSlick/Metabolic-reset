@@ -71,12 +71,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CourseContent, CourseContentType, QuizQuestion, QuizData, ResetProject } from '@shared/types';
+import { CourseContent, CourseContentType, QuizQuestion, QuizData, ResetProject, ContentPublishStatus } from '@shared/types';
+import { ContentCalendar } from './ContentCalendar';
 
 export function ContentManager() {
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'content' | 'analytics'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'calendar' | 'analytics'>('content');
   const userId = useAuthStore(s => s.user?.id);
 
   // Content editing state
@@ -109,13 +110,16 @@ export function ContentManager() {
   const [formPoints, setFormPoints] = useState(10);
   const [formIsRequired, setFormIsRequired] = useState(true);
   const [formQuizQuestions, setFormQuizQuestions] = useState<QuizQuestion[]>([]);
-  const [formQuizPassingScore, setFormQuizPassingScore] = useState(80);
-  const [formQuizMaxAttempts, setFormQuizMaxAttempts] = useState(2);
+  const [formQuizPassingScore, setFormQuizPassingScore] = useState(85);
+  const [formQuizMaxAttempts, setFormQuizMaxAttempts] = useState(3);
   const [formQuizCooldownHours, setFormQuizCooldownHours] = useState(24);
 
   // Queries
   const { data: content, isLoading: contentLoading } = useAdminProjectContent(selectedProjectId);
   const { data: analytics, isLoading: analyticsLoading } = useAdminContentAnalytics(selectedProjectId);
+
+  // Get the selected project for calendar view
+  const selectedProject = projects?.find((p: ResetProject) => p.id === selectedProjectId);
 
   // Mutations
   const createMutation = useAdminCreateContent();
@@ -135,8 +139,8 @@ export function ContentManager() {
     setFormPoints(10);
     setFormIsRequired(true);
     setFormQuizQuestions([]);
-    setFormQuizPassingScore(80);
-    setFormQuizMaxAttempts(2);
+    setFormQuizPassingScore(85);
+    setFormQuizMaxAttempts(3);
     setFormQuizCooldownHours(24);
     setEditingContent(null);
   };
@@ -503,11 +507,15 @@ export function ContentManager() {
         </CardContent>
       </Card>
 
-      {/* Content/Analytics Tabs */}
+      {/* Content/Calendar/Analytics Tabs */}
       {selectedProjectId && (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'content' | 'analytics')}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'content' | 'calendar' | 'analytics')}>
           <TabsList className="bg-slate-100 dark:bg-navy-700">
             <TabsTrigger value="content">Content ({content?.length || 0})</TabsTrigger>
+            <TabsTrigger value="calendar">
+              <Calendar className="w-4 h-4 mr-1" />
+              Calendar
+            </TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
@@ -596,6 +604,29 @@ export function ContentManager() {
                   );
                 })}
               </Accordion>
+            )}
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-4">
+            {contentLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
+              </div>
+            ) : selectedProject ? (
+              <ContentCalendar
+                project={selectedProject}
+                content={content || []}
+                onSelectContent={openEditDialog}
+              />
+            ) : (
+              <Card className="bg-white dark:bg-navy-800 border-slate-200 dark:border-navy-700">
+                <CardContent className="py-12 text-center">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-300 dark:text-navy-600" />
+                  <p className="text-slate-500 dark:text-slate-400">
+                    Select a project to view the content calendar.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -887,7 +918,7 @@ export function ContentManager() {
                       min={1}
                       max={100}
                       value={formQuizPassingScore}
-                      onChange={(e) => setFormQuizPassingScore(parseInt(e.target.value) || 80)}
+                      onChange={(e) => setFormQuizPassingScore(parseInt(e.target.value) || 85)}
                       className="mt-1"
                     />
                   </div>
@@ -898,7 +929,7 @@ export function ContentManager() {
                       min={1}
                       max={10}
                       value={formQuizMaxAttempts}
-                      onChange={(e) => setFormQuizMaxAttempts(parseInt(e.target.value) || 2)}
+                      onChange={(e) => setFormQuizMaxAttempts(parseInt(e.target.value) || 3)}
                       className="mt-1"
                     />
                   </div>

@@ -5040,7 +5040,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!admin) return c.json({ error: 'Admin access required' }, 403);
 
       const body = await c.req.json() as CreateCourseContentRequest;
-      const { projectId, dayNumber, contentType, title, description, order, videoUrl, videoDuration, thumbnailUrl, quizData, resourceUrl, points, isRequired } = body;
+      const { projectId, dayNumber, contentType, title, description, order, videoUrl, videoDuration, thumbnailUrl, quizData, resourceUrl, points, isRequired, publishStatus, scheduledReleaseDate } = body;
 
       if (!projectId || !title || !contentType) {
         return bad(c, 'Project ID, title, and content type are required');
@@ -5064,6 +5064,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         return bad(c, 'Quiz must have at least one question');
       }
 
+      // Validate scheduled release date format if provided
+      if (scheduledReleaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledReleaseDate)) {
+        return bad(c, 'Scheduled release date must be in YYYY-MM-DD format');
+      }
+
       const contentId = crypto.randomUUID();
       const now = Date.now();
 
@@ -5073,6 +5078,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const dayContent = await CourseContentEntity.findByProjectAndDay(c.env, projectId, dayNumber);
         finalOrder = dayContent.length + 1;
       }
+
+      // Determine publish status - default to 'published' for backward compatibility
+      const finalPublishStatus = publishStatus ?? 'published';
+      const publishedAt = finalPublishStatus === 'published' ? now : undefined;
 
       const courseContent: CourseContent = {
         id: contentId,
@@ -5089,6 +5098,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         resourceUrl: resourceUrl || '',
         points: points ?? 10,
         isRequired: isRequired ?? true,
+        // Scheduling fields
+        publishStatus: finalPublishStatus,
+        scheduledReleaseDate: scheduledReleaseDate,
+        publishedAt: publishedAt,
+        scheduledBy: admin.id,
+        likes: 0,
+        likedBy: [],
         createdAt: now,
         updatedAt: now
       };
@@ -5118,7 +5134,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (!content.id) return notFound(c, 'Content not found');
 
       const updates = await c.req.json() as UpdateCourseContentRequest;
-      const patch: Partial<CourseContent> = { updatedAt: Date.now() };
+      const now = Date.now();
+      const patch: Partial<CourseContent> = { updatedAt: now };
 
       if (updates.dayNumber !== undefined) {
         if (updates.dayNumber < 1 || updates.dayNumber > 28) {
@@ -5137,6 +5154,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       if (updates.resourceUrl !== undefined) patch.resourceUrl = updates.resourceUrl;
       if (updates.points !== undefined) patch.points = updates.points;
       if (updates.isRequired !== undefined) patch.isRequired = updates.isRequired;
+
+      // Scheduling fields
+      if (updates.scheduledReleaseDate !== undefined) {
+        if (updates.scheduledReleaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(updates.scheduledReleaseDate)) {
+          return bad(c, 'Scheduled release date must be in YYYY-MM-DD format');
+        }
+        patch.scheduledReleaseDate = updates.scheduledReleaseDate;
+      }
+      if (updates.publishStatus !== undefined) {
+        patch.publishStatus = updates.publishStatus;
+        // Set publishedAt when changing to published
+        if (updates.publishStatus === 'published' && content.publishStatus !== 'published') {
+          patch.publishedAt = now;
+        }
+        // Track who scheduled if changing to scheduled
+        if (updates.publishStatus === 'scheduled') {
+          patch.scheduledBy = admin.id;
+        }
+      }
 
       await contentEntity.patch(patch);
       return ok(c, await contentEntity.getState());
@@ -5332,7 +5368,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const currentDay = calculateCurrentDay(activeEnrollment.enrolledAt, project.startDate, isAdmin, isTestMode);
 
       // Get all content for project
-      const content = await CourseContentEntity.findByProject(c.env, activeEnrollment.projectId);
+      const allContent = await CourseContentEntity.findByProject(c.env, activeEnrollment.projectId);
+
+      // Filter content based on publish status for non-admins
+      // Admins see all content, regular users only see published content
+      const content = isAdmin ? allContent : allContent.filter(item => {
+        // Show if publishStatus is explicitly 'published' or undefined (legacy content)
+        // Explicitly check for undefined to prevent bypass via null or empty string
+        return item.publishStatus === 'published' || item.publishStatus === undefined;
+      });
 
       // Get user's progress
       const enrollmentId = activeEnrollment.id;
@@ -5422,7 +5466,14 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const isUnlocked = isContentUnlocked(dayNumber, currentDay);
 
       // Get content for this day
-      const dayContent = await CourseContentEntity.findByProjectAndDay(c.env, activeEnrollment.projectId, dayNumber);
+      const allDayContent = await CourseContentEntity.findByProjectAndDay(c.env, activeEnrollment.projectId, dayNumber);
+
+      // Filter content based on publish status for non-admins
+      // Admins see all content, regular users only see published content
+      const dayContent = isAdmin ? allDayContent : allDayContent.filter(item => {
+        // Show if publishStatus is undefined (legacy) or 'published'
+        return !item.publishStatus || item.publishStatus === 'published';
+      });
 
       // Get progress records
       const enrollmentId = activeEnrollment.id;

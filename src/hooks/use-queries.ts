@@ -1424,23 +1424,70 @@ export function useCourseOverview() {
   });
 }
 
-// Get day's content (polls for real-time like updates) (or impersonated user's)
+// Get day's content (or impersonated user's)
+// Optimized: Reduced polling to 60s, refresh on window focus instead
 export function useDayContent(dayNumber: number | null) {
   const effectiveUserId = useEffectiveUserId();
   return useQuery({
     queryKey: ['course', 'day', dayNumber, effectiveUserId],
     queryFn: () => effectiveUserId && dayNumber ? courseApi.getDayContent(effectiveUserId, dayNumber) : null,
     enabled: !!effectiveUserId && !!dayNumber,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 15000, // Poll every 15 seconds (reduced from 5s for performance)
+    staleTime: 1000 * 60, // 1 minute - data considered fresh
+    gcTime: 1000 * 60 * 5, // 5 minutes - keep in cache
+    refetchInterval: 60000, // Poll every 60 seconds (reduced from 15s for performance)
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 }
 
+// Prefetch adjacent days' content for instant navigation
+// Call this hook when viewing a day to preload next/previous day content
+export function usePrefetchAdjacentDays(currentDay: number | null, maxDay: number = 28) {
+  const queryClient = useQueryClient();
+  const effectiveUserId = useEffectiveUserId();
+
+  // Prefetch next day (most likely navigation target)
+  const nextDay = currentDay && currentDay < maxDay ? currentDay + 1 : null;
+  useQuery({
+    queryKey: ['course', 'day', nextDay, effectiveUserId],
+    queryFn: () => effectiveUserId && nextDay ? courseApi.getDayContent(effectiveUserId, nextDay) : null,
+    enabled: !!effectiveUserId && !!nextDay,
+    staleTime: 1000 * 60 * 2, // 2 minutes - slightly longer for prefetched
+    gcTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch prefetched data on focus
+  });
+
+  // Prefetch previous day (for back navigation)
+  const prevDay = currentDay && currentDay > 1 ? currentDay - 1 : null;
+  useQuery({
+    queryKey: ['course', 'day', prevDay, effectiveUserId],
+    queryFn: () => effectiveUserId && prevDay ? courseApi.getDayContent(effectiveUserId, prevDay) : null,
+    enabled: !!effectiveUserId && !!prevDay,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+
+  // Also expose a manual prefetch function for programmatic use
+  const prefetchDay = (dayNumber: number) => {
+    if (effectiveUserId && dayNumber >= 1 && dayNumber <= maxDay) {
+      queryClient.prefetchQuery({
+        queryKey: ['course', 'day', dayNumber, effectiveUserId],
+        queryFn: () => courseApi.getDayContent(effectiveUserId, dayNumber),
+        staleTime: 1000 * 60 * 2,
+      });
+    }
+  };
+
+  return { prefetchDay };
+}
+
 // User: Update video progress
+// Optimized: Only invalidates progress, not all course queries
 export function useUpdateVideoProgress() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, watchedPercentage, lastPosition }: { contentId: string; watchedPercentage: number; lastPosition: number }) => {
@@ -1448,9 +1495,13 @@ export function useUpdateVideoProgress() {
       if (!userId) throw new Error('Not authenticated');
       return courseApi.updateVideoProgress(userId, contentId, watchedPercentage, lastPosition);
     },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course'] });
+    onSuccess: (result, { contentId }) => {
+      // Only invalidate progress and specific day content, not all course queries
+      queryClient.invalidateQueries({ queryKey: ['course', 'progress', effectiveUserId] });
+      queryClient.invalidateQueries({ queryKey: ['content', contentId] });
       if (result.justCompleted) {
+        // Also update overview when video is completed (for progress %)
+        queryClient.invalidateQueries({ queryKey: ['course', 'overview', effectiveUserId] });
         toast.success(`Video completed! +${result.pointsAwarded} points`);
       }
     },
@@ -1461,9 +1512,11 @@ export function useUpdateVideoProgress() {
 }
 
 // User: Mark video complete
+// Optimized: Only invalidates necessary queries
 export function useCompleteVideo() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (contentId: string) => {
@@ -1471,8 +1524,11 @@ export function useCompleteVideo() {
       if (!userId) throw new Error('Not authenticated');
       return courseApi.completeVideo(userId, contentId);
     },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course'] });
+    onSuccess: (result, contentId) => {
+      // Only invalidate progress, overview, and specific content
+      queryClient.invalidateQueries({ queryKey: ['course', 'progress', effectiveUserId] });
+      queryClient.invalidateQueries({ queryKey: ['course', 'overview', effectiveUserId] });
+      queryClient.invalidateQueries({ queryKey: ['content', contentId] });
       if (!result.alreadyCompleted) {
         toast.success(`Video completed! +${result.pointsAwarded} points`);
       }
@@ -1484,9 +1540,11 @@ export function useCompleteVideo() {
 }
 
 // User: Submit quiz
+// Optimized: Only invalidates necessary queries
 export function useSubmitQuiz() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, answers }: { contentId: string; answers: Record<string, number> }) => {
@@ -1494,12 +1552,15 @@ export function useSubmitQuiz() {
       if (!userId) throw new Error('Not authenticated');
       return courseApi.submitQuiz(userId, contentId, answers);
     },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['course'] });
+    onSuccess: (result, { contentId }) => {
+      // Only invalidate progress, overview, and specific content
+      queryClient.invalidateQueries({ queryKey: ['course', 'progress', effectiveUserId] });
+      queryClient.invalidateQueries({ queryKey: ['course', 'overview', effectiveUserId] });
+      queryClient.invalidateQueries({ queryKey: ['content', contentId] });
       if (result.passed) {
         toast.success(`Quiz passed! ${result.score}% - +${result.pointsAwarded} points`);
       } else {
-        toast.error(`Quiz not passed. ${result.score}% (need 80%). ${result.attemptsRemaining} attempts remaining.`);
+        toast.error(`Quiz not passed. ${result.score}% (need 85%). ${result.attemptsRemaining} attempts remaining.`);
       }
     },
     onError: (error) => {
@@ -1521,23 +1582,27 @@ export function useCourseProgress() {
 
 // ========== Content Comments ==========
 
-// Get comments for a content item (with real-time polling)
+// Get comments for a content item
+// Optimized: Reduced polling to 60s, refresh on window focus
 export function useContentComments(contentId: string | null) {
   const userId = useAuthStore(s => s.userId);
   return useQuery({
     queryKey: ['comments', contentId],
     queryFn: () => contentId && userId ? commentsApi.getComments(userId, contentId) : null,
     enabled: !!contentId && !!userId,
-    staleTime: 1000 * 15, // 15 seconds
-    refetchInterval: 15000, // Poll every 15 seconds (reduced from 3s for performance)
-    refetchIntervalInBackground: false, // Don't poll when tab is in background
+    staleTime: 1000 * 30, // 30 seconds - data considered fresh
+    gcTime: 1000 * 60 * 5, // 5 minutes - keep in cache
+    refetchInterval: 60000, // Poll every 60 seconds (reduced from 15s for performance)
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 }
 
-// Add a comment
+// Add a comment with optimistic update for instant feedback
 export function useAddComment() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const user = useAuthStore(s => s.user);
   const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: ({ contentId, text }: { contentId: string; text: string }) => {
@@ -1545,17 +1610,49 @@ export function useAddComment() {
       if (!userId) throw new Error('Not authenticated');
       return commentsApi.addComment(userId, contentId, text);
     },
+    // Optimistic update - show comment immediately
+    onMutate: async ({ contentId, text }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['comments', contentId] });
+
+      // Snapshot previous value
+      const previousComments = queryClient.getQueryData(['comments', contentId]);
+
+      // Optimistically add the new comment
+      queryClient.setQueryData(['comments', contentId], (old: any) => {
+        if (!old?.comments) return old;
+        const optimisticComment = {
+          id: `temp-${Date.now()}`,
+          contentId,
+          userId,
+          userName: user?.name || 'You',
+          userAvatarUrl: user?.avatarUrl,
+          text,
+          likes: 0,
+          likedBy: [],
+          createdAt: Date.now(),
+        };
+        return { ...old, comments: [...old.comments, optimisticComment] };
+      });
+
+      return { previousComments };
+    },
     onSuccess: (_, variables) => {
+      // Refetch to get the real comment with server ID
       queryClient.invalidateQueries({ queryKey: ['comments', variables.contentId] });
       toast.success('Comment added!');
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousComments) {
+        queryClient.setQueryData(['comments', variables.contentId], context.previousComments);
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to add comment');
     }
   });
 }
 
-// Like/unlike a comment
+// Like/unlike a comment with optimistic update
 export function useLikeComment() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
@@ -1566,10 +1663,36 @@ export function useLikeComment() {
       if (!userId) throw new Error('Not authenticated');
       return commentsApi.likeComment(userId, commentId);
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', variables.contentId] });
+    // Optimistic update - toggle like immediately
+    onMutate: async ({ commentId, contentId }) => {
+      await queryClient.cancelQueries({ queryKey: ['comments', contentId] });
+      const previousComments = queryClient.getQueryData(['comments', contentId]);
+
+      queryClient.setQueryData(['comments', contentId], (old: any) => {
+        if (!old?.comments) return old;
+        return {
+          ...old,
+          comments: old.comments.map((comment: any) => {
+            if (comment.id !== commentId) return comment;
+            const likedBy = comment.likedBy || [];
+            const alreadyLiked = likedBy.includes(userId);
+            return {
+              ...comment,
+              likes: alreadyLiked ? Math.max(0, comment.likes - 1) : comment.likes + 1,
+              likedBy: alreadyLiked
+                ? likedBy.filter((id: string) => id !== userId)
+                : [...likedBy, userId]
+            };
+          })
+        };
+      });
+
+      return { previousComments };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      if (context?.previousComments) {
+        queryClient.setQueryData(['comments', variables.contentId], context.previousComments);
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to like comment');
     }
   });
@@ -1577,23 +1700,28 @@ export function useLikeComment() {
 
 // ========== Content Likes ==========
 
-// Get content details with like count (with polling for real-time updates)
+// Get content details with like count
+// Optimized: Reduced polling, refresh on window focus
 export function useContentDetails(contentId: string | null) {
   const userId = useAuthStore(s => s.userId);
   return useQuery({
     queryKey: ['content', contentId],
     queryFn: () => contentId && userId ? contentLikesApi.getContent(userId, contentId) : null,
     enabled: !!contentId && !!userId,
-    staleTime: 1000 * 15, // 15 seconds
-    refetchInterval: 20000, // Poll every 20 seconds (reduced from 5s for performance)
+    staleTime: 1000 * 30, // 30 seconds - data considered fresh
+    gcTime: 1000 * 60 * 5, // 5 minutes - keep in cache
+    refetchInterval: 60000, // Poll every 60 seconds (reduced from 20s for performance)
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 }
 
-// Like/unlike a content item
+// Like/unlike a content item with optimistic update for instant feedback
+// Optimized: Uses targeted invalidation instead of broad ['course'] invalidation
 export function useLikeContent() {
   const queryClient = useQueryClient();
   const userId = useAuthStore(s => s.userId);
+  const effectiveUserId = useEffectiveUserId();
   const isImpersonating = useIsImpersonating();
   return useMutation({
     mutationFn: (contentId: string) => {
@@ -1601,11 +1729,44 @@ export function useLikeContent() {
       if (!userId) throw new Error('Not authenticated');
       return contentLikesApi.likeContent(userId, contentId);
     },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['content', result.content.id] });
-      queryClient.invalidateQueries({ queryKey: ['course'] }); // Refresh day content too
+    // Optimistic update - toggle like immediately for instant feedback
+    onMutate: async (contentId) => {
+      // Cancel any outgoing refetches - only for specific content
+      await queryClient.cancelQueries({ queryKey: ['content', contentId] });
+
+      // Snapshot previous value
+      const previousContent = queryClient.getQueryData(['content', contentId]);
+
+      // Optimistically update content details
+      queryClient.setQueryData(['content', contentId], (old: any) => {
+        if (!old?.content) return old;
+        const likedBy = old.content.likedBy || [];
+        const alreadyLiked = likedBy.includes(userId);
+        return {
+          ...old,
+          content: {
+            ...old.content,
+            likes: alreadyLiked ? Math.max(0, old.content.likes - 1) : old.content.likes + 1,
+            likedBy: alreadyLiked
+              ? likedBy.filter((id: string) => id !== userId)
+              : [...likedBy, userId]
+          }
+        };
+      });
+
+      return { previousContent };
     },
-    onError: (error) => {
+    onSuccess: (result) => {
+      // Update with server response
+      queryClient.setQueryData(['content', result.content.id], { content: result.content });
+      // Invalidate specific day content only (not all course queries)
+      // The day content will refresh on next background poll or focus
+    },
+    onError: (error, contentId, context) => {
+      // Rollback on error
+      if (context?.previousContent) {
+        queryClient.setQueryData(['content', contentId], context.previousContent);
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to like content');
     }
   });

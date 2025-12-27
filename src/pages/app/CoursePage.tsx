@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useCourseOverview, useDayContent, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz, useContentComments, useAddComment, useLikeComment, useContentDetails, useLikeContent } from '@/hooks/use-queries';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useCourseOverview, useDayContent, usePrefetchAdjacentDays, useUpdateVideoProgress, useCompleteVideo, useSubmitQuiz, useContentComments, useAddComment, useLikeComment, useContentDetails, useLikeContent } from '@/hooks/use-queries';
+import { VideoFeed } from '@/components/course/VideoFeed';
 import { useAuthStore } from '@/lib/auth-store';
 import {
   Play,
@@ -59,6 +60,7 @@ export function CoursePage() {
   const { data: overviewData, isLoading: overviewLoading } = useCourseOverview();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { data: dayContent, isLoading: dayContentLoading } = useDayContent(selectedDay);
+  const { prefetchDay } = usePrefetchAdjacentDays(selectedDay); // Preload next/prev days
   const userId = localStorage.getItem('userId'); // Get current user ID for like status
 
   // Get current user to check admin/test mode status
@@ -73,6 +75,11 @@ export function CoursePage() {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ content: CourseContent; progress: UserProgress | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // TikTok-style video feed state
+  const [feedModeOpen, setFeedModeOpen] = useState(false);
+  const [feedStartIndex, setFeedStartIndex] = useState(0);
+  const [commentVideoForFeed, setCommentVideoForFeed] = useState<CourseContent | null>(null);
 
   // Quiz state
   const [quizModalOpen, setQuizModalOpen] = useState(false);
@@ -193,6 +200,45 @@ export function CoursePage() {
     if (!activeVideo) return;
     likeContentMutation.mutate(activeVideo.content.id);
   };
+
+  // TikTok-style video feed - filter videos from day content
+  const dayVideos = useMemo(() => {
+    if (!dayContent?.content) return [];
+    return dayContent.content
+      .filter(item => item.content.contentType === 'video' && item.content.videoUrl)
+      .map(item => ({
+        content: item.content,
+        progress: item.progress
+      }));
+  }, [dayContent?.content]);
+
+  // Open video in TikTok-style feed mode
+  const openVideoFeed = useCallback((content: CourseContent, progress: UserProgress | null) => {
+    const videoIndex = dayVideos.findIndex(v => v.content.id === content.id);
+    setFeedStartIndex(Math.max(0, videoIndex));
+    setFeedModeOpen(true);
+  }, [dayVideos]);
+
+  // Close video feed
+  const closeVideoFeed = useCallback(() => {
+    setFeedModeOpen(false);
+    setCommentVideoForFeed(null);
+  }, []);
+
+  // Handle comments from feed mode
+  const handleFeedOpenComments = useCallback((content: CourseContent) => {
+    setCommentVideoForFeed(content);
+    setActiveVideo({ content, progress: null });
+    // Keep feed open but show comment modal
+    setVideoModalOpen(true);
+  }, []);
+
+  // Close just the comments modal in feed mode
+  const closeCommentsInFeedMode = useCallback(() => {
+    setVideoModalOpen(false);
+    setActiveVideo(null);
+    setCommentVideoForFeed(null);
+  }, []);
 
   // Format relative time for comments
   const formatRelativeTime = (timestamp: number) => {
@@ -384,6 +430,7 @@ export function CoursePage() {
                       <button
                         key={day}
                         onClick={() => setSelectedDay(day)}
+                        onMouseEnter={() => isDayAccessible && prefetchDay(day)}
                         aria-label={`Day ${day}`}
                         aria-pressed={selectedDay === day}
                         className={cn(
@@ -461,11 +508,11 @@ export function CoursePage() {
                       : "bg-slate-100 dark:bg-navy-800 border-slate-200 dark:border-navy-700 opacity-60"
                   )}
                 >
-                  {/* Thumbnail for videos */}
+                  {/* Thumbnail for videos - opens TikTok-style feed */}
                   {content.contentType === 'video' && content.thumbnailUrl && (
                     <div
                       className="relative w-full aspect-video bg-slate-900 cursor-pointer group"
-                      onClick={() => dayContent.isUnlocked && openVideoPlayer(content, progress || null)}
+                      onClick={() => dayContent.isUnlocked && openVideoFeed(content, progress || null)}
                     >
                       <img
                         src={content.thumbnailUrl}
@@ -567,7 +614,7 @@ export function CoursePage() {
                             {content.contentType === 'video' && !content.thumbnailUrl && (
                               <Button
                                 size="sm"
-                                onClick={() => openVideoPlayer(content, progress || null)}
+                                onClick={() => openVideoFeed(content, progress || null)}
                                 className="bg-gold-500 hover:bg-gold-600 text-navy-900"
                               >
                                 <Play className="h-4 w-4 mr-1" />
@@ -609,8 +656,25 @@ export function CoursePage() {
         </CardContent>
       </Card>
 
-      {/* Video Player Modal - Fullscreen with Comments */}
-      <Dialog open={videoModalOpen} onOpenChange={(open) => !open && closeVideoPlayer()}>
+      {/* TikTok-style Video Feed */}
+      {feedModeOpen && dayVideos.length > 0 && (
+        <VideoFeed
+          videos={dayVideos}
+          initialIndex={feedStartIndex}
+          currentUserId={userId}
+          onClose={closeVideoFeed}
+          onLikeVideo={(contentId) => likeContentMutation.mutate(contentId)}
+          onVideoProgress={(contentId, watchedPercentage, lastPosition) => {
+            updateProgressMutation.mutate({ contentId, watchedPercentage, lastPosition });
+          }}
+          onVideoComplete={(contentId) => completeVideoMutation.mutate(contentId)}
+          onOpenComments={handleFeedOpenComments}
+          isLikeLoading={likeContentMutation.isPending}
+        />
+      )}
+
+      {/* Video Player Modal - Fullscreen with Comments (also used for comments in feed mode) */}
+      <Dialog open={videoModalOpen} onOpenChange={(open) => !open && (feedModeOpen ? closeCommentsInFeedMode() : closeVideoPlayer())}>
         <DialogContent className="w-[100vw] h-[100vh] max-w-none p-0 bg-black overflow-hidden flex flex-col">
           {/* Video Section */}
           <div className="relative flex-shrink-0 bg-black flex items-center justify-center" style={{ maxHeight: '60vh' }}>
@@ -794,7 +858,7 @@ export function CoursePage() {
             <DialogDescription className="text-sm">
               {quizResult
                 ? (quizResult.passed ? 'Congratulations!' : 'Keep trying!')
-                : `Answer all questions to complete the quiz. ${activeQuiz?.content.quizData?.passingScore || 80}% required to pass.`
+                : `Answer all questions to complete the quiz. ${activeQuiz?.content.quizData?.passingScore || 85}% required to pass.`
               }
             </DialogDescription>
           </DialogHeader>
