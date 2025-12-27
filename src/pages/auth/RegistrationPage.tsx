@@ -636,7 +636,7 @@ export function RegistrationPage() {
                                   <RadioGroupItem value="coach" className="border-slate-500 text-gold-500" />
                                 </div>
                                 <p className="text-slate-400 mb-4">
-                                  Lead a team, access roster data, track team progress, and recruit participants.
+                                  Lead a group, access roster data, track group progress, and refer participants.
                                 </p>
                                 <div className="flex items-center gap-4">
                                   <span className="text-2xl font-bold text-gold-500">$49</span>
@@ -771,7 +771,7 @@ export function RegistrationPage() {
                           <div>
                             <h2 className="text-xl md:text-2xl font-bold text-white">Complete Your Order</h2>
                             <p className="text-slate-400 text-sm">
-                              Secure payment for your {role === 'coach' ? 'Leadership' : 'Challenger'} access
+                              Secure payment for your {role === 'coach' ? 'Group Leader' : 'Participant'} access
                             </p>
                           </div>
                         </div>

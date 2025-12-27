@@ -827,7 +827,7 @@ export function ContentManager() {
                 </div>
                 {formThumbnailUrl && (
                   <div className="mt-2">
-                    <img src={formThumbnailUrl} alt="Thumbnail preview" className="h-20 w-auto rounded border" />
+                    <img src={formThumbnailUrl} alt="Thumbnail preview" loading="lazy" className="h-20 w-auto rounded border" />
                   </div>
                 )}
               </>

@@ -3,15 +3,53 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-export type UserRole = 'challenger' | 'coach';
+// UserRole - supports both legacy and new terminology for backward compatibility
+// Legacy: 'challenger' | 'coach' - will be normalized to new values on read
+// New: 'participant' | 'facilitator' - preferred values going forward
+export type UserRole = 'challenger' | 'coach' | 'participant' | 'facilitator';
+
+// Helper function to normalize role to new terminology
+// Use this when comparing roles to ensure backward compatibility
+export function normalizeRole(role: UserRole | string): 'participant' | 'facilitator' {
+  if (role === 'challenger' || role === 'participant') return 'participant';
+  if (role === 'coach' || role === 'facilitator') return 'facilitator';
+  return 'participant'; // Default fallback
+}
+
+// Helper function to check if user is a group leader (facilitator/coach)
+export function isGroupLeader(role: UserRole | string): boolean {
+  return normalizeRole(role) === 'facilitator';
+}
+
+// Helper function to check if user is a participant (challenger)
+export function isParticipant(role: UserRole | string): boolean {
+  return normalizeRole(role) === 'participant';
+}
+
+// Get display name for role (user-facing text)
+export function getRoleDisplayName(role: UserRole | string): string {
+  if (isGroupLeader(role)) return 'Group Facilitator';
+  return 'Participant';
+}
 
 // Cohort types for onboarding
-export type CohortType = 'GROUP_A' | 'GROUP_B';
+// GROUP_A: Clinical Protocol, GROUP_B: Self-Directed, GROUP_C: Protocol Switchers (B→A)
+export type CohortType = 'GROUP_A' | 'GROUP_B' | 'GROUP_C';
 
-// Reset Project (Challenge) status values
+// Get display name for cohort (user-facing text)
+export function getCohortDisplayName(cohort: CohortType | null | undefined): string {
+  switch (cohort) {
+    case 'GROUP_A': return 'Protocol A';
+    case 'GROUP_B': return 'Protocol B';
+    case 'GROUP_C': return 'Protocol C (Switcher)';
+    default: return 'Not Selected';
+  }
+}
+
+// Reset Project status values
 export type ProjectStatus = 'draft' | 'upcoming' | 'active' | 'completed';
 
-// Reset Project entity - represents a 28-day challenge
+// Reset Project entity - represents a 28-day metabolic reset project
 export interface ResetProject {
   id: string;
   name: string;
@@ -33,9 +71,9 @@ export interface ProjectEnrollment {
   groupLeaderId: string | null; // Their group leader for this project
   points: number; // Points earned in this project
   enrolledAt: number;
-  isGroupLeaderEnrolled: boolean; // If role=coach, did they pay for this project?
+  isGroupLeaderEnrolled: boolean; // If role=facilitator, did they pay for this project?
   // Cohort onboarding fields
-  cohortId: CohortType | null; // GROUP_A (Protocol) or GROUP_B (DIY)
+  cohortId: CohortType | null; // GROUP_A (Protocol), GROUP_B (DIY), or GROUP_C (Switchers)
   onboardingComplete: boolean; // Has completed full onboarding flow
   hasKit: boolean; // Group A only - do they have the nutrition kit
   kitOrderClicked: boolean; // Clicked "order kit" link
@@ -48,7 +86,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
-  captainId: string | null; // Legacy - use ProjectEnrollment.groupLeaderId for project-specific
+  captainId: string | null; // @deprecated - use ProjectEnrollment.groupLeaderId for project-specific
   referralCode: string;
   timezone: string;
   points: number; // Legacy total - use ProjectEnrollment.points for project-specific
@@ -60,7 +98,7 @@ export interface User {
   isTestMode?: boolean; // Test mode - allows viewing content like an admin without admin privileges
   stripeCustomerId?: string;
   avatarUrl?: string; // User profile photo URL
-  cartLink?: string; // Coach's personal cart link for kit orders (coaches only)
+  cartLink?: string; // Group Facilitator's personal cart link for kit orders (facilitators only)
   deletedAt?: number; // Unix timestamp for soft delete (30-day recovery window)
   deletedBy?: string; // Admin user ID who performed the deletion
   mergedInto?: string; // User ID this account was merged into (for duplicate resolution)
@@ -85,7 +123,7 @@ export interface NotificationPreferences {
   pushEnabled: boolean;
   // Per-category preferences (all default to true)
   bugUpdates: boolean;        // bug_submitted, bug_status_changed, bug_response
-  teamChanges: boolean;       // captain_reassigned, new_team_member, team_member_removed
+  teamChanges: boolean;       // group_leader_reassigned, new_group_member, group_member_removed (legacy: captain_reassigned, new_team_member, team_member_removed)
   achievements: boolean;      // achievement, points milestones
   systemAnnouncements: boolean; // system_announcement
   courseReminders: boolean;   // daily lesson reminders (future)
@@ -163,10 +201,13 @@ export interface SystemSettings {
   groupBVideoUrl: string; // Orientation video URL for Group B (DIY)
   kitOrderUrl: string; // URL to order the nutrition kit (fallback if no coach link)
   scaleOrderUrl: string; // URL to order a smart scale (e.g., Amazon link)
-  fallbackPhone: string; // Fallback phone number if coach has no cart link (e.g., "5039741671")
-  // Configurable point values
-  referralPointsCoach: number; // Points for coach when they refer someone (default: 1)
-  referralPointsChallenger: number; // Points for challenger when they refer someone (default: 5)
+  fallbackPhone: string; // Fallback phone number if facilitator has no cart link (e.g., "5039741671")
+  // Configurable point values - new terminology (preferred)
+  referralPointsFacilitator?: number; // Points for facilitator when they refer someone (default: 1)
+  referralPointsParticipant?: number; // Points for participant when they refer someone (default: 5)
+  // Legacy field names (for backward compatibility - synced with new fields)
+  referralPointsCoach: number; // @deprecated - use referralPointsFacilitator
+  referralPointsChallenger: number; // @deprecated - use referralPointsParticipant
   dailyHabitPoints: number; // Points per daily habit completed (default: 1)
   biometricSubmissionPoints: number; // Points for biometric submission (default: 25)
   // System Announcement Banner
@@ -183,7 +224,8 @@ export interface RegisterRequest {
   phone: string;
   role: UserRole;
   referralCodeUsed?: string; // The code they entered to join
-  isCaptain?: boolean; // If they want to be their own group leader
+  isCaptain?: boolean; // @deprecated - use isGroupLeader; If they want to be their own group leader
+  isGroupLeader?: boolean; // If they want to be their own group leader (facilitator)
   timezone?: string;
   hasScale?: boolean;
   projectId?: string; // Specific project to join (from referral link)
@@ -245,7 +287,8 @@ export interface QuizLead {
   age: number;
   sex: SexType;                // Male or female for gender-specific questions
   referralCode: string | null; // The group leader's referral code that referred them
-  captainId: string | null;    // Resolved group leader user ID (legacy name kept for compatibility)
+  captainId: string | null;    // @deprecated - use groupLeaderId; Resolved group leader user ID
+  groupLeaderId?: string | null; // Resolved group leader user ID (preferred)
   quizScore: number;           // Total score (0-100) - lower is healthier in new system
   quizAnswers: Record<string, number>; // Question ID to points mapping
   resultType: QuizResultType;  // GREEN/YELLOW/ORANGE/RED (new) or legacy types
@@ -399,13 +442,23 @@ export interface VerifyOtpResponse {
 }
 
 // Point Transaction types for audit log
+// Includes both legacy and new terminology for backward compatibility
 export type PointTransactionType =
-  | 'referral_coach'      // Coach referred someone
-  | 'referral_challenger' // Challenger referred someone
-  | 'daily_habit'         // Completed daily habit
-  | 'biometric_submit'    // Submitted biometrics
-  | 'admin_adjustment'    // Admin manually adjusted points
-  | 'bonus';              // Bonus points (admin awarded)
+  | 'referral_facilitator' // Facilitator referred someone (new)
+  | 'referral_participant' // Participant referred someone (new)
+  | 'referral_coach'       // @deprecated - use referral_facilitator
+  | 'referral_challenger'  // @deprecated - use referral_participant
+  | 'daily_habit'          // Completed daily habit
+  | 'biometric_submit'     // Submitted biometrics
+  | 'admin_adjustment'     // Admin manually adjusted points
+  | 'bonus';               // Bonus points (admin awarded)
+
+// Helper to normalize transaction type to new terminology
+export function normalizeTransactionType(type: PointTransactionType): PointTransactionType {
+  if (type === 'referral_coach') return 'referral_facilitator';
+  if (type === 'referral_challenger') return 'referral_participant';
+  return type;
+}
 
 // Points Ledger - audit log for all point transactions
 export interface PointsLedger {
@@ -451,8 +504,12 @@ export interface GenealogyNode {
 
 // Admin-configurable point settings update request
 export interface UpdatePointSettingsRequest {
-  referralPointsCoach?: number;
-  referralPointsChallenger?: number;
+  // New terminology (preferred)
+  referralPointsFacilitator?: number;
+  referralPointsParticipant?: number;
+  // Legacy field names (for backward compatibility)
+  referralPointsCoach?: number; // @deprecated - use referralPointsFacilitator
+  referralPointsChallenger?: number; // @deprecated - use referralPointsParticipant
   dailyHabitPoints?: number;
   biometricSubmissionPoints?: number;
 }
@@ -651,10 +708,17 @@ export interface LikeContentRequest {
 }
 
 // Notification types for in-app notifications
+// Includes both legacy and new terminology for backward compatibility
 export type NotificationType =
-  | 'captain_reassigned'      // User was reassigned to a new captain
-  | 'new_team_member'         // Captain received a new team member
-  | 'team_member_removed'     // Captain lost a team member (reassigned away)
+  // New terminology (preferred)
+  | 'group_leader_reassigned' // User was reassigned to a new group leader
+  | 'new_group_member'        // Group leader received a new group member
+  | 'group_member_removed'    // Group leader lost a group member (reassigned away)
+  // Legacy terminology (@deprecated - kept for backward compatibility)
+  | 'captain_reassigned'      // @deprecated - use group_leader_reassigned
+  | 'new_team_member'         // @deprecated - use new_group_member
+  | 'team_member_removed'     // @deprecated - use group_member_removed
+  // Other notification types
   | 'admin_impersonation'     // Admin viewed user's account (audit)
   | 'system_announcement'     // System-wide announcements
   | 'achievement'             // Points, milestones, etc.
@@ -664,6 +728,14 @@ export type NotificationType =
   | 'new_bug_report'          // Alert to admins when a new bug is submitted
   | 'bug_satisfaction'        // Satisfaction survey after bug resolution
   | 'general';                // General notifications
+
+// Helper to normalize notification type to new terminology
+export function normalizeNotificationType(type: NotificationType): NotificationType {
+  if (type === 'captain_reassigned') return 'group_leader_reassigned';
+  if (type === 'new_team_member') return 'new_group_member';
+  if (type === 'team_member_removed') return 'group_member_removed';
+  return type;
+}
 
 export interface Notification {
   id: string;

@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
+// Dynamic import for confetti - only loaded when celebration is triggered (saves ~15KB from critical path)
+const loadConfetti = () => import('canvas-confetti').then(m => m.default);
 import {
   Droplets,
   Footprints,
@@ -96,8 +97,9 @@ export function DashboardPage() {
   // Refs for habit card elements to trigger confetti from their position
   const habitRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
 
-  // Confetti celebration function
-  const triggerConfetti = useCallback((element: HTMLElement | null) => {
+  // Confetti celebration function (dynamically loaded)
+  const triggerConfetti = useCallback(async (element: HTMLElement | null) => {
+    const confetti = await loadConfetti();
     if (!element) {
       // Fallback to center screen confetti
       confetti({
@@ -146,8 +148,9 @@ export function DashboardPage() {
     }
   }, [user?.id]);
 
-  // Check if all habits are completed to trigger big celebration
-  const triggerAllCompleteConfetti = useCallback(() => {
+  // Check if all habits are completed to trigger big celebration (dynamically loaded)
+  const triggerAllCompleteConfetti = useCallback(async () => {
+    const confetti = await loadConfetti();
     const duration = 2000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
@@ -308,16 +311,16 @@ export function DashboardPage() {
       {isOrphan && (
         <Alert variant="destructive" className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900">
           <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <AlertTitle className="text-red-800 dark:text-red-300 font-bold">You need a Team!</AlertTitle>
+          <AlertTitle className="text-red-800 dark:text-red-300 font-bold">You need a Group!</AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-            <span>You are currently not assigned to a Captain. Join a team to be eligible for prizes.</span>
+            <span>You are currently not assigned to a Group Facilitator. Join a group to be eligible for awards.</span>
             <Button
               size="sm"
               variant="outline"
               className="bg-white dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-800 shrink-0"
               onClick={() => navigate('/app/assign')}
             >
-              Find a Team <ArrowRight className="ml-2 h-3 w-3" />
+              Find a Group <ArrowRight className="ml-2 h-3 w-3" />
             </Button>
           </AlertDescription>
         </Alert>
@@ -327,7 +330,7 @@ export function DashboardPage() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">
-              Hello, {user?.name || 'Challenger'}
+              Hello, {user?.name || 'Participant'}
             </h1>
             {project && (
               <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
@@ -368,14 +371,14 @@ export function DashboardPage() {
                     <div className="text-2xl font-bold text-gold-500">{points}</div>
                  </div>
             </div>
-            {/* Coach Team Summary Card */}
+            {/* Group Facilitator Group Summary Card */}
             {isCoach && (
               <div className="bg-white dark:bg-navy-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-navy-800 flex items-center gap-4 min-w-[180px] transition-colors cursor-pointer hover:border-gold-200 dark:hover:border-gold-500/50" onClick={() => navigate('/app/roster')}>
                  <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold shrink-0 ${isQualified ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
                     {isQualified ? <Trophy className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                  </div>
                  <div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Team Size</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Group Size</div>
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold text-navy-900 dark:text-white">{recruitCount}</div>
                       {isQualified && <span className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded font-bold">QUALIFIED</span>}
@@ -861,11 +864,11 @@ export function DashboardPage() {
                 {selectedBiometric.cohortId && (
                   <div className="flex items-center justify-center">
                     <Badge variant="outline" className={`${
-                      selectedBiometric.cohortId === 'GROUP_A'
+                      selectedBiometric.cohortId === 'GROUP_A' || selectedBiometric.cohortId === 'GROUP_C'
                         ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800'
                         : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                     }`}>
-                      {selectedBiometric.cohortId === 'GROUP_A' ? 'Protocol Group' : 'DIY Group'}
+                      {selectedBiometric.cohortId === 'GROUP_A' ? 'Protocol A' : selectedBiometric.cohortId === 'GROUP_C' ? 'Protocol C (Switcher)' : 'Protocol B'}
                     </Badge>
                   </div>
                 )}

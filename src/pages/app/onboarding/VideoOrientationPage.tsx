@@ -21,8 +21,9 @@ export default function VideoOrientationPage() {
   const hasEnrollmentWithCohort = enrollment && enrollment.cohortId;
 
   // Get the correct video URL based on cohort
+  // GROUP_C (Switchers) use the GROUP_A video since they're now following Protocol A
   const videoUrl = hasEnrollmentWithCohort
-    ? (enrollment.cohortId === 'GROUP_A' ? settings?.groupAVideoUrl : settings?.groupBVideoUrl)
+    ? ((enrollment.cohortId === 'GROUP_A' || enrollment.cohortId === 'GROUP_C') ? settings?.groupAVideoUrl : settings?.groupBVideoUrl)
     : settings?.groupBVideoUrl; // Default to Group B video if no cohort
 
   // Handle video end
@@ -41,8 +42,8 @@ export default function VideoOrientationPage() {
 
   // Handle continue after video
   const handleContinue = () => {
-    // If user has an enrollment with Group A cohort, go to kit confirmation
-    if (enrollment?.cohortId === 'GROUP_A') {
+    // If user has an enrollment with Group A or Group C (Switchers) cohort, go to kit confirmation
+    if (enrollment?.cohortId === 'GROUP_A' || enrollment?.cohortId === 'GROUP_C') {
       navigate('/app/onboarding/kit');
     } else if (enrollment?.cohortId === 'GROUP_B') {
       // Group B goes to kit page which auto-completes
@@ -177,11 +178,11 @@ export default function VideoOrientationPage() {
       {hasEnrollmentWithCohort && (
         <div className="mt-6 text-center">
           <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-            enrollment.cohortId === 'GROUP_A'
+            enrollment.cohortId === 'GROUP_A' || enrollment.cohortId === 'GROUP_C'
               ? 'bg-emerald-500/20 text-emerald-400'
               : 'bg-blue-500/20 text-blue-400'
           }`}>
-            {enrollment.cohortId === 'GROUP_A' ? 'Group A: Protocol' : 'Group B: Self-Directed'}
+            {enrollment.cohortId === 'GROUP_A' ? 'Protocol A' : enrollment.cohortId === 'GROUP_C' ? 'Protocol C (Switcher)' : 'Protocol B'}
           </span>
         </div>
       )}

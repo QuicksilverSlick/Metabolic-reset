@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useTeamRoster, useUser, useCaptainLeads, useTeamMemberBiometrics, useOpenProjects, useMyActiveEnrollment, useMyGenealogy } from '@/hooks/use-queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import type { QuizLead } from '@shared/types';
-import { GenealogyTree, GenealogyList } from '@/components/ui/genealogy-tree';
+
+// Lazy load heavy genealogy components - only loaded when Genealogy tab is active
+const GenealogyTree = lazy(() => import('@/components/ui/genealogy-tree').then(m => ({ default: m.GenealogyTree })));
+const GenealogyList = lazy(() => import('@/components/ui/genealogy-tree').then(m => ({ default: m.GenealogyList })));
 // Quiz questions for displaying answers
 const quizQuestions: Record<string, { question: string; category: string; icon: React.ComponentType<{ className?: string }> }> = {
   f1: { question: 'How would you describe your menstrual cycle regularity and associated symptoms?', category: 'Hormonal Balance', icon: Heart },
@@ -100,7 +103,7 @@ export function RosterPage() {
           <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           <AlertTitle className="text-red-800 dark:text-red-300">Access Denied</AlertTitle>
           <AlertDescription className="text-red-700 dark:text-red-400">
-            This page is only available to Coaches and Team Captains.
+            This page is only available to Group Facilitators and Group Leaders.
           </AlertDescription>
         </Alert>
       </div>
@@ -116,8 +119,8 @@ export function RosterPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Team Management</h1>
-          <p className="text-slate-500 dark:text-slate-400">Manage your team and track quiz leads.</p>
+          <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Group Management</h1>
+          <p className="text-slate-500 dark:text-slate-400">Manage your group and track quiz leads.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-white dark:bg-navy-900 px-4 py-2 rounded-lg border border-slate-200 dark:border-navy-800 shadow-sm flex items-center gap-2 transition-colors">
@@ -147,17 +150,17 @@ export function RosterPage() {
             </div>
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-xl font-bold text-navy-900 dark:text-white mb-2">
-                {isQualified ? 'Prize Qualified!' : 'Prize Qualification Progress'}
+                {isQualified ? 'Award Qualified!' : 'Award Qualification Progress'}
               </h3>
               <p className="text-slate-600 dark:text-slate-300 mb-4">
                 {isQualified
-                  ? 'Congratulations! You have recruited 10+ members and are now eligible for the Captain\'s Prize Pool.'
-                  : `Recruit ${remaining} more people to qualify for the Captain's Prize Pool.`}
+                  ? 'Congratulations! You have referred 10+ members and are now eligible for the Group Leader Awards.'
+                  : `Refer ${remaining} more people to qualify for the Group Leader Awards.`}
               </p>
               {!isQualified && (
                 <div className="w-full max-w-md">
                   <div className="flex justify-between text-xs mb-1 font-medium text-slate-500 dark:text-slate-400">
-                    <span>{recruitCount} Recruits</span>
+                    <span>{recruitCount} Referrals</span>
                     <span>Goal: {qualificationThreshold}</span>
                   </div>
                   <Progress value={progressPercent} className="h-2" />
@@ -285,8 +288,8 @@ export function RosterPage() {
               </TabsTrigger>
               <TabsTrigger value="recruits" className="flex-shrink-0 snap-start data-[state=active]:bg-gold-500 data-[state=active]:text-navy-900 whitespace-nowrap">
                 <Users className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Team Recruits</span>
-                <span className="sm:hidden">Team</span>
+                <span className="hidden sm:inline">Group Referrals</span>
+                <span className="sm:hidden">Group</span>
                 <span className="ml-1">({recruitCount})</span>
               </TabsTrigger>
               <TabsTrigger value="genealogy" className="flex-shrink-0 snap-start data-[state=active]:bg-green-500 data-[state=active]:text-white whitespace-nowrap">
@@ -480,16 +483,16 @@ export function RosterPage() {
         <TabsContent value="recruits">
           <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm transition-colors">
             <CardHeader>
-              <CardTitle className="text-navy-900 dark:text-white">Your Team</CardTitle>
+              <CardTitle className="text-navy-900 dark:text-white">Your Group</CardTitle>
               <CardDescription className="text-slate-500 dark:text-slate-400">
-                List of all challengers who have registered using your referral code.
+                List of all participants who have registered using your referral code.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {!roster || roster.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                   <Users className="h-12 w-12 mx-auto mb-4 text-slate-300 dark:text-navy-700" />
-                  <p>No recruits yet. Share your referral code to grow your team!</p>
+                  <p>No referrals yet. Share your referral code to grow your group!</p>
                   <div className="mt-4 inline-block bg-slate-100 dark:bg-navy-800 px-4 py-2 rounded-lg font-mono text-navy-900 dark:text-white font-bold">
                     {user.referralCode}
                   </div>
@@ -625,7 +628,7 @@ export function RosterPage() {
                     Referral Genealogy
                   </CardTitle>
                   <CardDescription className="text-slate-500 dark:text-slate-400">
-                    Visual representation of your referral tree and team structure.
+                    Visual representation of your referral tree and group structure.
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -661,10 +664,12 @@ export function RosterPage() {
                 <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                   <GitBranch className="h-12 w-12 mx-auto mb-4 text-slate-300 dark:text-navy-700" />
                   <p className="mb-2">No genealogy data available.</p>
-                  <p className="text-sm">Start referring people to build your team tree!</p>
+                  <p className="text-sm">Start referring people to build your group tree!</p>
                 </div>
               ) : treeView === 'tree' ? (
-                <GenealogyTree data={genealogy} showStats={true} />
+                <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-green-500" /></div>}>
+                  <GenealogyTree data={genealogy} showStats={true} />
+                </Suspense>
               ) : (
                 <div className="space-y-4">
                   {/* Stats Summary for List View */}
@@ -674,7 +679,7 @@ export function RosterPage() {
                       <div className="text-xl font-bold text-navy-900 dark:text-white">{genealogy.directReferrals}</div>
                     </div>
                     <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Total Team</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Total Group</div>
                       <div className="text-xl font-bold text-navy-900 dark:text-white">{genealogy.totalDownline}</div>
                     </div>
                     <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
@@ -682,11 +687,13 @@ export function RosterPage() {
                       <div className="text-xl font-bold text-gold-600 dark:text-gold-400">{genealogy.points}</div>
                     </div>
                     <div className="bg-slate-50 dark:bg-navy-800 rounded-xl p-4 border border-slate-200 dark:border-navy-700">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Team Points</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium mb-1">Group Points</div>
                       <div className="text-xl font-bold text-green-600 dark:text-green-400">{genealogy.teamPoints}</div>
                     </div>
                   </div>
-                  <GenealogyList data={genealogy} maxDepth={5} />
+                  <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-green-500" /></div>}>
+                    <GenealogyList data={genealogy} maxDepth={5} />
+                  </Suspense>
                 </div>
               )}
             </CardContent>
@@ -735,7 +742,7 @@ export function RosterPage() {
               <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                 <Scale className="h-16 w-16 mx-auto mb-4 text-slate-300 dark:text-navy-700" />
                 <p className="text-lg mb-2">No biometric data submitted yet.</p>
-                <p className="text-sm">This team member hasn't recorded any weekly weigh-ins.</p>
+                <p className="text-sm">This group member hasn't recorded any metabolic updates.</p>
               </div>
             ) : (
               <div className="space-y-6 max-w-4xl mx-auto">

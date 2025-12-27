@@ -151,7 +151,7 @@ export function BiometricsPage() {
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Week {currentWeek} Weigh-In</h1>
+          <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white">Weekly Metabolic Update - Week {currentWeek}</h1>
           {hasExistingSubmission ? (
             <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
               Already Submitted
@@ -238,7 +238,7 @@ export function BiometricsPage() {
         </Card>
         <Card className="border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-sm dark:shadow-[0_4px_20px_-2px_rgba(15,23,42,0.5)] transition-colors">
           <CardHeader>
-            <CardTitle className="text-navy-900 dark:text-white">Proof of Weigh-In</CardTitle>
+            <CardTitle className="text-navy-900 dark:text-white">Metabolic Assessment Screenshot</CardTitle>
             <CardDescription className="text-slate-500 dark:text-slate-400">Upload a screenshot from your smart scale app.</CardDescription>
           </CardHeader>
           <CardContent>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useAuthStore } from '@/lib/auth-store';
 import {
   useAdminUsers,
@@ -124,7 +124,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { User, DailyScore, WeeklyBiometric, ResetProject, ProjectStatus, CreateProjectRequest, UpdateProjectRequest, BugReport, BugStatus, BugSeverity, BugCategory, UserRole, GenealogyNode } from '@shared/types';
-import { GenealogyTree, GenealogyList } from '@/components/ui/genealogy-tree';
+
+// Lazy load heavy genealogy components
+const GenealogyTree = lazy(() => import('@/components/ui/genealogy-tree').then(m => ({ default: m.GenealogyTree })));
+const GenealogyList = lazy(() => import('@/components/ui/genealogy-tree').then(m => ({ default: m.GenealogyList })));
 import {
   Select,
   SelectContent,
@@ -1197,8 +1200,8 @@ export function AdminPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem value="coach">Coaches</SelectItem>
-                        <SelectItem value="challenger">Challengers</SelectItem>
+                        <SelectItem value="coach">Group Facilitators</SelectItem>
+                        <SelectItem value="challenger">Participants</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1292,7 +1295,7 @@ export function AdminPage() {
                     onClick={() => setBulkReassignDialogOpen(true)}
                   >
                     <UserCog className="h-4 w-4 mr-1" />
-                    Bulk Reassign Captain
+                    Bulk Reassign Group Leader
                   </Button>
                 </div>
               </div>
@@ -1381,7 +1384,7 @@ export function AdminPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={user.role === 'coach' ? 'default' : 'secondary'}>
-                          {user.role === 'coach' ? 'Coach' : 'Challenger'}
+                          {user.role === 'coach' ? 'Group Facilitator' : 'Participant'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-slate-500 text-sm">
@@ -1573,7 +1576,7 @@ export function AdminPage() {
                     {/* Status Row */}
                     <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-navy-700">
                       <Badge variant={user.role === 'coach' ? 'default' : 'secondary'}>
-                        {user.role === 'coach' ? 'Coach' : 'Challenger'}
+                        {user.role === 'coach' ? 'Group Facilitator' : 'Participant'}
                       </Badge>
                       {user.isActive !== false ? (
                         <Badge variant="outline" className="text-emerald-400 border-emerald-500/50 bg-emerald-500/20">
@@ -1699,7 +1702,7 @@ export function AdminPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle>Reset Projects</CardTitle>
-                <CardDescription>Manage 28-day challenge projects</CardDescription>
+                <CardDescription>Manage 28-day metabolic reset projects</CardDescription>
               </div>
               <Button onClick={openCreateProjectDialog}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -1997,25 +2000,27 @@ export function AdminPage() {
                         <Loader2 className="h-6 w-6 animate-spin text-gold-500" />
                       </div>
                     ) : selectedGenealogy ? (
-                      genealogyViewMode === 'tree' ? (
-                        <GenealogyTree
-                          data={selectedGenealogy}
-                          showStats={true}
-                          onNodeClick={(node) => {
-                            // Could open user details or navigate
-                            console.log('Clicked node:', node);
-                          }}
-                        />
-                      ) : (
-                        <GenealogyList
-                          data={selectedGenealogy}
-                          maxDepth={10}
-                          onNodeClick={(node) => {
-                            // Could open user details
-                            console.log('Clicked node:', node);
-                          }}
-                        />
-                      )
+                      <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-gold-500" /></div>}>
+                        {genealogyViewMode === 'tree' ? (
+                          <GenealogyTree
+                            data={selectedGenealogy}
+                            showStats={true}
+                            onNodeClick={(node) => {
+                              // Could open user details or navigate
+                              console.log('Clicked node:', node);
+                            }}
+                          />
+                        ) : (
+                          <GenealogyList
+                            data={selectedGenealogy}
+                            maxDepth={10}
+                            onNodeClick={(node) => {
+                              // Could open user details
+                              console.log('Clicked node:', node);
+                            }}
+                          />
+                        )}
+                      </Suspense>
                     ) : (
                       <div className="text-center py-8 text-slate-500">
                         <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
@@ -2209,7 +2214,7 @@ export function AdminPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="referral-coach" className="text-sm">
-                        Coach Referral Bonus
+                        Group Facilitator Referral Bonus
                       </Label>
                       <div className="flex items-center gap-2">
                         <Input
@@ -2223,12 +2228,12 @@ export function AdminPage() {
                         <span className="text-sm text-slate-500">points per referral</span>
                       </div>
                       <p className="text-xs text-slate-500">
-                        Points a coach earns when someone joins using their referral code.
+                        Points a facilitator earns when someone joins using their referral code.
                       </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="referral-challenger" className="text-sm">
-                        Challenger Referral Bonus
+                        Participant Referral Bonus
                       </Label>
                       <div className="flex items-center gap-2">
                         <Input
@@ -2242,7 +2247,7 @@ export function AdminPage() {
                         <span className="text-sm text-slate-500">points per referral</span>
                       </div>
                       <p className="text-xs text-slate-500">
-                        Points a challenger earns when someone joins using their referral code.
+                        Points a participant earns when someone joins using their referral code.
                       </p>
                     </div>
                   </div>
@@ -2958,10 +2963,10 @@ export function AdminPage() {
                     )}
                   </div>
 
-                  {/* Captain Assignment */}
+                  {/* Group Facilitator Assignment */}
                   <div className="pt-2 border-t">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Captain:</span>
+                      <span className="text-slate-500">Group Facilitator:</span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm">
                           {userDetails.user.captainId
@@ -3552,7 +3557,7 @@ export function AdminPage() {
                     </div>
                     <div className="text-right">
                       <Badge variant={enrollment.role === 'coach' ? 'default' : 'secondary'}>
-                        {enrollment.role === 'coach' ? 'Group Leader' : 'Challenger'}
+                        {enrollment.role === 'coach' ? 'Group Facilitator' : 'Participant'}
                       </Badge>
                       <p className="text-sm text-gold-600 font-mono mt-1">
                         {enrollment.points} pts
@@ -3674,7 +3679,7 @@ export function AdminPage() {
                           </div>
                         )}
                         <Badge variant={user.role === 'coach' ? 'default' : 'secondary'} className="ml-auto">
-                          {user.role === 'coach' ? 'Coach' : 'Challenger'}
+                          {user.role === 'coach' ? 'Group Facilitator' : 'Participant'}
                         </Badge>
                       </div>
                     </CardContent>
@@ -4070,7 +4075,7 @@ export function AdminPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Bulk Reassign Captains
+              Bulk Reassign Group Leaders
             </DialogTitle>
             <DialogDescription>
               Reassign {bulkSelectedUserIds.length} selected users to a new captain

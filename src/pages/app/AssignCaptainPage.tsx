@@ -27,11 +27,11 @@ export function AssignCaptainPage() {
     onSuccess: (updatedUser) => {
       updateUser({ captainId: updatedUser.captainId });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      toast.success('You have successfully joined a team!');
+      toast.success('You have successfully joined a group!');
       navigate('/app');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to join team');
+      toast.error(error instanceof Error ? error.message : 'Failed to join group');
     }
   });
   const filteredCaptains = captains?.filter(captain =>
@@ -48,9 +48,9 @@ export function AssignCaptainPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center max-w-2xl mx-auto">
-        <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white mb-4">Find Your Team</h1>
+        <h1 className="text-3xl font-display font-bold text-navy-900 dark:text-white mb-4">Find Your Group</h1>
         <p className="text-slate-600 dark:text-slate-300 text-lg">
-          You are currently not assigned to a team. To participate fully in the challenge and be eligible for prizes, please select a Captain below.
+          You are currently not assigned to a group. To participate fully in the project and be eligible for awards, please select a Group Facilitator below.
         </p>
       </div>
       <div className="relative max-w-md mx-auto">
@@ -84,14 +84,14 @@ export function AssignCaptainPage() {
                   ) : (
                     <UserPlus className="h-4 w-4 mr-2" />
                   )}
-                  Join Team
+                  Join Group
                 </Button>
               </CardContent>
             </Card>
           ))
         ) : (
           <div className="col-span-full text-center py-12 text-slate-500 dark:text-slate-400">
-            <p>No captains found matching your search.</p>
+            <p>No group facilitators found matching your search.</p>
           </div>
         )}
       </div>

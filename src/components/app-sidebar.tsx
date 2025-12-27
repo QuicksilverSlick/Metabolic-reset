@@ -122,7 +122,7 @@ export function AppSidebar(): JSX.Element {
                   >
                     <Link to="/app/roster" onClick={handleMobileNavigation}>
                       <Users className="h-5 w-5" />
-                      <span className="font-medium">Team Roster</span>
+                      <span className="font-medium">Group Roster</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
