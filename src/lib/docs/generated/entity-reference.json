@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2025-12-26T11:39:26.579Z",
+  "generatedAt": "2025-12-27T00:56:27.190Z",
   "totalEntities": 22,
   "entities": [
     {
       "name": "UserEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 33,
+      "sourceLine": 43,
       "methods": [
         "findByReferralCode",
         "addPoints",
@@ -16,25 +16,29 @@
     {
       "name": "DailyScoreEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 133,
-      "methods": []
+      "sourceLine": 143,
+      "methods": [
+        "create",
+        "findByUser",
+        "findByUserAndProject"
+      ]
     },
     {
       "name": "WeeklyBiometricEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 146,
+      "sourceLine": 203,
       "methods": []
     },
     {
       "name": "ReferralLedgerEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 164,
+      "sourceLine": 221,
       "methods": []
     },
     {
       "name": "SystemStatsEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 176,
+      "sourceLine": 233,
       "methods": [
         "incrementUsers",
         "incrementSubmissions",
@@ -44,13 +48,13 @@
     {
       "name": "QuizLeadEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 207,
+      "sourceLine": 264,
       "methods": []
     },
     {
       "name": "ResetProjectEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 238,
+      "sourceLine": 305,
       "methods": [
         "findActive",
         "findUpcoming",
@@ -60,8 +64,9 @@
     {
       "name": "ProjectEnrollmentEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 299,
+      "sourceLine": 366,
       "methods": [
+        "create",
         "findByProjectAndUser",
         "findByUser",
         "findByProject",
@@ -72,7 +77,7 @@
     {
       "name": "BugReportEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 374,
+      "sourceLine": 486,
       "methods": [
         "getAllSorted",
         "findByStatus",
@@ -82,7 +87,7 @@
     {
       "name": "BugMessageEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 427,
+      "sourceLine": 539,
       "methods": [
         "findByBug",
         "createMessage",
@@ -92,7 +97,7 @@
     {
       "name": "BugSatisfactionEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 530,
+      "sourceLine": 642,
       "methods": [
         "create",
         "findByBug"
@@ -101,13 +106,13 @@
     {
       "name": "OtpEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 572,
+      "sourceLine": 684,
       "methods": []
     },
     {
       "name": "SystemSettingsEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 608,
+      "sourceLine": 720,
       "methods": [
         "getGlobal",
         "updateGlobal"
@@ -116,7 +121,7 @@
     {
       "name": "PointsLedgerEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 639,
+      "sourceLine": 751,
       "methods": [
         "recordTransaction",
         "findByUser",
@@ -126,7 +131,7 @@
     {
       "name": "CourseContentEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 801,
+      "sourceLine": 945,
       "methods": [
         "toggleLike",
         "findByProject",
@@ -138,7 +143,7 @@
     {
       "name": "UserProgressEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 884,
+      "sourceLine": 1028,
       "methods": [
         "findByEnrollmentAndContent",
         "findByEnrollment",
@@ -152,7 +157,7 @@
     {
       "name": "ContentCommentEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1099,
+      "sourceLine": 1243,
       "methods": [
         "findByContent",
         "addComment",
@@ -162,7 +167,7 @@
     {
       "name": "CouponUsageEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1209,
+      "sourceLine": 1353,
       "methods": [
         "findByCode",
         "hasUserUsedCoupon",
@@ -172,7 +177,7 @@
     {
       "name": "NotificationEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1275,
+      "sourceLine": 1419,
       "methods": [
         "createNotification",
         "findByUser",
@@ -184,7 +189,7 @@
     {
       "name": "ImpersonationSessionEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1375,
+      "sourceLine": 1519,
       "methods": [
         "startSession",
         "endSession",
@@ -195,7 +200,7 @@
     {
       "name": "BugAIAnalysisEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1446,
+      "sourceLine": 1590,
       "methods": [
         "findByBugId",
         "getLatestForBug",
@@ -209,7 +214,7 @@
     {
       "name": "PushSubscriptionEntity",
       "sourceFile": "worker/entities.ts",
-      "sourceLine": 1537,
+      "sourceLine": 1681,
       "methods": [
         "findByUser",
         "findByEndpoint",

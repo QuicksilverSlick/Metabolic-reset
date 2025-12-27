@@ -1,951 +1,986 @@
 {
-  "generatedAt": "2025-12-26T11:39:26.578Z",
-  "totalEndpoints": 135,
+  "generatedAt": "2025-12-27T00:56:27.190Z",
+  "totalEndpoints": 140,
   "endpoints": [
     {
       "method": "GET",
       "path": "/api/health",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 58
+      "sourceLine": 63
     },
     {
       "method": "POST",
       "path": "/api/create-payment-intent",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 66
+      "sourceLine": 71
     },
     {
       "method": "POST",
       "path": "/api/validate-coupon",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 158
+      "sourceLine": 163
     },
     {
       "method": "POST",
       "path": "/api/register",
       "authentication": "none",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 189
+      "sourceLine": 194
     },
     {
       "method": "GET",
       "path": "/api/me",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 514
+      "sourceLine": 519
     },
     {
       "method": "PATCH",
       "path": "/api/users/me",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 528
+      "sourceLine": 533
     },
     {
       "method": "GET",
       "path": "/api/users/:coachId/coach-info",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 616
+      "sourceLine": 621
     },
     {
       "method": "POST",
       "path": "/api/users/me/pwa-analytics",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 638
+      "sourceLine": 643
     },
     {
       "method": "GET",
       "path": "/api/scores",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 688
+      "sourceLine": 693
     },
     {
       "method": "POST",
       "path": "/api/scores",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 706
+      "sourceLine": 711
     },
     {
       "method": "GET",
       "path": "/api/biometrics/history",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 779
+      "sourceLine": 784
     },
     {
       "method": "GET",
       "path": "/api/biometrics/:weekNumber",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 809
+      "sourceLine": 814
     },
     {
       "method": "POST",
       "path": "/api/biometrics",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 827
+      "sourceLine": 832
     },
     {
       "method": "GET",
       "path": "/api/scores/history",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 899
+      "sourceLine": 904
     },
     {
       "method": "GET",
       "path": "/api/referrals/history",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 931
+      "sourceLine": 936
     },
     {
       "method": "GET",
       "path": "/api/roster",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1011
+      "sourceLine": 1016
     },
     {
       "method": "GET",
       "path": "/api/roster/:recruitId/biometrics",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1044
+      "sourceLine": 1049
+    },
+    {
+      "method": "GET",
+      "path": "/api/group-leaders",
+      "authentication": "user",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 1128
     },
     {
       "method": "GET",
       "path": "/api/captains",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1098
+      "sourceLine": 1131
     },
     {
       "method": "POST",
       "path": "/api/orphan/assign",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1121
+      "sourceLine": 1133
     },
     {
       "method": "GET",
       "path": "/api/stats",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1144
+      "sourceLine": 1162
     },
     {
       "method": "GET",
       "path": "/api/avatars/recent",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1156
+      "sourceLine": 1174
     },
     {
       "method": "POST",
       "path": "/api/login",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1178
+      "sourceLine": 1196
     },
     {
       "method": "POST",
       "path": "/api/auth/send-otp",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1219
+      "sourceLine": 1237
     },
     {
       "method": "POST",
       "path": "/api/auth/verify-otp",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1301
+      "sourceLine": 1319
     },
     {
       "method": "GET",
       "path": "/api/auth/check-verified/:phone",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1379
+      "sourceLine": 1397
     },
     {
       "method": "GET",
       "path": "/api/referrer/:code",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1406
+      "sourceLine": 1424
     },
     {
       "method": "POST",
       "path": "/api/leads",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1429
+      "sourceLine": 1447
     },
     {
       "method": "GET",
       "path": "/api/leads",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1538
+      "sourceLine": 1556
     },
     {
       "method": "PATCH",
       "path": "/api/leads/:leadId/convert",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1580
+      "sourceLine": 1598
     },
     {
       "method": "GET",
       "path": "/api/admin/users",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1616
+      "sourceLine": 1634
     },
     {
       "method": "GET",
       "path": "/api/admin/users/:userId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1642
+      "sourceLine": 1660
     },
     {
       "method": "PATCH",
       "path": "/api/admin/users/:userId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1668
+      "sourceLine": 1686
     },
     {
       "method": "DELETE",
       "path": "/api/admin/users/:userId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1782
+      "sourceLine": 1803
     },
     {
       "method": "POST",
       "path": "/api/admin/users/:userId/restore",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1836
+      "sourceLine": 1857
     },
     {
       "method": "GET",
       "path": "/api/admin/users/deleted/list",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1889
+      "sourceLine": 1910
     },
     {
       "method": "DELETE",
       "path": "/api/admin/users/:userId/permanent",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1926
+      "sourceLine": 1947
     },
     {
       "method": "POST",
       "path": "/api/admin/users/merge",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 1979
+      "sourceLine": 2000
     },
     {
       "method": "GET",
       "path": "/api/debug/duplicates-test",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2197
+      "sourceLine": 2218
     },
     {
       "method": "GET",
       "path": "/api/admin/duplicates",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2254
+      "sourceLine": 2275
     },
     {
       "method": "GET",
       "path": "/api/admin/coupons/usage",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2454
+      "sourceLine": 2475
     },
     {
       "method": "DELETE",
       "path": "/api/admin/otp/:phone",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2487
+      "sourceLine": 2508
     },
     {
       "method": "GET",
       "path": "/api/admin/admins",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2524
+      "sourceLine": 2545
     },
     {
       "method": "POST",
       "path": "/api/admin/bootstrap",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2551
+      "sourceLine": 2572
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/backfill-indexes",
+      "authentication": "admin",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 2617
     },
     {
       "method": "GET",
       "path": "/api/admin/stripe/search",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2591
+      "sourceLine": 2744
     },
     {
       "method": "GET",
       "path": "/api/admin/stripe/payments",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2736
+      "sourceLine": 2889
     },
     {
       "method": "POST",
       "path": "/api/admin/stripe/link",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2857
+      "sourceLine": 3010
     },
     {
       "method": "POST",
       "path": "/api/admin/stripe/unlink",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2929
+      "sourceLine": 3082
     },
     {
       "method": "GET",
       "path": "/api/projects",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2980
+      "sourceLine": 3133
     },
     {
       "method": "GET",
       "path": "/api/projects/open",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 2994
+      "sourceLine": 3147
     },
     {
       "method": "GET",
       "path": "/api/projects/active",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3004
+      "sourceLine": 3157
     },
     {
       "method": "GET",
       "path": "/api/projects/:projectId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3014
+      "sourceLine": 3167
     },
     {
       "method": "POST",
       "path": "/api/admin/projects",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3027
+      "sourceLine": 3180
     },
     {
       "method": "PATCH",
       "path": "/api/admin/projects/:projectId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3081
+      "sourceLine": 3234
     },
     {
       "method": "DELETE",
       "path": "/api/admin/projects/:projectId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3117
+      "sourceLine": 3270
     },
     {
       "method": "GET",
       "path": "/api/admin/projects/:projectId/enrollments",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3148
+      "sourceLine": 3301
     },
     {
       "method": "POST",
       "path": "/api/admin/users/:userId/enroll",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3174
+      "sourceLine": 3327
     },
     {
       "method": "GET",
       "path": "/api/admin/users/:userId/enrollments",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3232
+      "sourceLine": 3385
     },
     {
       "method": "DELETE",
       "path": "/api/admin/users/:userId/enrollments/:projectId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3271
+      "sourceLine": 3424
     },
     {
       "method": "GET",
       "path": "/api/enrollments",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3306
+      "sourceLine": 3459
     },
     {
       "method": "GET",
       "path": "/api/enrollments/:projectId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3333
+      "sourceLine": 3486
     },
     {
       "method": "POST",
       "path": "/api/enrollments",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3360
+      "sourceLine": 3513
     },
     {
       "method": "GET",
       "path": "/api/projects/:projectId/group",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3422
+      "sourceLine": 3576
     },
     {
       "method": "GET",
       "path": "/api/projects/:projectId/week",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3456
+      "sourceLine": 3610
     },
     {
       "method": "POST",
       "path": "/api/upload/presigned-url",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3491
+      "sourceLine": 3645
     },
     {
       "method": "POST",
       "path": "/api/upload/file",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3564
+      "sourceLine": 3718
     },
     {
       "method": "GET",
       "path": "/api/media/*",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3621
+      "sourceLine": 3775
     },
     {
       "method": "POST",
       "path": "/api/stream/create-upload",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3653
+      "sourceLine": 3807
     },
     {
       "method": "GET",
       "path": "/api/stream/status/:uid",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3703
+      "sourceLine": 3857
     },
     {
       "method": "POST",
       "path": "/api/bugs",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3761
+      "sourceLine": 3915
     },
     {
       "method": "GET",
       "path": "/api/bugs/mine",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3847
+      "sourceLine": 4001
     },
     {
       "method": "GET",
       "path": "/api/admin/bugs",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3860
+      "sourceLine": 4014
     },
     {
       "method": "GET",
       "path": "/api/admin/bugs/status/:status",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3873
+      "sourceLine": 4027
     },
     {
       "method": "GET",
       "path": "/api/admin/bugs/:bugId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3891
+      "sourceLine": 4045
     },
     {
       "method": "PATCH",
       "path": "/api/admin/bugs/:bugId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 3908
+      "sourceLine": 4062
     },
     {
       "method": "DELETE",
       "path": "/api/admin/bugs/:bugId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4008
+      "sourceLine": 4162
     },
     {
       "method": "GET",
       "path": "/api/bugs/:bugId/messages",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4037
+      "sourceLine": 4191
     },
     {
       "method": "POST",
       "path": "/api/bugs/:bugId/messages",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4063
+      "sourceLine": 4217
     },
     {
       "method": "GET",
       "path": "/api/bugs/:bugId/satisfaction",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4151
+      "sourceLine": 4305
     },
     {
       "method": "POST",
       "path": "/api/bugs/:bugId/satisfaction",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4177
+      "sourceLine": 4331
     },
     {
       "method": "GET",
       "path": "/api/bugs/:bugId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4242
+      "sourceLine": 4396
     },
     {
       "method": "POST",
       "path": "/api/admin/bugs/:bugId/analyze",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4275
+      "sourceLine": 4429
     },
     {
       "method": "GET",
       "path": "/api/admin/bugs/:bugId/analysis",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4362
+      "sourceLine": 4516
     },
     {
       "method": "GET",
       "path": "/api/admin/ai-analyses",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4381
+      "sourceLine": 4535
     },
     {
       "method": "GET",
       "path": "/api/settings",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4398
+      "sourceLine": 4552
     },
     {
       "method": "PUT",
       "path": "/api/admin/settings",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4408
+      "sourceLine": 4562
     },
     {
       "method": "PATCH",
       "path": "/api/enrollments/:projectId/cohort",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4426
+      "sourceLine": 4581
     },
     {
       "method": "PATCH",
       "path": "/api/enrollments/:projectId/onboarding",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4453
+      "sourceLine": 4619
     },
     {
       "method": "PATCH",
       "path": "/api/admin/enrollments/:enrollmentId/cohort",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4505
+      "sourceLine": 4672
     },
     {
       "method": "GET",
       "path": "/api/admin/projects/:projectId/cohort-stats",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4536
+      "sourceLine": 4703
     },
     {
       "method": "GET",
       "path": "/api/genealogy/me",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4566
+      "sourceLine": 4738
     },
     {
       "method": "GET",
       "path": "/api/genealogy/:userId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4581
+      "sourceLine": 4753
     },
     {
       "method": "GET",
       "path": "/api/admin/genealogy/roots",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4620
+      "sourceLine": 4792
     },
     {
       "method": "GET",
       "path": "/api/admin/genealogy/:userId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4663
+      "sourceLine": 4835
     },
     {
       "method": "GET",
       "path": "/api/points/history",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4683
+      "sourceLine": 4855
     },
     {
       "method": "GET",
       "path": "/api/admin/points/:userId/history",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4696
+      "sourceLine": 4888
     },
     {
       "method": "GET",
       "path": "/api/admin/points/recent",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4710
+      "sourceLine": 4902
     },
     {
       "method": "POST",
       "path": "/api/admin/points/adjust",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4724
+      "sourceLine": 4916
     },
     {
       "method": "PUT",
       "path": "/api/admin/settings/points",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4765
+      "sourceLine": 4957
     },
     {
       "method": "GET",
       "path": "/api/settings/points",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4795
+      "sourceLine": 4987
     },
     {
       "method": "GET",
       "path": "/api/admin/projects/:projectId/content",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4814
+      "sourceLine": 5006
     },
     {
       "method": "GET",
       "path": "/api/admin/content/:contentId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4828
+      "sourceLine": 5020
     },
     {
       "method": "POST",
       "path": "/api/admin/content",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4845
+      "sourceLine": 5037
     },
     {
       "method": "PATCH",
       "path": "/api/admin/content/:contentId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4917
+      "sourceLine": 5109
     },
     {
       "method": "DELETE",
       "path": "/api/admin/content/:contentId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4957
+      "sourceLine": 5149
     },
     {
       "method": "POST",
       "path": "/api/admin/projects/:projectId/content/reorder",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 4982
+      "sourceLine": 5174
     },
     {
       "method": "POST",
       "path": "/api/admin/projects/:sourceProjectId/content/copy/:targetProjectId",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5010
+      "sourceLine": 5202
     },
     {
       "method": "GET",
       "path": "/api/admin/projects/:projectId/content/analytics",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5057
+      "sourceLine": 5249
     },
     {
       "method": "GET",
       "path": "/api/course/overview",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5115
+      "sourceLine": 5307
     },
     {
       "method": "GET",
       "path": "/api/course/day/:dayNumber",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5198
+      "sourceLine": 5390
     },
     {
       "method": "POST",
       "path": "/api/course/video/progress",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5291
+      "sourceLine": 5483
     },
     {
       "method": "POST",
       "path": "/api/course/video/complete",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5389
+      "sourceLine": 5581
     },
     {
       "method": "POST",
       "path": "/api/course/quiz/submit",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5456
+      "sourceLine": 5648
     },
     {
       "method": "GET",
       "path": "/api/course/progress",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5622
+      "sourceLine": 5814
     },
     {
       "method": "GET",
       "path": "/api/course/comments/:contentId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5647
+      "sourceLine": 5839
     },
     {
       "method": "POST",
       "path": "/api/course/comments",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5664
+      "sourceLine": 5856
     },
     {
       "method": "POST",
       "path": "/api/course/comments/like",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5696
+      "sourceLine": 5888
     },
     {
       "method": "POST",
       "path": "/api/course/content/like",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5714
+      "sourceLine": 5906
     },
     {
       "method": "GET",
       "path": "/api/course/content/:contentId",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5732
+      "sourceLine": 5924
     },
     {
       "method": "GET",
       "path": "/api/notifications",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5754
+      "sourceLine": 5946
     },
     {
       "method": "GET",
       "path": "/api/notifications/unread-count",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5769
+      "sourceLine": 5961
     },
     {
       "method": "POST",
       "path": "/api/notifications/:notificationId/read",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5782
+      "sourceLine": 5974
     },
     {
       "method": "POST",
       "path": "/api/notifications/mark-all-read",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5804
+      "sourceLine": 5996
     },
     {
       "method": "POST",
       "path": "/api/admin/impersonate/start",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5831
+      "sourceLine": 6023
     },
     {
       "method": "POST",
       "path": "/api/admin/impersonate/end",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5882
+      "sourceLine": 6074
     },
     {
       "method": "GET",
       "path": "/api/admin/impersonate/audit",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5900
+      "sourceLine": 6092
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/facilitators",
+      "authentication": "admin",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 6144
     },
     {
       "method": "GET",
       "path": "/api/admin/coaches",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5917
+      "sourceLine": 6147
     },
     {
       "method": "POST",
       "path": "/api/admin/users/:userId/reassign-captain",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 5949
+      "sourceLine": 6300
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/bulk-reassign-group-leader",
+      "authentication": "admin",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 6430
     },
     {
       "method": "POST",
       "path": "/api/admin/users/bulk-reassign-captain",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6093
+      "sourceLine": 6433
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/:userId/reassign-group-leader",
+      "authentication": "admin",
+      "sourceFile": "worker/user-routes.ts",
+      "sourceLine": 6590
     },
     {
       "method": "POST",
       "path": "/api/admin/repair-team-assignments",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6214
+      "sourceLine": 6594
     },
     {
       "method": "GET",
       "path": "/api/push/vapid-key",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6315
+      "sourceLine": 6695
     },
     {
       "method": "POST",
       "path": "/api/push/subscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6320
+      "sourceLine": 6700
     },
     {
       "method": "POST",
       "path": "/api/push/unsubscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6354
+      "sourceLine": 6734
     },
     {
       "method": "GET",
       "path": "/api/push/status",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6376
+      "sourceLine": 6756
     },
     {
       "method": "POST",
       "path": "/api/admin/push/test",
       "authentication": "admin",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6400
+      "sourceLine": 6780
     },
     {
       "method": "POST",
       "path": "/api/push/resubscribe",
       "authentication": "user",
       "sourceFile": "worker/user-routes.ts",
-      "sourceLine": 6437
+      "sourceLine": 6817
     }
   ]
 }
