@@ -23,9 +23,15 @@ import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns'
 
 // Icon mapping for notification types
 const notificationIcons: Record<NotificationType, React.ReactNode> = {
+  // Group/leader notifications (new terminology - preferred)
+  group_leader_reassigned: <UserCog className="h-5 w-5 text-blue-500" />,
+  new_group_member: <UserCog className="h-5 w-5 text-green-500" />,
+  group_member_removed: <UserCog className="h-5 w-5 text-orange-500" />,
+  // Legacy team/captain notifications (kept for backward compatibility)
   captain_reassigned: <UserCog className="h-5 w-5 text-blue-500" />,
   new_team_member: <UserCog className="h-5 w-5 text-green-500" />,
   team_member_removed: <UserCog className="h-5 w-5 text-orange-500" />,
+  // Other notification types
   admin_impersonation: <Info className="h-5 w-5 text-amber-500" />,
   system_announcement: <Megaphone className="h-5 w-5 text-purple-500" />,
   achievement: <Trophy className="h-5 w-5 text-gold-500" />,
@@ -62,7 +68,11 @@ function getNotificationDeepLink(notification: Notification): string {
       }
       return '/app/admin?tab=bugs';
 
-    // Team-related notifications
+    // Group-related notifications (new terminology)
+    case 'group_leader_reassigned':
+    case 'new_group_member':
+    case 'group_member_removed':
+    // Legacy team-related notifications (kept for backward compatibility)
     case 'captain_reassigned':
     case 'new_team_member':
     case 'team_member_removed':

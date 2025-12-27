@@ -17,7 +17,12 @@ export const NOTIFICATION_CATEGORIES = {
   bug_response: 'bugUpdates',
   new_bug_report: 'bugUpdates',
 
-  // Team/captain notifications
+  // Group/leader notifications (new terminology - preferred)
+  group_leader_reassigned: 'teamChanges',
+  new_group_member: 'teamChanges',
+  group_member_removed: 'teamChanges',
+
+  // @deprecated - use new group terminology above; Legacy team/captain notifications kept for backward compatibility
   captain_reassigned: 'teamChanges',
   new_team_member: 'teamChanges',
   team_member_removed: 'teamChanges',
@@ -35,16 +40,24 @@ export const NOTIFICATION_CATEGORIES = {
 
 // Notification priority levels for different treatment
 export const NOTIFICATION_PRIORITIES: Record<NotificationType, 'urgent' | 'high' | 'normal' | 'low'> = {
-  new_bug_report: 'high',         // Admins need to see bugs quickly
-  bug_response: 'high',           // User waiting for response
-  bug_submitted: 'normal',        // Confirmation
-  bug_status_changed: 'normal',   // Status update
-  captain_reassigned: 'normal',   // Team change
-  new_team_member: 'normal',      // Team change
-  team_member_removed: 'normal',  // Team change
-  achievement: 'low',             // Celebration
-  system_announcement: 'normal',  // System message
-  admin_impersonation: 'low',     // Just informational
+  new_bug_report: 'high',             // Admins need to see bugs quickly
+  bug_response: 'high',               // User waiting for response
+  bug_submitted: 'normal',            // Confirmation
+  bug_status_changed: 'normal',       // Status update
+  bug_satisfaction: 'low',            // Feedback request
+  // New terminology (preferred)
+  group_leader_reassigned: 'normal',  // Group change
+  new_group_member: 'normal',         // Group change
+  group_member_removed: 'normal',     // Group change
+  // Legacy terminology (kept for backward compatibility)
+  captain_reassigned: 'normal',       // Team change
+  new_team_member: 'normal',          // Team change
+  team_member_removed: 'normal',      // Team change
+  // Other
+  achievement: 'low',                 // Celebration
+  system_announcement: 'normal',      // System message
+  admin_impersonation: 'low',         // Just informational
+  general: 'normal',                  // General notifications
 };
 
 interface SendNotificationOptions {
@@ -167,6 +180,11 @@ function getPushUrlForType(type: NotificationType, data?: Record<string, unknown
       }
       return '/app/admin?tab=bugs';
 
+    // New terminology (preferred)
+    case 'group_leader_reassigned':
+    case 'new_group_member':
+    case 'group_member_removed':
+    // Legacy terminology (kept for backward compatibility)
     case 'captain_reassigned':
     case 'new_team_member':
     case 'team_member_removed':
